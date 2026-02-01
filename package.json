@@ -1,0 +1,14 @@
+{
+    "name": "fullstack-app",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+        "frontend": "cd frontend && npm run dev",
+        "backend": "cd backend && npm run dev",
+        "both": "concurrently \"npm run frontend\" \"npm run backend\""
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.2"
+    }
+}
