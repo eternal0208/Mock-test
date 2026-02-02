@@ -13,8 +13,14 @@ const app = express();
 // Middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000', process.env.FRONTEND_URL || '*'],
-    credentials: true
+    origin: [
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        /\.vercel\.app$/, // Allow any Vercel deployment
+        process.env.FRONTEND_URL // Explicit production URL
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 app.use(helmet());
 app.use(morgan('dev'));

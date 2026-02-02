@@ -9,3 +9,4 @@ const getApiUrl = () => {
 };
 
 export const API_BASE_URL = getApiUrl();
+console.log("🚀 API Configured at:", API_BASE_URL);
