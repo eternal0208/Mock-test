@@ -125,6 +125,11 @@ exports.syncUser = async (req, res) => {
         return res.status(400).json({ message: 'Email and Firebase UID are required' });
     }
 
+    if (!db) {
+        console.error("❌ Firestore DB is NOT initialized. Check Vercel Env Vars.");
+        return res.status(503).json({ message: 'Database Connection Failed (Service Account Missing)' });
+    }
+
     try {
         const userRef = db.collection('users').doc(firebaseUid);
         const doc = await userRef.get();
