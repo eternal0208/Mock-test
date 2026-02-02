@@ -31,6 +31,8 @@ app.use('/api/tests', testRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/otp', require('./routes/otpRoutes'));
+
 
 app.get('/', (req, res) => {
     res.send(`Mock Test Platform API is running on ${process.env.VERCEL ? 'Vercel' : 'Worker ' + process.pid}`);
