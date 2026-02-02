@@ -200,19 +200,19 @@ export default function LandingPage() {
               <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
                 <Target className="text-indigo-600" /> APEX<span className="text-indigo-600">MOCK</span>
               </h1>
-              <div className="flex gap-4">
+              <div className="flex gap-2 md:gap-4">
                 {user ? (
                   <Link href="/dashboard">
-                    <button className="px-6 py-2.5 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-lg">
+                    <button className="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-lg text-sm md:text-base">
                       Dashboard
                     </button>
                   </Link>
                 ) : (
                   <>
-                    <button onClick={openLogin} className="px-6 py-2.5 rounded-full bg-slate-900/10 text-slate-900 border border-slate-900/10 hover:bg-slate-900/20 transition backdrop-blur-sm font-semibold">
+                    <button onClick={openLogin} className="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-slate-900/10 text-slate-900 border border-slate-900/10 hover:bg-slate-900/20 transition backdrop-blur-sm font-semibold text-sm md:text-base">
                       Login
                     </button>
-                    <button onClick={openSignup} className="px-6 py-2.5 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30">
+                    <button onClick={openSignup} className="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30 text-sm md:text-base">
                       Sign Up
                     </button>
                   </>

@@ -93,7 +93,7 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'login' }: { i
 
         try {
             // 1. Verify OTP on Backend
-            const res = await fetch('http://localhost:5001/api/auth/verify-otp', {
+            const res = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: form.email, otp: form.otp })
@@ -107,7 +107,7 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'login' }: { i
 
             // 3. If Signup, sync extra details (Name, Class, etc.)
             if (mode === 'signup') {
-                await fetch('http://localhost:5001/api/auth/sync', {
+                await fetch(`${API_BASE_URL}/api/auth/sync`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
