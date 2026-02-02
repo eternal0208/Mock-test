@@ -182,3 +182,29 @@ exports.getAllUsers = async (req, res) => {
         res.status(500).json({ message: 'Server Error' });
     }
 };
+// @desc    Promote user to Admin (Temporary Utility)
+// @route   GET /api/auth/setup-admin
+exports.setupAdmin = async (req, res) => {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ message: 'Email is required query param' });
+
+    try {
+        const userQuery = await db.collection('users').where('email', '==', email).get();
+        if (userQuery.empty) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const userDoc = userQuery.docs[0];
+        await db.collection('users').doc(userDoc.id).update({
+            role: 'admin',
+            updatedAt: new Date().toISOString()
+        });
+
+        res.status(200).json({
+            message: `User ${email} promoted to ADMIN successfully. Please Logout and Login again.`
+        });
+    } catch (error) {
+        console.error("Setup Admin Error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
