@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { signInWithCustomToken } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { API_BASE_URL } from '@/lib/config';
 
 export default function AuthModal({ isOpen, onClose, defaultTab = 'login' }: { isOpen: boolean; onClose: () => void; defaultTab?: 'login' | 'signup' }) {
     const [mode, setMode] = useState<'login' | 'signup'>(defaultTab);
@@ -37,7 +38,7 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'login' }: { i
         setLoading(true);
 
         try {
-            const res = await fetch('http://localhost:5001/api/auth/send-otp', {
+            const res = await fetch(`${API_BASE_URL}/api/auth/send-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: form.email })

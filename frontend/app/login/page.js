@@ -5,6 +5,7 @@ import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { Chrome, ArrowLeft, Mail, Lock, User, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { API_BASE_URL } from '@/lib/config';
 
 export default function LoginPage() {
     const [isLogin, setIsLogin] = useState(true);
@@ -17,7 +18,7 @@ export default function LoginPage() {
 
     const syncUserToBackend = async (user, customName = null) => {
         try {
-            const res = await fetch('http://localhost:5001/api/auth/sync', {
+            const res = await fetch(`${API_BASE_URL}/api/auth/sync`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -1,5 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { AlertTriangle, Clock, Save, CheckCircle, XCircle } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/config';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import ExamInterface from '@/components/Exam/ExamInterface';
@@ -22,7 +24,7 @@ export default function ExamPage() {
 
         const fetchTest = async () => {
             try {
-                const res = await fetch(`http://localhost:5001/api/tests/${id}`);
+                const res = await fetch(`${API_BASE_URL}/api/tests/${id}`);
                 if (!res.ok) throw new Error('Test not found');
                 const data = await res.json();
                 setTest(data);

@@ -2,12 +2,15 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { CheckCircle, XCircle, Award, BarChart2, ArrowLeft } from 'lucide-react';
+import { BarChart2, Award, Clock, ArrowLeft } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/config';
 import Link from 'next/link';
 
 export default function ResultPage() {
     const { id } = useParams(); // result ID (not test ID)
     const { user } = useAuth();
+    const [result, setResult] = useState(null); // Added missing state for result
+    const [loading, setLoading] = useState(true); // Added missing state for loading
     const [fullTest, setFullTest] = useState(null);
 
     useEffect(() => {
@@ -15,7 +18,7 @@ export default function ResultPage() {
         const fetchData = async () => {
             try {
                 // 1. Fetch User Results
-                const res = await fetch(`http://localhost:5001/api/results/student/${user._id || user.uid}`);
+                const res = await fetch(`${API_BASE_URL}/api/results/student/${user._id || user.uid}`);
                 const data = await res.json();
                 const specificResult = data.find(r => r._id === id);
                 setResult(specificResult);

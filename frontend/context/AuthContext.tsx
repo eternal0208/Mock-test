@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, signOut as firebaseSignOut, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { API_BASE_URL } from '@/lib/config';
 import { useRouter } from 'next/navigation';
 
 interface User extends FirebaseUser {
@@ -36,7 +37,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 // Simpler: Fetch user data from our backend using UID.
 
                 try {
-                    const res = await fetch(`http://localhost:5001/api/auth/sync`, {
+                    const res = await fetch(`${API_BASE_URL}/api/auth/sync`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({

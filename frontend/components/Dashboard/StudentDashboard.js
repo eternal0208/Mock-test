@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { API_BASE_URL } from '@/lib/config';
 import { Clock, BookOpen, BarChart, User, Mail, Calendar } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -45,18 +46,18 @@ export default function StudentDashboard() {
         const fetchData = async () => {
             try {
                 // Fetch Tests
-                const testsRes = await fetch('http://localhost:5001/api/tests');
+                const testsRes = await fetch(`${API_BASE_URL}/api/tests`);
                 const testsData = await testsRes.json();
                 setTests(testsData);
 
                 // Fetch Series
-                const seriesRes = await fetch('http://localhost:5001/api/tests/series');
+                const seriesRes = await fetch(`${API_BASE_URL}/api/tests/series`);
                 const seriesData = await seriesRes.json();
                 setSeries(seriesData);
 
                 // Fetch Results
                 if (user) {
-                    const resultsRes = await fetch(`http://localhost:5001/api/results/student/${user._id || user.uid}`);
+                    const resultsRes = await fetch(`${API_BASE_URL}/api/results/student/${user._id || user.uid}`);
                     const resultsData = await resultsRes.json();
                     setResults(resultsData);
 
@@ -64,7 +65,7 @@ export default function StudentDashboard() {
                     const ranks = {};
                     await Promise.all(resultsData.map(async (res) => {
                         try {
-                            const anaRes = await fetch(`http://localhost:5001/api/tests/${res.testId}/analytics`);
+                            const anaRes = await fetch(`${API_BASE_URL}/api/tests/${res.testId}/analytics`);
                             const anaData = await anaRes.json();
                             const myRankEntry = anaData.rankList.find(r => r.userId === (user._id || user.uid));
                             if (myRankEntry) {

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/config';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { storage } from '@/lib/firebase';
@@ -14,7 +15,7 @@ const AnalyticsModal = ({ testId, onClose }) => {
     useEffect(() => {
         const fetchAnalytics = async () => {
             try {
-                const res = await fetch(`http://localhost:5001/api/tests/${testId}/analytics`);
+                const res = await fetch(`${API_BASE_URL}/api/tests/${testId}/analytics`);
                 if (!res.ok) throw new Error('Failed to fetch analytics');
                 const data = await res.json();
                 setStats(data);
@@ -148,7 +149,7 @@ const StudentReportModal = ({ student, onClose }) => {
                 // Ensure student.id matches what backend expects (firebase UID or _id)
                 // Backend resultController user getStudentResults uses req.params.userId
                 // results stored with userId field.
-                const res = await fetch(`http://localhost:5001/api/results/student/${student.id || student._id}`);
+                const res = await fetch(`${API_BASE_URL}/api/results/student/${student.id || student._id}`);
                 const data = await res.json();
                 setResults(data);
             } catch (error) {
@@ -265,7 +266,7 @@ const CreateSeriesForm = ({ onSuccess }) => {
                 features: formData.features.split(',').map(f => f.trim()).filter(f => f)
             };
 
-            const res = await fetch('http://localhost:5001/api/admin/series', {
+            const res = await fetch(`${API_BASE_URL}/api/admin/series`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -407,7 +408,7 @@ export default function AdminDashboard() {
 
     const fetchTests = async () => {
         try {
-            const res = await fetch('http://localhost:5001/api/tests');
+            const res = await fetch(`${API_BASE_URL}/api/tests`);
             const data = await res.json();
             setTests(data);
         } catch (error) {
@@ -417,7 +418,7 @@ export default function AdminDashboard() {
 
     const fetchStudents = async () => {
         try {
-            const res = await fetch('http://localhost:5001/api/admin/students');
+            const res = await fetch(`${API_BASE_URL}/api/admin/students`);
             const data = await res.json();
             setUsersList(data);
         } catch (error) {
@@ -427,7 +428,7 @@ export default function AdminDashboard() {
 
     const fetchSeries = async () => {
         try {
-            const res = await fetch('http://localhost:5001/api/admin/series');
+            const res = await fetch(`${API_BASE_URL}/api/admin/series`);
             const data = await res.json();
             setSeriesList(data);
         } catch (error) {
@@ -437,7 +438,7 @@ export default function AdminDashboard() {
 
     const fetchRevenue = async () => {
         try {
-            const res = await fetch('http://localhost:5001/api/admin/revenue');
+            const res = await fetch(`${API_BASE_URL}/api/admin/revenue`);
             const data = await res.json();
             setRevenueStats(data);
         } catch (error) {
@@ -449,7 +450,7 @@ export default function AdminDashboard() {
         if (!confirm('Are you sure you want to delete this test? This cannot be undone.')) return;
 
         try {
-            const res = await fetch(`http://localhost:5001/api/tests/${testId}`, {
+            const res = await fetch(`${API_BASE_URL}/api/tests/${testId}`, {
                 method: 'DELETE'
             });
             if (res.ok) {
@@ -605,7 +606,7 @@ export default function AdminDashboard() {
                 questions
             };
 
-            const res = await fetch('http://localhost:5001/api/tests', {
+            const res = await fetch(`${API_BASE_URL}/api/tests`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
