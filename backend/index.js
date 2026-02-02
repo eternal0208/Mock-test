@@ -13,14 +13,7 @@ const app = express();
 // Middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(cors({
-    origin: (origin, callback) => {
-        const allowedOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000'];
-        if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
+    origin: ['http://localhost:3000', 'http://127.0.0.1:3000', process.env.FRONTEND_URL || '*'],
     credentials: true
 }));
 app.use(helmet());

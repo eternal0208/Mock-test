@@ -1,5 +1,3 @@
-const { db, auth } = require('../config/firebaseAdmin');
-
 const { sendEmail } = require('../services/emailService');
 
 // @desc    Send OTP to Email
@@ -40,7 +38,6 @@ exports.sendOtp = async (req, res) => {
         if (sent) {
             res.status(200).json({ message: 'OTP sent to your email.' });
         } else {
-            // Fallback for dev/error (optional: keep internal log)
             console.error("Failed to send email to client.");
             res.status(500).json({ message: 'Failed to send OTP email.' });
         }
