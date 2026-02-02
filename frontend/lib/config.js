@@ -1,1 +1,11 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+const getApiUrl = () => {
+    let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+    url = url.trim();
+    if (!url.startsWith('http')) {
+        url = `https://${url}`;
+    }
+    // Remove trailing slash if present
+    return url.replace(/\/$/, '');
+};
+
+export const API_BASE_URL = getApiUrl();
