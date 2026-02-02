@@ -1,6 +1,8 @@
 const { db, auth } = require('../config/firebaseAdmin');
 
-// @desc    Send OTP to Email (Simulation)
+const { sendEmail } = require('../services/emailService');
+
+// @desc    Send OTP to Email
 // @route   POST /api/auth/send-otp
 exports.sendOtp = async (req, res) => {
     const { email } = req.body;
@@ -11,16 +13,38 @@ exports.sendOtp = async (req, res) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
 
-        // Store in Firestore (simulated session)
+        // Store in Firestore
         await db.collection('otp_codes').doc(email).set({
             otp,
             expiresAt
         });
 
-        // SIMULATION: Log to console instead of sending email
-        console.log(`\n📨 [EMAIL SIMULATION] To: ${email} | OTP: ${otp} \n`);
+        // Send Email via Nodemailer
+        const subject = "Your Login OTP for Apex Mock";
+        const message = `
+            <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4;">
+                <div style="max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <h2 style="color: #4F46E5; text-align: center;">Apex Mock Login</h2>
+                    <p style="font-size: 16px; color: #333;">Hello,</p>
+                    <p style="font-size: 16px; color: #555;">Your One-Time Password (OTP) for login is:</p>
+                    <div style="text-align: center; margin: 20px 0;">
+                        <span style="display: inline-block; font-size: 32px; font-weight: bold; background: #EEF2FF; color: #4F46E5; padding: 10px 20px; letter-spacing: 5px; border-radius: 8px;">${otp}</span>
+                    </div>
+                    <p style="font-size: 14px; color: #777; text-align: center;">This code is valid for 5 minutes.</p>
+                </div>
+            </div>
+        `;
 
-        res.status(200).json({ message: 'OTP sent successfully (Check server console)' });
+        const sent = await sendEmail(email, subject, message);
+
+        if (sent) {
+            res.status(200).json({ message: 'OTP sent to your email.' });
+        } else {
+            // Fallback for dev/error (optional: keep internal log)
+            console.error("Failed to send email to client.");
+            res.status(500).json({ message: 'Failed to send OTP email.' });
+        }
+
     } catch (error) {
         console.error("Send OTP Error:", error);
         res.status(500).json({ message: 'Failed to send OTP' });
