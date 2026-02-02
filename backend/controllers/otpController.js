@@ -5,8 +5,13 @@ const { sendEmail } = require('../services/emailService');
 // @route   POST /api/otp/send
 // @access  Public
 exports.sendGenericOtp = async (req, res) => {
-    const { email, type = 'verification' } = req.body; // type can be 'login', 'signup', 'reset', etc.
+    const { email, type = 'verification' } = req.body;
     if (!email) return res.status(400).json({ message: 'Email is required' });
+
+    if (!db) {
+        console.error("Firestore DB not initialized");
+        return res.status(500).json({ message: 'Database Connection Error (Backend Configuration)' });
+    }
 
     try {
         // 1. Generate 4-digit numeric OTP
