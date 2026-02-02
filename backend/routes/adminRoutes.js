@@ -65,9 +65,30 @@ router.delete('/series/:id', async (req, res) => {
 // GET /api/admin/students - List All Students
 router.get('/students', async (req, res) => {
     try {
-        const snapshot = await db.collection('users').where('role', '==', 'student').get();
+        const snapshot = await db.collection('users').orderBy('createdAt', 'desc').get(); // Fetch ALL users to manage roles
         const students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         res.json(students);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// PUT /api/admin/students/:id/role - Update User Role
+router.put('/students/:id/role', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { role } = req.body; // 'admin' or 'student'
+
+        if (!['admin', 'student'].includes(role)) {
+            return res.status(400).json({ error: 'Invalid role' });
+        }
+
+        await db.collection('users').doc(id).update({
+            role,
+            updatedAt: new Date().toISOString()
+        });
+
+        res.json({ success: true, message: `User role updated to ${role}` });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
