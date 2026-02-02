@@ -12,6 +12,7 @@ class TestSeries {
         this.isActive = typeof data.isActive === 'boolean' ? data.isActive : true; // Boolean
 
         this.testIds = data.testIds || []; // Array of Strings (Test IDs included in this series)
+        this.expiryDate = data.expiryDate || null; // Date String (ISO)
 
         this.createdAt = data.createdAt || new Date().toISOString();
         this.updatedAt = new Date().toISOString();
@@ -29,6 +30,7 @@ class TestSeries {
             image: this.image,
             isActive: this.isActive,
             testIds: this.testIds,
+            expiryDate: this.expiryDate,
             createdAt: this.createdAt,
             updatedAt: this.updatedAt
         };

@@ -5,7 +5,7 @@ const { db } = require('../config/firebaseAdmin');
 // @access  Admin
 exports.createTest = async (req, res) => {
     try {
-        const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions } = req.body;
+        const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts } = req.body;
 
         const newTest = {
             title,
@@ -14,15 +14,36 @@ exports.createTest = async (req, res) => {
             subject,
             category: category || 'JEE Main',
             difficulty,
+            isVisible: isVisible !== undefined ? isVisible : true,
             instructions,
             startTime: startTime || null,
             endTime: endTime || null,
+            maxAttempts: maxAttempts !== undefined ? Number(maxAttempts) : null, // Store limit
+            expiryDate: req.body.expiryDate || null, // New Expiry Field
             questions: questions || [],
             createdBy: req.user?._id || 'admin',
             createdAt: new Date().toISOString()
         };
 
         const docRef = await db.collection('tests').add(newTest);
+
+        // Link to Series if seriesId provided
+        if (req.body.seriesId) {
+            try {
+                const seriesRef = db.collection('testSeries').doc(req.body.seriesId);
+                const seriesDoc = await seriesRef.get();
+                if (seriesDoc.exists) {
+                    const currentTestIds = seriesDoc.data().testIds || [];
+                    await seriesRef.update({
+                        testIds: [...currentTestIds, docRef.id]
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to link test to series:", err);
+                // Non-critical error, continue
+            }
+        }
+
         res.status(201).json({ _id: docRef.id, ...newTest });
     } catch (error) {
         console.error("Create Test Error:", error);
@@ -72,8 +93,13 @@ exports.getAllTests = async (req, res) => {
     try {
         const snapshot = await db.collection('tests').get();
         const tests = [];
+        const isAdmin = req.user && req.user.role === 'admin';
+
         snapshot.forEach(doc => {
             const data = doc.data();
+            // Filter: Only show if Visible OR if user is Admin
+            if (data.isVisible === false && !isAdmin) return;
+
             tests.push({
                 _id: doc.id,
                 title: data.title,
@@ -82,8 +108,11 @@ exports.getAllTests = async (req, res) => {
                 subject: data.subject,
                 category: data.category || 'JEE Main',
                 difficulty: data.difficulty,
+                isVisible: data.isVisible !== undefined ? data.isVisible : true,
                 startTime: data.startTime,
                 endTime: data.endTime,
+                expiryDate: data.expiryDate || null,
+                maxAttempts: data.maxAttempts,
                 questionCount: data.questions?.length || 0
             });
         });
@@ -104,6 +133,13 @@ exports.getTestById = async (req, res) => {
         }
 
         const data = doc.data();
+
+        // Security: Check Visibility
+        const isAdmin = req.user && req.user.role === 'admin';
+        if (data.isVisible === false && !isAdmin) {
+            return res.status(403).json({ message: 'Test is not currently available.' });
+        }
+
         // Exclude correctOption for security 
         const sanitizedQuestions = (data.questions || []).map(q => ({
             ...q,
@@ -396,6 +432,20 @@ exports.getAllSeries = async (req, res) => {
         res.status(200).json(series);
     } catch (error) {
         console.error("Fetch Series Error:", error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Toggle Test Visibility
+// @route   PUT /api/tests/:id/visibility
+// @access  Admin
+exports.toggleVisibility = async (req, res) => {
+    try {
+        const { isVisible } = req.body;
+        await db.collection('tests').doc(req.params.id).update({ isVisible });
+        res.status(200).json({ message: 'Visibility updated', isVisible });
+    } catch (error) {
+        console.error("Toggle Visibility Error:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 };

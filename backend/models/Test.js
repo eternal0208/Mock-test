@@ -9,6 +9,7 @@ class Test {
         this.subject = data.subject; // String
         this.category = data.category || 'JEE Main'; // 'JEE Main' | 'JEE Advanced' | 'NEET'
         this.difficulty = data.difficulty || 'medium'; // 'easy' | 'medium' | 'hard'
+        this.isVisible = data.isVisible !== undefined ? data.isVisible : true; // Visibility Toggle
 
         // New Fields for granular categorization
         this.accessType = data.accessType || 'free'; // 'free' | 'paid'
@@ -19,6 +20,16 @@ class Test {
 
         this.startTime = data.startTime || null; // ISO String for Live Test Start
         this.endTime = data.endTime || null; // ISO String for Live Test End
+
+        this.endTime = data.endTime || null; // ISO String for Live Test End
+
+        this.maxAttempts = data.maxAttempts !== undefined ? Number(data.maxAttempts) : null; // null/0 = Unlimited, 1 = One Time
+
+        // Solution Controls
+        this.solutionPdf = data.solutionPdf || '';
+        this.solutionVisibility = data.solutionVisibility || 'immediate'; // 'immediate' | 'scheduled'
+        this.resultDeclarationTime = data.resultDeclarationTime || null; // ISO String (if scheduled)
+
 
         // Questions Array
         this.questions = (data.questions || []).map(q => ({
@@ -34,7 +45,9 @@ class Test {
             marks: Number(q.marks) || 4,
             negativeMarks: Number(q.negativeMarks) || 1,
             subject: q.subject,
-            topic: q.topic || ''
+            topic: q.topic || '',
+            solution: q.solution || '', // Explanation Text
+            solutionImage: q.solutionImage || '' // Explanation Image
         }));
 
         this.createdBy = data.createdBy || 'admin';
@@ -50,12 +63,17 @@ class Test {
             subject: this.subject,
             category: this.category,
             difficulty: this.difficulty,
+            isVisible: this.isVisible,
             accessType: this.accessType,
             format: this.format,
             chapters: this.chapters,
             instructions: this.instructions,
             startTime: this.startTime,
             endTime: this.endTime,
+            maxAttempts: this.maxAttempts,
+            solutionPdf: this.solutionPdf,
+            solutionVisibility: this.solutionVisibility,
+            resultDeclarationTime: this.resultDeclarationTime,
             questions: this.questions,
             createdBy: this.createdBy,
             createdAt: this.createdAt

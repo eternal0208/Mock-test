@@ -188,7 +188,7 @@ export default function LandingPage() {
           <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-white/30 border-b border-white/40 shadow-sm">
             <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
               <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                <Target className="text-indigo-600" /> EXAM<span className="text-indigo-600">PORTAL</span>
+                <Target className="text-indigo-600" /> APEX<span className="text-indigo-600">MOCK</span>
               </h1>
               <div className="flex gap-4">
                 {user ? (
@@ -236,9 +236,9 @@ export default function LandingPage() {
                 transition={{ duration: 0.8, delay: 0.2 }}
                 className="text-6xl md:text-7xl font-black text-slate-900 drop-shadow-sm leading-tight"
               >
-                Ace Your Entrance.
+                Apex Mock
                 <br />
-                <span className="text-indigo-600">Secure Your Future.</span>
+                <span className="text-indigo-600">Don't Just Compete. Dominate.</span>
               </motion.h2>
 
               <motion.p

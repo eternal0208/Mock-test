@@ -15,6 +15,8 @@ export default function ExamPage() {
     const [showWarning, setShowWarning] = useState(false);
     const [warningMessage, setWarningMessage] = useState('');
 
+    const [isFullscreen, setIsFullscreen] = useState(false);
+
     useEffect(() => {
         if (!user) return; // Wait for auth
 
@@ -24,8 +26,6 @@ export default function ExamPage() {
                 if (!res.ok) throw new Error('Test not found');
                 const data = await res.json();
                 setTest(data);
-                // Attempt fullscreen on load (might be blocked by browser policy without user interaction)
-                // We will force it on the first click
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -40,13 +40,14 @@ export default function ExamPage() {
         const handleVisibilityChange = () => {
             if (document.hidden) {
                 alert('Warning: You switched tabs! The test will be auto-submitted if you do this again.');
-                // In strict mode, we might auto-submit here
-                // handleSubmitTest({}); // For now just warn
             }
         };
 
         const handleFullscreenChange = () => {
-            if (!document.fullscreenElement) {
+            const isFull = !!document.fullscreenElement;
+            setIsFullscreen(isFull);
+
+            if (!isFull) {
                 // User exited fullscreen
                 setShowWarning(true);
                 setWarningMessage('You must be in Fullscreen mode to continue correctly.');
@@ -61,6 +62,9 @@ export default function ExamPage() {
         document.addEventListener('visibilitychange', handleVisibilityChange);
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         document.addEventListener('contextmenu', handleContextMenu);
+
+        // Initial check
+        setIsFullscreen(!!document.fullscreenElement);
 
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -82,7 +86,7 @@ export default function ExamPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    userId: user._id || user.uid, // Ideally use the mongo ID from context
+                    userId: user._id || user.uid,
                     ...resultData
                 })
             });
@@ -121,7 +125,7 @@ export default function ExamPage() {
     // Force user interaction to start/enter fullscreen
     return (
         <div className="min-h-screen bg-gray-100">
-            {!document.fullscreenElement ? (
+            {!isFullscreen ? (
                 <div className="fixed inset-0 bg-white flex flex-col items-center justify-center z-50">
                     <h1 className="text-2xl font-bold mb-4">Exam Security Check</h1>
                     <p className="mb-6 text-gray-600">This test requires Fullscreen mode. Switching tabs is prohibited.</p>

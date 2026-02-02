@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Clock, BookOpen, BarChart, User, Mail, Calendar } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -8,15 +9,37 @@ import AnalyticsDashboard from './AnalyticsDashboard';
 
 export default function StudentDashboard() {
     const { user } = useAuth();
-    const [tests, setTests] = useState([]);
-    const [results, setResults] = useState([]);
-    const [testRanks, setTestRanks] = useState({}); // { testId: rank }
-    const [loading, setLoading] = useState(true);
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
 
-    // Filters
-    const [filterCategory, setFilterCategory] = useState('All');
-    const [filterAccess, setFilterAccess] = useState('all'); // 'all', 'free', 'paid'
-    const [filterFormat, setFilterFormat] = useState('all'); // 'all', 'full-mock', 'chapter-wise'
+    // URL Derived Filters
+    const filterCategory = searchParams.get('category') || 'All';
+    const filterAccess = searchParams.get('access') || 'all';
+    const filterFormat = searchParams.get('format') || 'all';
+
+    // Navigation Helper
+    const updateFilter = (key, value) => {
+        const current = new URLSearchParams(Array.from(searchParams.entries()));
+        if (!value || value === 'All' || value === 'all') {
+            current.delete(key);
+        } else {
+            current.set(key, value);
+        }
+        const search = current.toString();
+        const query = search ? `?${search}` : "";
+        router.push(`${pathname}${query}`, { scroll: false });
+    };
+
+    const setFilterCategory = (val) => updateFilter('category', val);
+    const setFilterAccess = (val) => updateFilter('access', val);
+    const setFilterFormat = (val) => updateFilter('format', val);
+
+    const [tests, setTests] = useState([]);
+    const [series, setSeries] = useState([]); // New Series State
+    const [results, setResults] = useState([]);
+    const [testRanks, setTestRanks] = useState({});
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -26,14 +49,18 @@ export default function StudentDashboard() {
                 const testsData = await testsRes.json();
                 setTests(testsData);
 
+                // Fetch Series
+                const seriesRes = await fetch('http://localhost:5001/api/tests/series');
+                const seriesData = await seriesRes.json();
+                setSeries(seriesData);
+
                 // Fetch Results
                 if (user) {
                     const resultsRes = await fetch(`http://localhost:5001/api/results/student/${user._id || user.uid}`);
                     const resultsData = await resultsRes.json();
                     setResults(resultsData);
 
-                    // Fetch Rank for each result (This could be optimized)
-                    // For now, we fetch analytics for each test the student has taken to find their rank.
+                    // Fetch Rank for each result
                     const ranks = {};
                     await Promise.all(resultsData.map(async (res) => {
                         try {
@@ -58,75 +85,125 @@ export default function StudentDashboard() {
 
     // Set default filter based on user preference
     useEffect(() => {
-        if (user && user.targetExam) {
+        if (user && user.targetExam && !searchParams.get('category')) {
             setFilterCategory(user.targetExam);
         }
     }, [user]);
 
     if (loading) return <div>Loading dashboard...</div>;
 
-    const handleBuy = async (test) => {
-        // Dummy Payment Flow for Demonstration
-        if (!confirm(`Proceed to pay for ${test.title}?`)) return;
+    // Unified Payment Handler
+    const processDemoPayment = async (item, type = 'series') => {
+        const price = item.price || 0; // Default to 0 if undefined, but explicit price is better
+        const isFree = price === 0;
+
+        // Confirmation Message
+        const confirmMsg = isFree
+            ? `Enroll in ${item.title} for FREE?`
+            : `Purchase ${item.title} for ₹${price}?`;
+
+        if (!confirm(confirmMsg)) return;
+
+        // If Free, we can structure this differently or just pass amount 0 and handle in backend?
+        // Razorpay doesn't support 0 amount orders usually.
+        // For simulation, let's just bypass order creation if free.
 
         try {
-            // 1. Create Order
-            const orderRes = await fetch('http://localhost:5001/api/payments/create-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    amount: 499, // Basic price, ideally should come from test data
-                    currency: 'INR',
-                    seriesId: test._id, // Using seriesId as testId for now
-                    userId: user._id || user.uid
-                })
-            });
-            const orderData = await orderRes.json();
+            let orderId = 'free_order_' + Date.now();
 
-            if (orderData.error) {
-                alert('Order creation failed: ' + orderData.error);
-                return;
+            if (!isFree) {
+                // 1. Create Order (Only if not free)
+                const orderRes = await fetch('http://localhost:5001/api/payments/create-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: price,
+                        currency: 'INR',
+                        seriesId: item._id || item.id,
+                        userId: user._id || user.uid
+                    })
+                });
+                const orderData = await orderRes.json();
+                if (orderData.error) { alert('Order creation failed: ' + orderData.error); return; }
+                orderId = orderData.id;
+
+                // 2. Simulate Payment Delay
+                const processingMsg = document.createElement('div');
+                processingMsg.className = 'fixed inset-0 bg-black/70 z-[100] flex items-center justify-center text-white text-xl font-bold';
+                processingMsg.innerText = 'Processing Secure Payment...';
+                document.body.appendChild(processingMsg);
+                await new Promise(r => setTimeout(r, 1500));
+                document.body.removeChild(processingMsg);
             }
 
-            // 2. Simulate Payment Success (Since we don't have frontend Razorpay SDK loaded fully yet)
-            // In production, this would open Razorpay Modal
+            // 3. Verify / Grant Access
+            // We reuse verify-payment endpoint even for free, or we call a new 'enroll' endpoint.
+            // For now, allow verify-payment to accept DEMO signature which we treat as administrative bypass.
+            // If free, we just call verify with a Free Signature? Or reuse Demo.
 
-            // Call verify payment directly for demo
             const verifyRes = await fetch('http://localhost:5001/api/payments/verify-payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    razorpay_order_id: orderData.id,
-                    razorpay_payment_id: 'pay_dummy_' + Date.now(),
-                    razorpay_signature: 'dummy_signature_would_fail_backend_check_if_real', // Note: backend check will fail if we don't handle this dev mode. 
-                    // To make it work in dev without real razorpay, we might need a bypass or real signature generation on frontend (not secure)
-                    // For now, let's assume we alert the user
+                    razorpay_order_id: orderId,
+                    razorpay_payment_id: isFree ? 'free_enroll_' + Date.now() : 'pay_demo_' + Date.now(),
+                    razorpay_signature: 'DEMO_SUCCESS_SIGNATURE',
                     userId: user._id || user.uid,
-                    seriesId: test._id
+                    seriesId: item._id || item.id
                 })
             });
 
-            // Note: The above verify call will likely fail signature check on backend because we can't generate valid signature on client without secret.
-            // For valid flow, we need the actual Razorpay Checkout.
+            const verifyData = await verifyRes.json();
 
-            alert("Payment logic initiated. For actual payment, Razorpay SDK integration is required on frontend. \n\nCheck backend logs/implementation.");
-
+            if (verifyData.success) {
+                alert(isFree ? "Enrolled Successfully!" : "Payment Successful! Access Granted.");
+                window.location.reload();
+            } else {
+                alert("Enrollment Failed");
+            }
         } catch (error) {
             console.error("Payment Error", error);
-            alert("Payment failed");
+            alert("Process Failed: " + error.message);
+            if (document.querySelector('.fixed.inset-0')) document.body.removeChild(document.querySelector('.fixed.inset-0'));
         }
     };
+
+
+    const handleStartTest = async (testId) => {
+        // Optional: Trigger a fresh fetch of user permissions before redirecting
+        // For now, simpler is better: direct navigation
+        window.location.href = `/exam/${testId}`;
+    };
+
+    const handleBuySeries = (s) => processDemoPayment(s, 'series');
+    const handleBuy = (test) => processDemoPayment(test, 'test');
 
     const getTestStatus = (test) => {
         // 1. Check if Paid and Not Purchased
         const isPaid = test.accessType === 'paid';
         const isPurchased = user?.purchasedTests?.includes(test._id);
 
+        // 2. Check Attempt Limits
+        const attemptsMade = results.filter(r => r.testId === test._id || r.testDetails?._id === test._id).length;
+        const limit = test.maxAttempts;
+        const attemptsLeft = limit ? limit - attemptsMade : Infinity;
+
         if (isPaid && !isPurchased) {
             return { status: 'locked', message: 'Buy Now', enabled: true, action: 'buy' };
         }
 
-        if (!test.startTime || !test.endTime) return { status: 'available', message: 'Attempt Now', enabled: true, action: 'attempt' };
+        if (limit && attemptsLeft <= 0) {
+            return { status: 'completed', message: 'Max Attempts Reached', enabled: false, attemptsInfo: `${attemptsMade}/${limit}` };
+        }
+
+        if (!test.startTime || !test.endTime) return {
+            status: 'available',
+            message: limit ? `Attempt (${attemptsLeft} left)` : 'Attempt Now',
+            enabled: true,
+            action: 'attempt',
+            attemptsInfo: limit ? `${attemptsMade}/${limit} Used` : 'Unlimited'
+        };
+
         const now = new Date();
         const start = new Date(test.startTime);
         const end = new Date(test.endTime);
@@ -167,6 +244,48 @@ export default function StudentDashboard() {
                 )}
                 <AnalyticsDashboard results={results} />
             </div>
+
+            {/* Test Series Packages */}
+            {series.length > 0 && (
+                <div>
+                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">Premium Test Series</span>
+                        <span className="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">Bundles</span>
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {series.map(s => (
+                            <div key={s.id} className="bg-white rounded-xl shadow-lg border border-purple-100 overflow-hidden hover:scale-[1.02] transition-transform duration-300">
+                                <div className="h-32 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-6 flex items-center justify-center text-white text-center">
+                                    <h3 className="text-xl font-bold">{s.title}</h3>
+                                </div>
+                                <div className="p-6">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold uppercase tracking-wide">{s.category}</span>
+                                        <span className={`text-2xl font-bold ${s.price > 0 ? 'text-gray-900' : 'text-green-600'}`}>
+                                            {s.price > 0 ? `₹${s.price}` : 'FREE'}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-gray-500 mb-6 line-clamp-2">{s.description}</p>
+
+                                    <ul className="space-y-2 mb-6">
+                                        {(s.testIds?.length > 0) && <li className="flex items-center text-sm text-gray-700"><BookOpen size={16} className="mr-2 text-green-500" /> {s.testIds.length} Premium Tests</li>}
+                                        {s.features?.slice(0, 2).map((f, i) => (
+                                            <li key={i} className="flex items-center text-sm text-gray-700"><span className="mr-2 text-green-500">✓</span> {f}</li>
+                                        ))}
+                                    </ul>
+
+                                    <button
+                                        onClick={() => handleBuySeries(s)}
+                                        className={`w-full py-3 rounded-lg font-bold text-white transition shadow-lg ${s.price > 0 ? 'bg-gray-900 hover:bg-gray-800' : 'bg-green-600 hover:bg-green-700'}`}
+                                    >
+                                        {s.price > 0 ? 'Unlock Series' : 'Join for Free'}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Profile Section */}
             <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -243,6 +362,7 @@ export default function StudentDashboard() {
                                     {status === 'upcoming' && <span className="bg-yellow-500 text-white text-[10px] px-2 py-1 rounded font-bold uppercase">UPCOMING</span>}
                                     {(test.accessType === 'paid') && <span className="bg-purple-100 text-purple-700 text-[10px] px-2 py-1 rounded font-bold uppercase border border-purple-200">PREMIUM</span>}
                                     {(test.format === 'chapter-wise') && <span className="bg-teal-100 text-teal-700 text-[10px] px-2 py-1 rounded font-bold uppercase border border-teal-200">CHAPTER</span>}
+                                    {getTestStatus(test).attemptsInfo && <span className="bg-gray-100 text-gray-600 text-[10px] px-2 py-1 rounded font-bold uppercase border border-gray-200">Attempts: {getTestStatus(test).attemptsInfo}</span>}
                                 </div>
 
                                 <span className="text-xs font-bold text-blue-600 mb-1 uppercase tracking-wider">{test.category}</span>

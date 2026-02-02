@@ -5,8 +5,8 @@ import { AuthProvider } from "@/context/AuthContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Mock Test Platform",
-  description: "JEE/NEET Mock Test Platform",
+  title: "Apex Mock: Don't Just Compete. Dominate.",
+  description: "Advanced JEE/NEET Mock Test Platform",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

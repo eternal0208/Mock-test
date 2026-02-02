@@ -63,14 +63,40 @@ const COLOR_MAPS = {
     }
 };
 
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+
 export default function ExamLandingPage({ title, description, stats, features, themeColor = 'indigo', children }: ExamLandingProps) {
     const { user, logout } = useAuth();
-    const [showAuth, setShowAuth] = useState(false);
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
     const colors = COLOR_MAPS[themeColor] || COLOR_MAPS['indigo'];
+
+    // URL Driven Auth Modal
+    const authState = searchParams.get('auth'); // 'login' or 'signup'
+    const showAuth = !!authState;
+
+    const openAuth = (mode: 'login' | 'signup') => {
+        const current = new URLSearchParams(Array.from(searchParams.entries()));
+        current.set('auth', mode);
+        router.push(`${pathname}?${current.toString()}`, { scroll: false });
+    };
+
+    const closeAuth = () => {
+        const current = new URLSearchParams(Array.from(searchParams.entries()));
+        current.delete('auth');
+        const search = current.toString();
+        const query = search ? `?${search}` : "";
+        router.push(`${pathname}${query}`, { scroll: false });
+    };
 
     return (
         <div className={`min-h-screen bg-gradient-to-br ${colors.bg}`}>
-            <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} defaultTab="signup" />
+            <AuthModal
+                isOpen={showAuth}
+                onClose={closeAuth}
+                defaultTab={authState === 'signup' ? 'signup' : 'login'}
+            />
 
             {/* Navbar */}
             <nav className="p-6 flex justify-between items-center max-w-7xl mx-auto sticky top-0 z-40 backdrop-blur-sm bg-white/30 rounded-b-2xl mb-8">
@@ -96,7 +122,7 @@ export default function ExamLandingPage({ title, description, stats, features, t
                         </div>
                     ) : (
                         <button
-                            onClick={() => setShowAuth(true)}
+                            onClick={() => openAuth('login')}
                             className={`px-6 py-2.5 ${colors.bgBtn} text-white rounded-full font-bold shadow-lg shadow-${themeColor}-200/50 transition`}
                         >
                             Login / Register
@@ -131,7 +157,7 @@ export default function ExamLandingPage({ title, description, stats, features, t
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => setShowAuth(true)}
+                            onClick={() => openAuth('signup')}
                             className={`px-8 py-4 ${colors.bgBtn} text-white text-lg font-bold rounded-2xl shadow-xl shadow-${themeColor}-200 hover:shadow-2xl transition`}
                         >
                             Start Free Mock Test
