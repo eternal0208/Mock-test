@@ -240,8 +240,6 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'login' }: { i
                                 </div>
                             </motion.form>
                         )}
-                            </motion.form>
-                        )}
                     </AnimatePresence>
 
                     {/* Google Login Divider and Button */}
