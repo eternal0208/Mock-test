@@ -40,7 +40,8 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'login' }: { i
             if (error.code === 'auth/unauthorized-domain') {
                 alert("Domain Error: Please add this domain to Firebase Console -> Authentication -> Settings -> Authorized Domains");
             } else {
-                alert(error.message);
+                // DEBUG: Show URL to identify config issues
+                alert(`Login Failed: ${error.message}\nTrying to connect to: ${API_BASE_URL}`);
             }
         }
     };
