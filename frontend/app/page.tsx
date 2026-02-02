@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Script from 'next/script';
 import { ArrowRight, BookOpen, Target, Award, Users, Star, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import AuthModal from '@/components/AuthModal';
+import { API_BASE_URL } from '@/lib/config';
 
 // 3D Card Component
 function ExamCard({ title, description, icon: Icon, color, href }: { title: string, description: string, icon: any, color: string, href: string }) {
@@ -54,6 +56,8 @@ export default function LandingPage() {
   const [vantaEffect, setVantaEffect] = useState<any>(null);
   const { user } = useAuth();
   const [testSeries, setTestSeries] = useState([]);
+  const [showAuth, setShowAuth] = useState(false);
+  const [authTab, setAuthTab] = useState<'login' | 'signup'>('login');
 
   useEffect(() => {
     let effect: any = null;
@@ -90,7 +94,7 @@ export default function LandingPage() {
     interval = setInterval(initVanta, 100);
 
     // Fetch Test Series
-    fetch('http://localhost:5001/api/tests/series')
+    fetch(`${API_BASE_URL}/api/tests/series`)
       .then(res => res.json())
       .then(data => setTestSeries(data))
       .catch(err => console.error(err));
@@ -102,16 +106,19 @@ export default function LandingPage() {
     };
   }, []);
 
+  const openLogin = () => { setAuthTab('login'); setShowAuth(true); };
+  const openSignup = () => { setAuthTab('signup'); setShowAuth(true); };
+
   const handleBuyNow = async (series: any) => {
     if (!user) {
       alert('Please login to purchase.');
-      window.location.href = '/login';
+      openLogin();
       return;
     }
 
     try {
       // 1. Create Order
-      const res = await fetch('http://localhost:5001/api/payments/create-order', {
+      const res = await fetch(`${API_BASE_URL}/api/payments/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -135,7 +142,7 @@ export default function LandingPage() {
         order_id: orderData.id,
         handler: async function (response: any) {
           // 3. Verify Payment
-          const verifyRes = await fetch('http://localhost:5001/api/payments/verify-payment', {
+          const verifyRes = await fetch(`${API_BASE_URL}/api/payments/verify-payment`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -180,6 +187,9 @@ export default function LandingPage() {
       <Script src="/js/three.min.js" strategy="beforeInteractive" />
       <Script src="/js/vanta.clouds.min.js" strategy="afterInteractive" />
 
+      {/* Integrated Auth Modal */}
+      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} defaultTab={authTab} />
+
       <div ref={vantaRef} className="min-h-screen w-full relative overflow-hidden">
         {/* Glass Overlay for Content readability if needed, but Vanta isbg */}
         <div className="relative z-10 min-h-screen flex flex-col">
@@ -199,16 +209,12 @@ export default function LandingPage() {
                   </Link>
                 ) : (
                   <>
-                    <Link href="/login">
-                      <button className="px-6 py-2.5 rounded-full bg-slate-900/10 text-slate-900 border border-slate-900/10 hover:bg-slate-900/20 transition backdrop-blur-sm font-semibold">
-                        Admin Login
-                      </button>
-                    </Link>
-                    <Link href="/login">
-                      <button className="px-6 py-2.5 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30">
-                        Student Login
-                      </button>
-                    </Link>
+                    <button onClick={openLogin} className="px-6 py-2.5 rounded-full bg-slate-900/10 text-slate-900 border border-slate-900/10 hover:bg-slate-900/20 transition backdrop-blur-sm font-semibold">
+                      Login
+                    </button>
+                    <button onClick={openSignup} className="px-6 py-2.5 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30">
+                      Sign Up
+                    </button>
                   </>
                 )}
               </div>
