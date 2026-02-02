@@ -24,7 +24,7 @@ export default function Dashboard() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16">
                         <div className="flex items-center">
-                            <span className="text-xl font-bold text-gray-900">ExamPortal</span>
+                            <span className="text-xl font-bold text-gray-900 cursor-pointer" onClick={() => router.push('/')}>Apex Mock</span>
                         </div>
                         <div className="flex items-center">
                             <span className="text-gray-700 mr-4">Welcome, {user.name}</span>
