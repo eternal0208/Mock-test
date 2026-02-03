@@ -92,17 +92,29 @@ export default function LoginModal({ isOpen, onClose }) {
         setError('');
         setLoading(true);
 
+        console.log('🔍 Verifying OTP:', otp);
+        console.log('🔍 OTP Length:', otp.length);
+        console.log('🔍 Confirmation Result exists:', !!confirmationResult);
+
         if (!otp || otp.length < 6) {
             setError('Please enter the 6-digit valid OTP.');
             setLoading(false);
             return;
         }
 
+        if (!confirmationResult) {
+            setError('Session expired. Please request OTP again.');
+            setLoading(false);
+            setStep('PHONE');
+            return;
+        }
+
         try {
+            console.log('✅ Attempting to confirm OTP...');
             // Verify OTP
             const result = await confirmationResult.confirm(otp);
             const user = result.user;
-            console.log('✅ OTP verified successfully');
+            console.log('✅ OTP verified successfully, User:', user.uid);
 
             // Check if user profile exists
             setError('Checking your account...');
@@ -118,15 +130,22 @@ export default function LoginModal({ isOpen, onClose }) {
                 router.push('/signup-details');
             }
         } catch (err) {
-            console.error('OTP Verify Error:', err);
+            console.error('❌ OTP Verify Error:', err);
+            console.error('❌ Error code:', err.code);
+            console.error('❌ Error message:', err.message);
+
             if (err.code === 'auth/invalid-verification-code') {
-                setError('Invalid OTP. Please check and try again.');
+                setError('Invalid OTP. Please check the 6-digit code sent to your phone.');
+            } else if (err.code === 'auth/code-expired') {
+                setError('OTP expired. Please request a new OTP.');
+                setStep('PHONE');
             } else {
-                setError('Invalid OTP. Please try again.');
+                setError(err.message || 'Verification failed. Please try again.');
             }
             setLoading(false);
         }
     };
+
 
     if (!isOpen) return null;
 
