@@ -21,6 +21,7 @@ exports.syncUser = async (req, res) => {
         const doc = await userRef.get();
 
         if (doc.exists) {
+            // EXISTING USER - Update with partial data
             console.log(`✅ User exists: ${firebaseUid}. Updating...`);
             await userRef.update({
                 name: name || doc.data().name,
@@ -35,13 +36,31 @@ exports.syncUser = async (req, res) => {
             return res.status(200).json({ _id: updatedDoc.id, ...updatedDoc.data() });
         }
 
+        // NEW USER - Require ALL fields
         console.log(`🆕 Creating new user: ${firebaseUid}`);
+
+        // Strict validation for new users
+        const missingFields = [];
+        if (!name || name.trim() === '') missingFields.push('name');
+        if (!phoneNumber) missingFields.push('phoneNumber');
+        if (!studentClass || studentClass.trim() === '') missingFields.push('class');
+        if (!interest || interest.trim() === '') missingFields.push('interest');
+
+        if (missingFields.length > 0) {
+            console.error(`❌ Missing required fields for new user: ${missingFields.join(', ')}`);
+            return res.status(400).json({
+                message: 'All fields are required for new users',
+                missingFields,
+                required: ['name', 'phoneNumber', 'class', 'interest']
+            });
+        }
+
         const newUser = {
-            name: name || 'Student',
+            name: name.trim(),
             email: email || '',
-            phoneNumber: phoneNumber || '',
-            class: studentClass || '',
-            interest: interest || '',
+            phoneNumber,
+            class: studentClass.trim(),
+            interest: interest.trim(),
             firebaseUid,
             role: role || 'student',
             status: 'active',
@@ -52,13 +71,15 @@ exports.syncUser = async (req, res) => {
         if (targetExam) newUser.targetExam = targetExam;
 
         await userRef.set(newUser);
+        console.log(`✅ New user created successfully: ${firebaseUid}`);
         res.status(201).json({ _id: firebaseUid, ...newUser });
 
     } catch (error) {
         console.error("🔥 Sync User Error:", error);
-        res.status(500).json({ message: 'Server Error' });
+        res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
+
 
 // @desc    Get all users (Admin only)
 // @route   GET /api/auth/users

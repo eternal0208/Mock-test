@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, CheckCircle, LogOut } from 'lucide-react';
 import Link from 'next/link';
-import AuthModal from '@/components/AuthModal';
+
 import { useAuth } from '@/context/AuthContext';
 
 interface ExamLandingProps {
@@ -73,42 +73,25 @@ export default function ExamLandingPage({ title, description, stats, features, t
     const colors = COLOR_MAPS[themeColor] || COLOR_MAPS['indigo'];
 
     // URL Driven Auth Modal
-    const authState = searchParams.get('auth'); // 'login' or 'signup'
-    const showAuth = !!authState;
-
-    const openAuth = (mode: 'login' | 'signup') => {
-        const current = new URLSearchParams(Array.from(searchParams.entries()));
-        current.set('auth', mode);
-        router.push(`${pathname}?${current.toString()}`, { scroll: false });
-    };
-
-    const closeAuth = () => {
-        const current = new URLSearchParams(Array.from(searchParams.entries()));
-        current.delete('auth');
-        const search = current.toString();
-        const query = search ? `?${search}` : "";
-        router.push(`${pathname}${query}`, { scroll: false });
+    // Simplified: Redirect to /login
+    const openAuth = () => {
+        router.push('/login');
     };
 
     return (
         <div className={`min-h-screen bg-gradient-to-br ${colors.bg}`}>
-            <AuthModal
-                isOpen={showAuth}
-                onClose={closeAuth}
-                defaultTab={authState === 'signup' ? 'signup' : 'login'}
-            />
 
             {/* Navbar */}
             <nav className="p-6 flex justify-between items-center max-w-7xl mx-auto sticky top-0 z-40 backdrop-blur-sm bg-white/30 rounded-b-2xl mb-8">
                 <Link href="/" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition font-medium group">
                     <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" /> Back to Home
                 </Link>
-                <div className="flex gap-4 items-center">
+                <div className="flex gap-3 md:gap-4 items-center">
                     {user ? (
                         <div className="flex items-center gap-4">
                             <span className={`font-bold ${colors.textDark} hidden md:inline`}>Hi, {user.displayName || 'Student'}</span>
                             <Link href="/dashboard">
-                                <button className={`px-4 py-2 bg-white text-gray-700 rounded-full font-bold shadow-sm border border-gray-100 hover:bg-gray-50 transition`}>
+                                <button className={`px-3 md:px-4 py-2 bg-white text-gray-700 rounded-full font-bold shadow-sm border border-gray-100 hover:bg-gray-50 transition text-sm md:text-base`}>
                                     Dashboard
                                 </button>
                             </Link>
@@ -122,7 +105,7 @@ export default function ExamLandingPage({ title, description, stats, features, t
                         </div>
                     ) : (
                         <button
-                            onClick={() => openAuth('login')}
+                            onClick={openAuth}
                             className={`px-6 py-2.5 ${colors.bgBtn} text-white rounded-full font-bold shadow-lg shadow-${themeColor}-200/50 transition`}
                         >
                             Login / Register
@@ -146,10 +129,10 @@ export default function ExamLandingPage({ title, description, stats, features, t
                     >
                         Official {title} Syllabus
                     </motion.div>
-                    <h1 className="text-5xl md:text-7xl font-black text-slate-900 mb-6 leading-tight tracking-tight">
+                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-slate-900 mb-6 leading-tight tracking-tight">
                         Crack <span className={`${colors.text}`}>{title}</span> with Confidence.
                     </h1>
-                    <p className="text-xl text-slate-600 mb-8 leading-relaxed font-medium">
+                    <p className="text-base md:text-xl text-slate-600 mb-8 leading-relaxed font-medium">
                         {description}
                     </p>
 
@@ -157,7 +140,7 @@ export default function ExamLandingPage({ title, description, stats, features, t
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => openAuth('signup')}
+                            onClick={openAuth}
                             className={`px-8 py-4 ${colors.bgBtn} text-white text-lg font-bold rounded-2xl shadow-xl shadow-${themeColor}-200 hover:shadow-2xl transition`}
                         >
                             Start Free Mock Test

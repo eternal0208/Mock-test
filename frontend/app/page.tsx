@@ -5,8 +5,9 @@ import Link from 'next/link';
 import Script from 'next/script';
 import { ArrowRight, BookOpen, Target, Award, Users, Star, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import AuthModal from '@/components/AuthModal';
+import { useRouter } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/config';
+import LoginModal from '@/components/LoginModal';
 
 // 3D Card Component
 function ExamCard({ title, description, icon: Icon, color, href }: { title: string, description: string, icon: any, color: string, href: string }) {
@@ -56,8 +57,8 @@ export default function LandingPage() {
   const [vantaEffect, setVantaEffect] = useState<any>(null);
   const { user } = useAuth();
   const [testSeries, setTestSeries] = useState([]);
-  const [showAuth, setShowAuth] = useState(false);
-  const [authTab, setAuthTab] = useState<'login' | 'signup'>('login');
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     let effect: any = null;
@@ -106,8 +107,8 @@ export default function LandingPage() {
     };
   }, []);
 
-  const openLogin = () => { setAuthTab('login'); setShowAuth(true); };
-  const openSignup = () => { setAuthTab('signup'); setShowAuth(true); };
+  const openLogin = () => { setIsLoginModalOpen(true); };
+  const openSignup = () => { setIsLoginModalOpen(true); };
 
   const handleBuyNow = async (series: any) => {
     if (!user) {
@@ -187,8 +188,9 @@ export default function LandingPage() {
       <Script src="/js/three.min.js" strategy="beforeInteractive" />
       <Script src="/js/vanta.clouds.min.js" strategy="afterInteractive" />
 
-      {/* Integrated Auth Modal */}
-      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} defaultTab={authTab} />
+      {/* Login Modal */}
+      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+
 
       <div ref={vantaRef} className="min-h-screen w-full relative overflow-hidden">
         {/* Glass Overlay for Content readability if needed, but Vanta isbg */}
@@ -209,7 +211,7 @@ export default function LandingPage() {
                   </Link>
                 ) : (
                   <>
-                    <button onClick={openLogin} className="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-slate-900/10 text-slate-900 border border-slate-900/10 hover:bg-slate-900/20 transition backdrop-blur-sm font-semibold text-sm md:text-base">
+                    <button onClick={openLogin} className="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-white/80 text-slate-900 border border-slate-200 hover:bg-white transition backdrop-blur-sm font-semibold text-sm md:text-base shadow-sm">
                       Login
                     </button>
                     <button onClick={openSignup} className="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30 text-sm md:text-base">
@@ -230,7 +232,7 @@ export default function LandingPage() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8 }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/5 border border-slate-900/10 text-slate-800 backdrop-blur-md mb-4 font-semibold"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 border border-slate-200 text-slate-800 backdrop-blur-md mb-4 font-semibold shadow-sm"
               >
                 <Users size={18} className="text-green-600" />
                 <span className="font-semibold">Trusted by 10,000+ Students</span>
@@ -240,7 +242,7 @@ export default function LandingPage() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
-                className="text-6xl md:text-7xl font-black text-slate-900 drop-shadow-sm leading-tight"
+                className="text-4xl md:text-6xl lg:text-7xl font-black text-slate-900 drop-shadow-sm leading-tight"
               >
                 Apex Mock
                 <br />
@@ -251,7 +253,7 @@ export default function LandingPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.8, delay: 0.4 }}
-                className="text-xl text-slate-700 font-medium max-w-2xl mx-auto"
+                className="text-base md:text-xl text-slate-700 font-medium max-w-2xl mx-auto px-4"
               >
                 India's most advanced testing platform designed for high-performance candidates.
                 Experience real exam simulation with AI-driven analytics.
