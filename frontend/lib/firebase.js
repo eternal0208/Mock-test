@@ -11,10 +11,12 @@ const firebaseConfig = {
 };
 
 import { getStorage } from "firebase/storage";
+import { getFirestore } from "firebase/firestore";
 
 // Initialize Firebase (Singleton pattern)
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const storage = getStorage(app);
+const db = getFirestore(app);
 
-export { app, auth, storage };
+export { app, auth, storage, db };

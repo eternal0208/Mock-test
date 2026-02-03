@@ -31,25 +31,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
-                // Determine role (custom claim or DB sync)
-                // For this MVP, we might sync with backend to get role.
-                // Or just trust the token if we set custom claims.
-                // Simpler: Fetch user data from our backend using UID.
-
                 try {
-                    const res = await fetch(`${API_BASE_URL}/api/auth/sync`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            name: firebaseUser.displayName,
-                            email: firebaseUser.email,
-                            firebaseUid: firebaseUser.uid
-                        })
-                    });
-                    const dbUser = await res.json();
-                    setUser({ ...firebaseUser, ...dbUser });
+                    // Fetch user data from Firestore directly
+                    // This avoids auto-creation via API, allowing 'signup-details' flow to work.
+                    const { doc, getDoc } = await import("firebase/firestore");
+                    const { db } = await import("@/lib/firebase");
+
+                    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+
+                    if (userDoc.exists()) {
+                        setUser({ ...firebaseUser, ...userDoc.data() });
+                    } else {
+                        setUser(firebaseUser as User);
+                    }
                 } catch (err) {
-                    console.error("Auth Sync Error", err);
+                    console.error("Auth Fetch Error", err);
                     setUser(firebaseUser as User); // Fallback
                 }
             } else {

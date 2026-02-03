@@ -1,175 +1,191 @@
 'use client';
-import { useState } from 'react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Chrome, ArrowLeft, Mail, Lock, User, Loader2 } from 'lucide-react';
+import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { Phone, ArrowRight, Loader2, CheckCircle, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import { API_BASE_URL } from '@/lib/config';
 
 export default function LoginPage() {
-    const [isLogin, setIsLogin] = useState(true);
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [name, setName] = useState('');
-    const [error, setError] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState('');
+    const [otp, setOtp] = useState('');
+    const [step, setStep] = useState('PHONE'); // PHONE | OTP
+    const [confirmationResult, setConfirmationResult] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
     const router = useRouter();
+    const recaptchaContainerRef = useRef(null);
 
-    const syncUserToBackend = async (user, customName = null) => {
-        try {
-            const res = await fetch(`${API_BASE_URL}/api/auth/sync`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: customName || user.displayName,
-                    email: user.email,
-                    firebaseUid: user.uid
-                })
+    useEffect(() => {
+        // Initialize Recaptcha
+        if (!window.recaptchaVerifier) {
+            window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                'size': 'invisible',
+                'callback': (response) => {
+                    // reCAPTCHA solved, allow signInWithPhoneNumber.
+                },
+                'expired-callback': () => {
+                    setError('Recaptcha expired. Please refresh.');
+                }
             });
-            if (!res.ok) throw new Error(`Sync Failed: ${res.statusText}`);
-        } catch (error) {
-            console.error("Manual Sync Error:", error);
-            // Non-blocking error for UX
         }
-    };
+    }, []);
 
-    const handleSubmit = async (e) => {
+    const handleSendOtp = async (e) => {
         e.preventDefault();
         setError('');
         setLoading(true);
+
+        if (!phoneNumber || phoneNumber.length < 10) {
+            setError('Please enter a valid phone number with country code (e.g. +91...)');
+            setLoading(false);
+            return;
+        }
+
         try {
-            if (isLogin) {
-                await signInWithEmailAndPassword(auth, email, password);
-            } else {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                await updateProfile(userCredential.user, { displayName: name });
-                await syncUserToBackend(userCredential.user, name);
-            }
-            router.push('/dashboard');
+            const appVerifier = window.recaptchaVerifier;
+            const confirmation = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
+            setConfirmationResult(confirmation);
+            setStep('OTP');
         } catch (err) {
-            setError(err.message.replace('Firebase: ', ''));
+            console.error("OTP Send Error:", err);
+            setError(err.message || 'Failed to send OTP.');
+            if (window.recaptchaVerifier) window.recaptchaVerifier.clear();
+        } finally {
             setLoading(false);
         }
     };
 
-    const handleGoogleLogin = async () => {
-        const provider = new GoogleAuthProvider();
+    const handleVerifyOtp = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+
+        if (!otp || otp.length < 6) {
+            setError('Please enter the 6-digit valid OTP.');
+            setLoading(false);
+            return;
+        }
+
         try {
-            const result = await signInWithPopup(auth, provider);
-            await syncUserToBackend(result.user);
-            router.push('/dashboard');
-        } catch (error) {
-            setError(error.message);
+            const result = await confirmationResult.confirm(otp);
+            const user = result.user;
+
+            // Check if user exists in Firestore
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+
+            if (userDoc.exists()) {
+                // User exists -> Dashboard
+                router.push('/dashboard');
+            } else {
+                // User does not exist -> Signup Details
+                router.push('/signup-details');
+            }
+
+        } catch (err) {
+            console.error("OTP Verify Error:", err);
+            setError('Invalid OTP. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 relative">
-            {/* Back Button */}
-            <div className="absolute top-6 left-6 md:top-10 md:left-10">
-                <Link href="/" className="flex items-center text-gray-600 hover:text-indigo-600 bg-white px-4 py-2 rounded-full shadow-sm hover:shadow transition-all font-medium">
-                    <ArrowLeft size={18} className="mr-2" /> Back to Home
-                </Link>
-            </div>
+        <div className="min-h-screen flex items-center justify-center bg-white relative overflow-hidden">
+            {/* Background Decoration */}
+            <div className="absolute -top-20 -right-20 w-96 h-96 bg-indigo-50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
+            <div className="absolute -bottom-20 -left-20 w-96 h-96 bg-blue-50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
 
-            <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+            <div className="max-w-md w-full bg-white p-8 md:p-10 rounded-3xl shadow-2xl border border-gray-100 relative z-10 mx-4">
                 <div className="text-center mb-8">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4 shadow-sm">
+                        <ShieldCheck size={32} />
+                    </div>
                     <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                        {isLogin ? 'Welcome Back' : 'Create Account'}
+                        {step === 'PHONE' ? 'Welcome Back' : 'Verify OTP'}
                     </h2>
-                    <p className="text-gray-500 text-sm">
-                        {isLogin ? 'Enter your credentials to access the portal' : 'Join us and start your journey'}
+                    <p className="text-gray-500">
+                        {step === 'PHONE'
+                            ? 'Enter your phone number to access your account'
+                            : `Enter the code sent to ${phoneNumber}`
+                        }
                     </p>
                 </div>
 
                 {error && (
-                    <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-6 flex items-center justify-center">
+                    <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm mb-6 flex items-center text-center justify-center">
                         {error}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {!isLogin && (
+                {step === 'PHONE' ? (
+                    <form onSubmit={handleSendOtp} className="space-y-6">
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Full Name</label>
-                            <div className="relative">
-                                <User className="absolute left-3 top-3 text-gray-400" size={18} />
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Phone Number</label>
+                            <div className="relative group">
+                                <Phone className="absolute left-4 top-3.5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                                <input
+                                    type="tel"
+                                    value={phoneNumber}
+                                    onChange={(e) => setPhoneNumber(e.target.value)}
+                                    className="block w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none font-medium text-gray-800 placeholder-gray-400"
+                                    placeholder="+91 99999 99999"
+                                    required
+                                />
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2 px-1">Include country code (e.g. +91)</p>
+                        </div>
+
+                        <div id="recaptcha-container"></div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full flex justify-center items-center py-4 px-6 border border-transparent rounded-xl shadow-lg shadow-indigo-200 text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:-translate-y-0.5"
+                        >
+                            {loading ? <Loader2 className="animate-spin" size={20} /> : (
+                                <>
+                                    Get OTP <ArrowRight size={18} className="ml-2" />
+                                </>
+                            )}
+                        </button>
+                    </form>
+                ) : (
+                    <form onSubmit={handleVerifyOtp} className="space-y-6">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">One-Time Password</label>
+                            <div className="relative group">
+                                <CheckCircle className="absolute left-4 top-3.5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
                                 <input
                                     type="text"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    className="block w-full pl-10 pr-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition outline-none"
-                                    placeholder="John Doe"
+                                    value={otp}
+                                    onChange={(e) => setOtp(e.target.value)}
+                                    className="block w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none font-medium text-gray-800 placeholder-gray-400 tracking-widest text-lg"
+                                    placeholder="123456"
+                                    maxLength={6}
                                     required
                                 />
                             </div>
                         </div>
-                    )}
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Email Address</label>
-                        <div className="relative">
-                            <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="block w-full pl-10 pr-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition outline-none"
-                                placeholder="you@example.com"
-                                required
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Password</label>
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="block w-full pl-10 pr-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition outline-none"
-                                placeholder="••••••••"
-                                required
-                            />
-                        </div>
-                    </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-lg shadow-indigo-200 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:scale-[1.01]"
-                    >
-                        {loading ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'Sign In' : 'Create Account')}
-                    </button>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full flex justify-center items-center py-4 px-6 border border-transparent rounded-xl shadow-lg shadow-indigo-200 text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:-translate-y-0.5"
+                        >
+                            {loading ? <Loader2 className="animate-spin" size={20} /> : 'Verify & Proceed'}
+                        </button>
 
-                    <div className="relative my-6">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-gray-200"></div>
-                        </div>
-                        <div className="relative flex justify-center text-sm">
-                            <span className="px-2 bg-white text-gray-400 font-medium">Or continue with</span>
-                        </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={handleGoogleLogin}
-                        className="w-full flex justify-center items-center py-2.5 px-4 border border-gray-300 rounded-xl shadow-sm text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                    >
-                        <Chrome className="w-5 h-5 mr-3 text-red-500" />
-                        Google
-                    </button>
-                </form>
-
-                <div className="mt-6 text-center">
-                    <button
-                        onClick={() => setIsLogin(!isLogin)}
-                        className="text-sm font-bold text-indigo-600 hover:text-indigo-500 transition duration-150 ease-in-out"
-                    >
-                        {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-                    </button>
-                </div>
+                        <button
+                            type="button"
+                            onClick={() => setStep('PHONE')}
+                            className="w-full text-center text-sm font-medium text-gray-500 hover:text-indigo-600 transition-colors"
+                        >
+                            Change Phone Number
+                        </button>
+                    </form>
+                )}
             </div>
         </div>
     );
