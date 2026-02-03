@@ -8,6 +8,7 @@ import { X, Phone, CheckCircle, Loader2, ArrowRight, ShieldCheck } from 'lucide-
 
 export default function LoginModal({ isOpen, onClose }) {
     const [step, setStep] = useState('PHONE'); // 'PHONE' or 'OTP'
+    const [countryCode, setCountryCode] = useState('+91');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [otp, setOtp] = useState('');
     const [confirmationResult, setConfirmationResult] = useState(null);
@@ -46,11 +47,13 @@ export default function LoginModal({ isOpen, onClose }) {
         setError('');
         setLoading(true);
 
-        if (!phoneNumber.startsWith('+')) {
-            setError('Phone number must include country code (e.g., +91)');
+        if (phoneNumber.length < 10) {
+            setError('Please enter a valid 10-digit phone number');
             setLoading(false);
             return;
         }
+
+        const fullPhoneNumber = countryCode + phoneNumber;
 
         try {
             // Lazy initialization of RecaptchaVerifier
@@ -67,7 +70,7 @@ export default function LoginModal({ isOpen, onClose }) {
                 await verifierRef.current.render();
             }
 
-            const confirmation = await signInWithPhoneNumber(auth, phoneNumber, verifierRef.current);
+            const confirmation = await signInWithPhoneNumber(auth, fullPhoneNumber, verifierRef.current);
             setConfirmationResult(confirmation);
             setStep('OTP');
             setLoading(false);
@@ -150,7 +153,7 @@ export default function LoginModal({ isOpen, onClose }) {
                     <p className="text-sm md:text-base text-gray-600">
                         {step === 'PHONE'
                             ? 'Enter your phone number to continue'
-                            : `Enter the code sent to ${phoneNumber}`
+                            : `Enter the code sent to ${countryCode} ${phoneNumber}`
                         }
                     </p>
                 </div>
@@ -170,18 +173,35 @@ export default function LoginModal({ isOpen, onClose }) {
                     <form onSubmit={handleSendOtp} className="space-y-5">
                         <div>
                             <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Phone Number</label>
-                            <div className="relative group">
-                                <Phone className="absolute left-4 top-3.5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
-                                <input
-                                    type="tel"
-                                    value={phoneNumber}
-                                    onChange={(e) => setPhoneNumber(e.target.value)}
-                                    className="block w-full pl-12 pr-4 py-3.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none font-medium text-gray-800 placeholder-gray-400 text-base"
-                                    placeholder="+91 99999 99999"
-                                    required
-                                />
+                            <div className="flex gap-2">
+                                {/* Country Code Selector */}
+                                <select
+                                    value={countryCode}
+                                    onChange={(e) => setCountryCode(e.target.value)}
+                                    className="w-24 px-3 py-3.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none font-medium text-gray-800"
+                                >
+                                    <option value="+91">🇮🇳 +91</option>
+                                    <option value="+1">🇺🇸 +1</option>
+                                    <option value="+44">🇬🇧 +44</option>
+                                    <option value="+86">🇨🇳 +86</option>
+                                    <option value="+81">🇯🇵 +81</option>
+                                </select>
+
+                                {/* Phone Number Input */}
+                                <div className="relative group flex-1">
+                                    <Phone className="absolute left-4 top-3.5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                                    <input
+                                        type="tel"
+                                        value={phoneNumber}
+                                        onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                                        className="block w-full pl-12 pr-4 py-3.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none font-medium text-gray-800 placeholder-gray-400 text-base"
+                                        placeholder="9999999999"
+                                        maxLength={10}
+                                        required
+                                    />
+                                </div>
                             </div>
-                            <p className="text-xs text-gray-500 mt-2 px-1">Include country code (e.g. +91)</p>
+                            <p className="text-xs text-gray-500 mt-2 px-1">Enter 10-digit mobile number</p>
                         </div>
 
                         <button
@@ -208,7 +228,7 @@ export default function LoginModal({ isOpen, onClose }) {
                                 <input
                                     type="text"
                                     value={otp}
-                                    onChange={(e) => setOtp(e.target.value)}
+                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                                     className="block w-full pl-12 pr-4 py-3.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none font-medium text-gray-800 placeholder-gray-400 tracking-widest text-lg"
                                     placeholder="123456"
                                     maxLength={6}
