@@ -98,21 +98,39 @@ exports.getAllTests = async (req, res) => {
         snapshot.forEach(doc => {
             const data = doc.data();
 
-            // 1. Enforce STRICT FIELD VISIBILITY
-            const userField = req.user.selectedField || req.user.interest;
-            // 1. Filter: User Field must match Test Category
-            const userCategory = req.user.category;
-            const testCategory = data.category;
-
-            // Admin sees all
-            if (req.user.role !== 'admin') {
-                if (!userCategory || userCategory !== testCategory) {
-                    return; // Skip if no category or mismatch
-                }
+            // ADMIN: Show all tests regardless of category or visibility
+            if (isAdmin) {
+                tests.push({
+                    _id: doc.id,
+                    title: data.title,
+                    duration_minutes: data.duration_minutes,
+                    total_marks: data.total_marks,
+                    subject: data.subject,
+                    category: data.category || 'JEE Main',
+                    difficulty: data.difficulty,
+                    isVisible: data.isVisible !== undefined ? data.isVisible : true,
+                    startTime: data.startTime,
+                    endTime: data.endTime,
+                    expiryDate: data.expiryDate || null,
+                    maxAttempts: data.maxAttempts,
+                    questionCount: data.questions?.length || 0
+                });
+                return;
             }
 
-            // 2. Filter: Only show if Visible
-            if (data.isVisible === false && req.user.role !== 'admin') return;
+            // STUDENT: Apply strict filters
+            const userCategory = req.user?.category;
+            const testCategory = data.category;
+
+            // Filter 1: Category must match
+            if (!userCategory || userCategory !== testCategory) {
+                return; // Skip if no category or category mismatch
+            }
+
+            // Filter 2: Only show visible tests
+            if (data.isVisible === false) {
+                return; // Skip invisible tests for students
+            }
 
             tests.push({
                 _id: doc.id,
@@ -138,7 +156,7 @@ exports.getAllTests = async (req, res) => {
 
 // @desc    Get single test (Start Exam)
 // @route   GET /api/tests/:id
-// @access  Student
+// @access  Student/Admin
 exports.getTestById = async (req, res) => {
     try {
         const doc = await db.collection('tests').doc(req.params.id).get();
@@ -148,18 +166,32 @@ exports.getTestById = async (req, res) => {
 
         const data = doc.data();
 
-        // Security: Check Visibility
+        // Security: Check permissions
         const isAdmin = req.user && req.user.role === 'admin';
 
-        // 1. Strict Field Lock
-        const userField = req.user.selectedField || req.user.interest;
-        const testField = data.category || data.field;
-
-        if (!isAdmin && userField && testField !== userField) {
-            return res.status(403).json({ message: 'Access Denied: You cannot access content from a different field.' });
+        // ADMIN: Can access any test
+        if (isAdmin) {
+            const sanitizedQuestions = (data.questions || []).map(q => ({
+                ...q,
+                _id: q._id || Math.random().toString(36).substr(2, 9),
+                correctOption: undefined,
+                correctOptions: undefined,
+                integerAnswer: undefined
+            }));
+            return res.status(200).json({ _id: doc.id, ...data, questions: sanitizedQuestions });
         }
 
-        if (data.isVisible === false && !isAdmin) {
+        // STUDENT: Check category and visibility
+        const userCategory = req.user?.category;
+        const testCategory = data.category;
+
+        // Filter 1: Category must match
+        if (!userCategory || userCategory !== testCategory) {
+            return res.status(403).json({ message: 'Access Denied: You cannot access tests from a different category.' });
+        }
+
+        // Filter 2: Test must be visible
+        if (data.isVisible === false) {
             return res.status(403).json({ message: 'Test is not currently available.' });
         }
 
