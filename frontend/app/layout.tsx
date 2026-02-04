@@ -8,7 +8,7 @@ export const metadata = {
   title: "Apex Mock: Don't Just Compete. Dominate.",
   description: "Advanced JEE/NEET Mock Test Platform",
   verification: {
-    google: "google6d6707d667afda63",
+    google: "4ziAMDT4sEhielU-84GDTS2OfpO8EZ9N1_YuqSoiwZ8",
   },
 };
 
