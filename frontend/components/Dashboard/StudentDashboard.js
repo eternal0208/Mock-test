@@ -40,14 +40,24 @@ export default function StudentDashboard() {
                 // For this step (Frontend), I will remove the UI filters.
                 // The actual data restriction relies on the backend change I'll make next.
 
-                const testsRes = await fetch(`${API_BASE_URL}/api/tests`); // Will be secured by cookie/header later
+                const testsRes = await fetch(`${API_BASE_URL}/api/tests`);
                 const testsData = await testsRes.json();
-                setTests(testsData);
+                if (Array.isArray(testsData)) {
+                    setTests(testsData);
+                } else {
+                    console.error("Invalid tests data:", testsData);
+                    setTests([]);
+                }
 
                 // Fetch Series
                 const seriesRes = await fetch(`${API_BASE_URL}/api/tests/series`);
                 const seriesData = await seriesRes.json();
-                setSeries(seriesData);
+                if (Array.isArray(seriesData)) {
+                    setSeries(seriesData);
+                } else {
+                    console.error("Invalid series data:", seriesData);
+                    setSeries([]);
+                }
 
                 // Fetch Results
                 const resultsRes = await fetch(`${API_BASE_URL}/api/results/student/${user._id || user.uid}`);
@@ -135,7 +145,7 @@ export default function StudentDashboard() {
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
                 <div className="relative z-10 flex justify-between items-center">
                     <div>
-                        <h1 className="text-3xl font-bold mb-2">Welcome back, {user.name.split(' ')[0]}</h1>
+                        <h1 className="text-3xl font-bold mb-2">Welcome back, {user.name ? user.name.split(' ')[0] : 'Student'}</h1>
                         <div className="flex items-center gap-2 text-indigo-200">
                             <ShieldCheck size={18} />
                             <span className="uppercase tracking-wide font-semibold text-sm">Target: {user.selectedField}</span>
