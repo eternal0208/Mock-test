@@ -4,7 +4,7 @@ const { db, auth } = require('../config/firebaseAdmin');
 // @route   POST /api/auth/sync
 exports.syncUser = async (req, res) => {
     console.log("👉 Sync Request Body:", req.body);
-    const { name, email, firebaseUid, role, phoneNumber, phone, class: studentClass, interest, targetExam, state, city, authProvider } = req.body;
+    const { name, email, firebaseUid, role, phoneNumber, phone, class: studentClass, interest, targetExam, state, city, authProvider, photoURL } = req.body;
 
     if (!firebaseUid) {
         console.error("❌ Missing firebaseUid");
@@ -29,6 +29,7 @@ exports.syncUser = async (req, res) => {
                 email: email || doc.data().email || '',
                 phone: finalPhone,
                 phoneNumber: finalPhone, // Legacy support
+                photoURL: photoURL || doc.data().photoURL || '',
                 class: studentClass || doc.data().class || '',
                 interest: interest || doc.data().interest || '',
                 state: state || doc.data().state || '',
@@ -46,8 +47,11 @@ exports.syncUser = async (req, res) => {
 
         // Strict validation for new users
         const missingFields = [];
+        const requestPhone = phone || phoneNumber;
+
         if (!name || name.trim() === '') missingFields.push('name');
         if (!email || email.trim() === '') missingFields.push('email');
+        if (!requestPhone || requestPhone.trim() === '') missingFields.push('phone');
         if (!studentClass || studentClass.trim() === '') missingFields.push('class');
         if (!interest || interest.trim() === '') missingFields.push('interest');
         if (!state || state.trim() === '') missingFields.push('state');
@@ -58,16 +62,17 @@ exports.syncUser = async (req, res) => {
             return res.status(400).json({
                 message: 'All fields are required for new users',
                 missingFields,
-                required: ['name', 'email', 'class', 'interest', 'state', 'city']
+                required: ['name', 'email', 'phone', 'class', 'interest', 'state', 'city']
             });
         }
 
-        const finalPhone = phone || phoneNumber || null;
+        const finalPhone = phone || phoneNumber;
         const newUser = {
             name: name.trim(),
             email: email.trim(),
             phone: finalPhone,
             phoneNumber: finalPhone, // Legacy support
+            photoURL: photoURL || '',
             class: studentClass.trim(),
             interest: interest.trim(),
             state: state.trim(),

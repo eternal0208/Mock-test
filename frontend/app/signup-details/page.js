@@ -1,10 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, storage } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { API_BASE_URL } from '@/lib/config';
-import { User, BookOpen, Heart, Phone, Loader2, CheckCircle, Mail, MapPin } from 'lucide-react';
+import { User, BookOpen, Heart, Phone, Loader2, CheckCircle, Mail, MapPin, Camera, Upload } from 'lucide-react';
 
 export default function SignupDetailsPage() {
     const [name, setName] = useState('');
@@ -14,10 +15,33 @@ export default function SignupDetailsPage() {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [state, setState] = useState('');
     const [city, setCity] = useState('');
+    const [photoURL, setPhotoURL] = useState('');
+    const [photoFile, setPhotoFile] = useState(null);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
     const [loading, setLoading] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
     const [error, setError] = useState('');
+    const fileInputRef = useRef(null);
     const router = useRouter();
+
+    // Predefined Avatars
+    const AVATARS = [
+        // Boys
+        'https://avatar.iran.liara.run/public/boy?username=Boy1',
+        'https://avatar.iran.liara.run/public/boy?username=Boy2',
+        'https://avatar.iran.liara.run/public/boy?username=Boy3',
+        'https://avatar.iran.liara.run/public/boy?username=Boy4',
+        'https://avatar.iran.liara.run/public/boy?username=Boy5',
+        // Girls
+        'https://avatar.iran.liara.run/public/girl?username=Girl1',
+        'https://avatar.iran.liara.run/public/girl?username=Girl2',
+        'https://avatar.iran.liara.run/public/girl?username=Girl3',
+        'https://avatar.iran.liara.run/public/girl?username=Girl4',
+        'https://avatar.iran.liara.run/public/girl?username=Girl5',
+    ];
+
+    const [showAvatars, setShowAvatars] = useState(false);
 
     useEffect(() => {
         const checkUserState = async () => {
@@ -30,13 +54,10 @@ export default function SignupDetailsPage() {
                 return;
             }
 
-            // Pre-fill email and name from Google account
-            if (user.email) {
-                setEmail(user.email);
-            }
-            if (user.displayName) {
-                setName(user.displayName);
-            }
+            // Pre-fill email, name, and photo from Google account
+            if (user.email) setEmail(user.email);
+            if (user.displayName) setName(user.displayName);
+            if (user.photoURL) setPhotoURL(user.photoURL);
 
             // Guard 2: Check if user already has a profile
             try {
@@ -65,6 +86,29 @@ export default function SignupDetailsPage() {
         return () => unsubscribe();
     }, [router]);
 
+    const handlePhotoChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                setError('Image size should be less than 5MB');
+                return;
+            }
+
+            setPhotoFile(file);
+            // Create preview URL
+            setPhotoURL(URL.createObjectURL(file));
+            setShowAvatars(false); // Hide avatar selection if manual upload
+        }
+    };
+
+    const selectAvatar = (url) => {
+        setPhotoURL(url);
+        setPhotoFile(null); // Clear manual file upload if avatar selected
+        // setShowAvatars(false); // Optional: keep open or close
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -78,8 +122,15 @@ export default function SignupDetailsPage() {
         }
 
         // Validate all required fields
-        if (!name.trim() || !email.trim() || !studentClass.trim() || !interest.trim() || !state || !city) {
+        if (!name.trim() || !email.trim() || !phoneNumber.trim() || !studentClass.trim() || !interest.trim() || !state || !city) {
             setError('Please fill in all required fields');
+            setLoading(false);
+            return;
+        }
+
+        // Validate phone number (10 digits)
+        if (phoneNumber.length !== 10) {
+            setError('Please enter a valid 10-digit phone number');
             setLoading(false);
             return;
         }
@@ -93,17 +144,29 @@ export default function SignupDetailsPage() {
         }
 
         try {
+            let finalPhotoURL = photoURL;
+
+            // Upload photo if a new file is selected
+            if (photoFile) {
+                setUploadingPhoto(true);
+                const storageRef = ref(storage, `profile_photos/${user.uid}`);
+                await uploadBytes(storageRef, photoFile);
+                finalPhotoURL = await getDownloadURL(storageRef);
+                setUploadingPhoto(false);
+            }
+
             const res = await fetch(`${API_BASE_URL}/api/auth/sync`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: name.trim(),
                     email: email.trim().toLowerCase(),
+                    phone: phoneNumber.trim(),
                     class: studentClass.trim(),
                     interest: interest.trim(),
-                    phone: phoneNumber.trim() || null,
                     state: state,
                     city: city,
+                    photoURL: finalPhotoURL,
                     firebaseUid: user.uid,
                     authProvider: 'google',
                     role: 'student'
@@ -118,11 +181,14 @@ export default function SignupDetailsPage() {
 
             // Success - redirect to dashboard
             console.log('✅ User profile created successfully');
+            // Force reload to update auth context or simply navigate
+            // Using window.location to ensure full refresh state
             window.location.href = '/dashboard';
         } catch (error) {
             console.error('Signup Error:', error);
             setError(error.message || 'Failed to save details. Please try again.');
             setLoading(false);
+            setUploadingPhoto(false);
         }
     };
 
@@ -137,11 +203,8 @@ export default function SignupDetailsPage() {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-4">
-            <div className="max-w-md w-full bg-white p-6 md:p-8 rounded-2xl shadow-2xl border border-gray-100">
+            <div className="max-w-md w-full bg-white p-6 md:p-8 rounded-2xl shadow-2xl border border-gray-100 my-8">
                 <div className="text-center mb-6 md:mb-8">
-                    <div className="inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4 shadow-sm">
-                        <User size={28} className="md:w-8 md:h-8" />
-                    </div>
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Complete Your Profile</h2>
                     <p className="text-sm md:text-base text-gray-600">Tell us a bit about yourself to get started</p>
                 </div>
@@ -153,6 +216,71 @@ export default function SignupDetailsPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Profile Photo Upload */}
+                    <div className="flex flex-col items-center mb-6">
+                        <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-indigo-100 shadow-md bg-gray-100 flex items-center justify-center">
+                                {photoURL ? (
+                                    <img src={photoURL} alt="Profile" className="w-full h-full object-cover" />
+                                ) : (
+                                    <User size={40} className="text-gray-400" />
+                                )}
+                            </div>
+                            <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Camera className="text-white" size={24} />
+                            </div>
+                            <div className="absolute bottom-0 right-0 bg-indigo-600 p-1.5 rounded-full shadow-lg border-2 border-white">
+                                <Upload size={14} className="text-white" />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-center gap-4 mt-3">
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                            >
+                                Upload Photo
+                            </button>
+                            <span className="text-gray-300">|</span>
+                            <button
+                                type="button"
+                                onClick={() => setShowAvatars(!showAvatars)}
+                                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                            >
+                                {showAvatars ? 'Hide Avatars' : 'Choose Avatar'}
+                            </button>
+                        </div>
+
+                        {/* Avatar Grid */}
+                        {showAvatars && (
+                            <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100 w-full animate-in fade-in slide-in-from-top-2">
+                                <p className="text-xs font-bold text-gray-500 mb-3 text-center uppercase tracking-wide">Select an Avatar</p>
+                                <div className="grid grid-cols-5 gap-2 md:gap-3">
+                                    {AVATARS.map((avatar, index) => (
+                                        <button
+                                            key={index}
+                                            type="button"
+                                            onClick={() => selectAvatar(avatar)}
+                                            className={`relative rounded-full overflow-hidden border-2 transition-all hover:scale-110 ${photoURL === avatar ? 'border-indigo-600 ring-2 ring-indigo-100 scale-110' : 'border-transparent hover:border-gray-300'
+                                                }`}
+                                        >
+                                            <img src={avatar} alt={`Avatar ${index + 1}`} className="w-full h-full object-cover" />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handlePhotoChange}
+                            accept="image/*"
+                            className="hidden"
+                        />
+                    </div>
+
                     {/* Full Name */}
                     <div>
                         <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Full Name *</label>
@@ -183,6 +311,24 @@ export default function SignupDetailsPage() {
                                 required
                             />
                         </div>
+                    </div>
+
+                    {/* Phone Number (Required) */}
+                    <div>
+                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Phone Number *</label>
+                        <div className="relative">
+                            <Phone className="absolute left-3 top-3 text-gray-400" size={18} />
+                            <input
+                                type="tel"
+                                value={phoneNumber}
+                                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                                className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none font-medium text-gray-800"
+                                placeholder="9999999999"
+                                maxLength={10}
+                                required
+                            />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1 px-1">10-digit mobile number</p>
                     </div>
 
                     {/* Class */}
@@ -263,30 +409,16 @@ export default function SignupDetailsPage() {
                         </div>
                     </div>
 
-                    {/* Phone Number (Optional) */}
-                    <div>
-                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Phone Number <span className="text-gray-400">(Optional)</span></label>
-                        <div className="relative">
-                            <Phone className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <input
-                                type="tel"
-                                value={phoneNumber}
-                                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
-                                className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none font-medium text-gray-800"
-                                placeholder="9999999999"
-                                maxLength={10}
-                            />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1 px-1">10-digit mobile number</p>
-                    </div>
-
                     <button
                         type="submit"
                         disabled={loading}
                         className="w-full flex justify-center items-center py-3.5 md:py-4 px-6 border border-transparent rounded-xl shadow-lg shadow-indigo-200 text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {loading ? (
-                            <Loader2 className="animate-spin" size={20} />
+                            <>
+                                <Loader2 className="animate-spin mr-2" size={20} />
+                                {uploadingPhoto ? 'Uploading Photo...' : 'Saving...'}
+                            </>
                         ) : (
                             <>
                                 Save & Continue <CheckCircle size={18} className="ml-2" />

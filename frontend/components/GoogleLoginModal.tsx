@@ -22,7 +22,8 @@ export default function GoogleLoginModal({ isOpen, onClose }: GoogleLoginModalPr
         try {
             await signInWithGoogle();
             // Auth state change will handle redirect via AuthContext
-            // If user doesn't exist in Firestore, signup-details page will handle it
+            // But we explicitly redirect to ensure smooth UX
+            router.push('/dashboard');
             onClose();
         } catch (err: any) {
             console.error('Google Sign-In Error:', err);
