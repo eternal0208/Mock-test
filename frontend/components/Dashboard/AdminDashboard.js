@@ -1,4 +1,5 @@
 'use client';
+// Admin Dashboard Updated: 2026-02-04
 import { useState, useEffect } from 'react';
 import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/config';
