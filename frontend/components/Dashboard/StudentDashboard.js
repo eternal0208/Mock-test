@@ -40,7 +40,11 @@ export default function StudentDashboard() {
                 // For this step (Frontend), I will remove the UI filters.
                 // The actual data restriction relies on the backend change I'll make next.
 
-                const testsRes = await fetch(`${API_BASE_URL}/api/tests`);
+                const token = await user.getIdToken();
+                const headers = { 'Authorization': `Bearer ${token}` };
+
+                // Fetch Tests
+                const testsRes = await fetch(`${API_BASE_URL}/api/tests`, { headers });
                 const testsData = await testsRes.json();
                 if (Array.isArray(testsData)) {
                     setTests(testsData);
@@ -50,7 +54,7 @@ export default function StudentDashboard() {
                 }
 
                 // Fetch Series
-                const seriesRes = await fetch(`${API_BASE_URL}/api/tests/series`);
+                const seriesRes = await fetch(`${API_BASE_URL}/api/tests/series`, { headers });
                 const seriesData = await seriesRes.json();
                 if (Array.isArray(seriesData)) {
                     setSeries(seriesData);
@@ -68,7 +72,7 @@ export default function StudentDashboard() {
                 const ranks = {};
                 await Promise.all(resultsData.map(async (res) => {
                     try {
-                        const anaRes = await fetch(`${API_BASE_URL}/api/tests/${res.testId}/analytics`);
+                        const anaRes = await fetch(`${API_BASE_URL}/api/tests/${res.testId}/analytics`, { headers });
                         const anaData = await anaRes.json();
                         const myRankEntry = anaData.rankList.find(r => r.userId === (user._id || user.uid));
                         if (myRankEntry) {
