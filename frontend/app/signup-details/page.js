@@ -25,20 +25,20 @@ export default function SignupDetailsPage() {
     const fileInputRef = useRef(null);
     const router = useRouter();
 
-    // Predefined Avatars
+    // Predefined Avatars (Using DiceBear Adventurer style for reliability)
     const AVATARS = [
         // Boys
-        'https://avatar.iran.liara.run/public/boy?username=Boy1',
-        'https://avatar.iran.liara.run/public/boy?username=Boy2',
-        'https://avatar.iran.liara.run/public/boy?username=Boy3',
-        'https://avatar.iran.liara.run/public/boy?username=Boy4',
-        'https://avatar.iran.liara.run/public/boy?username=Boy5',
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=Felix',
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=Brian',
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=Christopher',
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=Jack',
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=Mathew',
         // Girls
-        'https://avatar.iran.liara.run/public/girl?username=Girl1',
-        'https://avatar.iran.liara.run/public/girl?username=Girl2',
-        'https://avatar.iran.liara.run/public/girl?username=Girl3',
-        'https://avatar.iran.liara.run/public/girl?username=Girl4',
-        'https://avatar.iran.liara.run/public/girl?username=Girl5',
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=Aneka',
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=Eliza',
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=Maria',
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=Sophie',
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=Monica',
     ];
 
     const [showAvatars, setShowAvatars] = useState(false);
