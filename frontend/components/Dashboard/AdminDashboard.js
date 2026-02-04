@@ -451,8 +451,12 @@ export default function AdminDashboard() {
         try {
             const res = await fetch(`${API_BASE_URL}/api/admin/tests/${testId}`, { method: 'DELETE' });
             if (res.ok) {
-                setTests(prev => prev.filter(t => t.id !== testId));
+                setTests(prev => prev.filter(t => t._id !== testId));
                 alert("Test deleted successfully");
+                fetchTests(); // Refresh the list
+            } else {
+                const errorData = await res.json();
+                alert(`Failed to delete test: ${errorData.error || 'Unknown error'}`);
             }
         } catch (error) {
             console.error("Delete Error:", error);

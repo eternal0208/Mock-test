@@ -59,6 +59,19 @@ router.delete('/series/:id', async (req, res) => {
     }
 });
 
+// DELETE /api/admin/tests/:id - Delete Test
+router.delete('/tests/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.collection('tests').doc(id).delete();
+        res.json({ success: true, message: 'Test deleted successfully' });
+    } catch (error) {
+        console.error('Delete Test Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
 
 // --- Analytics & User Management ---
 
