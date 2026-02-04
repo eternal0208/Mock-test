@@ -42,7 +42,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
 
                     if (userDoc.exists()) {
-                        setUser({ ...firebaseUser, ...userDoc.data() });
+                        // Use Object.assign to preserve prototype methods (like getIdToken)
+                        // Spreading ({...firebaseUser}) creates a plain object and loses the prototype.
+                        const enrichedUser = Object.assign(firebaseUser, userDoc.data());
+                        setUser(enrichedUser);
                     } else {
                         setUser(firebaseUser as User);
                     }

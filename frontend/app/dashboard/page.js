@@ -14,7 +14,11 @@ export default function Dashboard() {
             router.push('/');
         }
         // If user is authenticated but hasn't completed signup (missing required fields)
-        if (!loading && user && (!user.name || !user.email || !user.class || !user.selectedField || !user.state || !user.city)) {
+        // If user is authenticated but hasn't completed signup (missing required fields)
+        // Note: Field can be 'category' or 'selectedField' depending on schema version
+        const hasField = user?.selectedField || user?.category;
+
+        if (!loading && user && (!user.name || !user.email || !user.class || !hasField || !user.state || !user.city)) {
             console.log('User profile incomplete, redirecting to signup-details');
             router.push('/signup-details');
         }
