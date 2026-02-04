@@ -23,8 +23,8 @@ export default function SignupDetailsPage() {
 
             // Guard 1: User must be authenticated
             if (!user) {
-                console.log('No user authenticated, redirecting to login');
-                router.push('/login');
+                console.log('No user authenticated, redirecting to home');
+                router.push('/');
                 return;
             }
 
@@ -66,7 +66,7 @@ export default function SignupDetailsPage() {
         const user = auth.currentUser;
         if (!user) {
             setError('Session expired. Please log in again.');
-            router.push('/login');
+            router.push('/');
             return;
         }
 

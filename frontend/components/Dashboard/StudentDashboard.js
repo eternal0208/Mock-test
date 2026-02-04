@@ -293,7 +293,7 @@ export default function StudentDashboard() {
                 <div className="bg-blue-600 px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center"><User className="mr-2 text-white" /> <h2 className="text-xl font-bold text-white">Student Profile</h2></div>
                     <button
-                        onClick={() => window.location.href = '/login'} // Ideally use signOut from auth context
+                        onClick={() => window.location.href = '/'} // Redirect to home page with LoginModal
                         className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded text-sm font-bold transition flex items-center gap-1"
                     >
                         <User size={14} /> Logout

@@ -134,11 +134,25 @@ export default function LoginModal({ isOpen, onClose }) {
             console.error('❌ Error code:', err.code);
             console.error('❌ Error message:', err.message);
 
+            // Clear reCAPTCHA verifier on failed OTP
+            if (verifierRef.current) {
+                try {
+                    verifierRef.current.clear();
+                } catch (e) {
+                    console.warn('Error clearing verifier:', e);
+                }
+                verifierRef.current = null;
+            }
+
+            // Reset to PHONE step for fresh attempt
+            setStep('PHONE');
+            setOtp('');
+            setConfirmationResult(null);
+
             if (err.code === 'auth/invalid-verification-code') {
-                setError('Invalid OTP. Please check the 6-digit code sent to your phone.');
+                setError('Invalid OTP. Please try again with a new OTP.');
             } else if (err.code === 'auth/code-expired') {
                 setError('OTP expired. Please request a new OTP.');
-                setStep('PHONE');
             } else {
                 setError(err.message || 'Verification failed. Please try again.');
             }

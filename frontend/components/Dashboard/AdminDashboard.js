@@ -754,7 +754,7 @@ export default function AdminDashboard() {
                     <button onClick={() => setActiveTab('users')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'users' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Students</button>
                     <button onClick={() => setActiveTab('revenue')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'revenue' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Revenue</button>
                     <button onClick={() => setActiveTab('create')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'create' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>+ Create</button>
-                    <button onClick={() => window.location.href = '/login'} className="px-3 py-2 sm:px-4 rounded-md bg-red-100 text-red-700 hover:bg-red-200 font-bold flex items-center gap-1 text-sm whitespace-nowrap"><LogOut size={16} /> Logout</button>
+                    <button onClick={() => window.location.href = '/'} className="px-3 py-2 sm:px-4 rounded-md bg-red-100 text-red-700 hover:bg-red-200 font-bold flex items-center gap-1 text-sm whitespace-nowrap"><LogOut size={16} /> Logout</button>
                 </div>
             </div>
 

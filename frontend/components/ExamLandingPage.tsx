@@ -73,9 +73,9 @@ export default function ExamLandingPage({ title, description, stats, features, t
     const colors = COLOR_MAPS[themeColor] || COLOR_MAPS['indigo'];
 
     // URL Driven Auth Modal
-    // Simplified: Redirect to /login
+    // Redirect to home page where LoginModal is embedded
     const openAuth = () => {
-        router.push('/login');
+        router.push('/');
     };
 
     return (
