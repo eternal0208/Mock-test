@@ -91,12 +91,22 @@ exports.deleteTest = async (req, res) => {
 // @access  Student/Admin
 exports.getAllTests = async (req, res) => {
     try {
+        console.log("🔍 [API] GET /api/tests called");
         const snapshot = await db.collection('tests').get();
+        console.log(`🔍 [DEBUG] Tests found in DB: ${snapshot.size}`);
+
         const tests = [];
         const isAdmin = req.user && req.user.role === 'admin';
 
+        console.log("🔍 [DEBUG] Requester:", {
+            uid: req.user?.uid,
+            role: req.user?.role,
+            category: req.user?.category
+        });
+
         snapshot.forEach(doc => {
             const data = doc.data();
+            const testId = doc.id;
 
             // ADMIN: Show all tests regardless of category or visibility
             if (isAdmin) {
@@ -122,14 +132,19 @@ exports.getAllTests = async (req, res) => {
             const userCategory = req.user?.category;
             const testCategory = data.category;
 
-            // Filter 1: Category must match
-            if (!userCategory || userCategory !== testCategory) {
-                return; // Skip if no category or category mismatch
+            // Debug check for specific tests if needed
+            // console.log(`🔍 Checking Test ${data.title}: UserCat=${userCategory}, TestCat=${testCategory}, Visible=${data.isVisible}`);
+
+            // Filter 1: Category must match (Case Insensitive)
+            if (!userCategory || !testCategory || userCategory.toLowerCase() !== testCategory.toLowerCase()) {
+                // console.log(`❌ Skipping Test ${data.title}: Category Mismatch (${userCategory} vs ${testCategory})`);
+                return;
             }
 
             // Filter 2: Only show visible tests
             if (data.isVisible === false) {
-                return; // Skip invisible tests for students
+                // console.log(`❌ Skipping Test ${data.title}: Not Visible`);
+                return;
             }
 
             tests.push({
@@ -148,8 +163,11 @@ exports.getAllTests = async (req, res) => {
                 questionCount: data.questions?.length || 0
             });
         });
+
+        console.log(`✅ [DEBUG] Returning ${tests.length} tests to client`);
         res.status(200).json(tests);
     } catch (error) {
+        console.error("❌ [API ERROR] getAllTests:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
