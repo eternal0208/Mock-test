@@ -1,0 +1,56 @@
+const { auth, db } = require('../config/firebaseAdmin');
+
+// Middleware to protect routes and get user details
+exports.protect = async (req, res, next) => {
+    let token;
+
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!token) {
+        return res.status(401).json({ message: 'Not authorized to access this route' });
+    }
+
+    try {
+        // 1. Verify Token
+        const decodedToken = await auth.verifyIdToken(token);
+        const uid = decodedToken.uid;
+
+        // 2. Fetch User from Firestore to get Role & Selected Field
+        const userDoc = await db.collection('users').doc(uid).get();
+
+        if (!userDoc.exists) {
+            return res.status(401).json({ message: 'User not found in database. Please complete signup.' });
+        }
+
+        const userData = userDoc.data();
+
+        // 3. Attach User to Request
+        req.user = {
+            uid: uid,
+            _id: uid, // Alias for consistency
+            email: decodedToken.email,
+            role: userData.role || 'student',
+            selectedField: userData.selectedField || userData.interest || null, // Map legacy interest if new field missing
+            ...userData
+        };
+
+        next();
+    } catch (error) {
+        console.error('Auth Middleware Error:', error);
+        return res.status(401).json({ message: 'Not authorized, token failed' });
+    }
+};
+
+// Middleware to restrict access to specific roles
+exports.authorize = (...roles) => {
+    return (req, res, next) => {
+        if (!roles.includes(req.user.role)) {
+            return res.status(403).json({
+                message: `User role ${req.user.role} is not authorized to access this route`
+            });
+        }
+        next();
+    };
+};

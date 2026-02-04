@@ -59,7 +59,7 @@ export default function GoogleLoginModal({ isOpen, onClose }: GoogleLoginModalPr
                         <ShieldCheck size={28} className="md:w-8 md:h-8" />
                     </div>
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-                        Welcome to Apex Mock
+                        Welcome to Apex Mock Test
                     </h2>
                     <p className="text-sm md:text-base text-gray-600">
                         Sign in with your Google account to continue

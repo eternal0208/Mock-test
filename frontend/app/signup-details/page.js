@@ -11,7 +11,7 @@ export default function SignupDetailsPage() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [studentClass, setStudentClass] = useState('');
-    const [interest, setInterest] = useState('');
+    const [selectedField, setSelectedField] = useState(''); // REPLACED: interest -> selectedField
     const [phoneNumber, setPhoneNumber] = useState('');
     const [state, setState] = useState('');
     const [city, setCity] = useState('');
@@ -122,7 +122,7 @@ export default function SignupDetailsPage() {
         }
 
         // Validate all required fields
-        if (!name.trim() || !email.trim() || !phoneNumber.trim() || !studentClass.trim() || !interest.trim() || !state || !city) {
+        if (!name.trim() || !email.trim() || !phoneNumber.trim() || !studentClass.trim() || !selectedField.trim() || !state || !city) {
             setError('Please fill in all required fields');
             setLoading(false);
             return;
@@ -155,15 +155,21 @@ export default function SignupDetailsPage() {
                 setUploadingPhoto(false);
             }
 
+            // Get Token for Security
+            const token = await user.getIdToken();
+
             const res = await fetch(`${API_BASE_URL}/api/auth/sync`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     name: name.trim(),
                     email: email.trim().toLowerCase(),
                     phone: phoneNumber.trim(),
                     class: studentClass.trim(),
-                    interest: interest.trim(),
+                    selectedField: selectedField.trim(), // REPLACED: interest -> selectedField
                     state: state,
                     city: city,
                     photoURL: finalPhotoURL,
@@ -205,6 +211,7 @@ export default function SignupDetailsPage() {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-4">
             <div className="max-w-md w-full bg-white p-6 md:p-8 rounded-2xl shadow-2xl border border-gray-100 my-8">
                 <div className="text-center mb-6 md:mb-8">
+                    <h1 className="text-xl md:text-2xl font-extrabold text-indigo-600 mb-2">Apex Mock Test</h1>
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Complete Your Profile</h2>
                     <p className="text-sm md:text-base text-gray-600">Tell us a bit about yourself to get started</p>
                 </div>
@@ -355,25 +362,28 @@ export default function SignupDetailsPage() {
                         </div>
                     </div>
 
-                    {/* Interest */}
+                    {/* Selected Field (Strict Source of Truth) */}
                     <div>
-                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Interested Field / Exam *</label>
+                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Select Your Field (Strictly Enforced) *</label>
                         <div className="relative">
                             <Heart className="absolute left-3 top-3 text-gray-400" size={18} />
                             <select
-                                value={interest}
-                                onChange={(e) => setInterest(e.target.value)}
+                                value={selectedField}
+                                onChange={(e) => setSelectedField(e.target.value)}
                                 className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none font-medium text-gray-800 appearance-none cursor-pointer"
                                 required
                             >
-                                <option value="">Select Exam</option>
+                                <option value="">Select Field</option>
                                 <option value="JEE Main">JEE Main</option>
                                 <option value="JEE Advanced">JEE Advanced</option>
                                 <option value="NEET">NEET</option>
                                 <option value="CAT">CAT</option>
                                 <option value="Board Exam">Board Exam</option>
-                                <option value="Other">Other</option>
+                                <option value="Others">Others</option>
                             </select>
+                            <p className="text-[10px] text-red-500 mt-1 pl-1 font-bold">
+                                ⚠️ Cannot be changed later. All content will be locked to this field.
+                            </p>
                         </div>
                     </div>
 

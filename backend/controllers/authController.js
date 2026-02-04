@@ -4,10 +4,15 @@ const { db, auth } = require('../config/firebaseAdmin');
 // @route   POST /api/auth/sync
 exports.syncUser = async (req, res) => {
     console.log("👉 Sync Request Body:", req.body);
-    const { name, email, firebaseUid, role, phoneNumber, phone, class: studentClass, interest, targetExam, state, city, authProvider, photoURL } = req.body;
+    // Security: Use UID from Token (req.user) if available (via protect middleware)
+    const uidFromToken = req.user ? req.user.uid : null;
+    const { name, email, firebaseUid, role, phoneNumber, phone, class: studentClass, interest, selectedField, targetExam, state, city, authProvider, photoURL } = req.body;
 
-    if (!firebaseUid) {
-        console.error("❌ Missing firebaseUid");
+    // Use token UID as source of truth, fall back to body only if middleware missing (shouldn't happen now)
+    const targetUid = uidFromToken || firebaseUid;
+
+    if (!targetUid) {
+        console.error("❌ Missing firebaseUid (and no token UID)");
         return res.status(400).json({ message: 'Firebase UID is required' });
     }
 
@@ -17,7 +22,7 @@ exports.syncUser = async (req, res) => {
     }
 
     try {
-        const userRef = db.collection('users').doc(firebaseUid);
+        const userRef = db.collection('users').doc(targetUid);
         const doc = await userRef.get();
 
         if (doc.exists) {
@@ -33,7 +38,7 @@ exports.syncUser = async (req, res) => {
                 });
             }
 
-            console.log(`✅ User exists: ${firebaseUid}. Updating...`);
+            console.log(`✅ User exists: ${targetUid}. Updating...`);
             const finalPhone = phone || phoneNumber || userData.phoneNumber || userData.phone || null;
             await userRef.update({
                 name: name || userData.name,
@@ -43,6 +48,7 @@ exports.syncUser = async (req, res) => {
                 photoURL: photoURL || userData.photoURL || '',
                 class: studentClass || userData.class || '',
                 interest: interest || userData.interest || '',
+                selectedField: selectedField || userData.selectedField || '', // Added selectedField
                 state: state || userData.state || '',
                 city: city || userData.city || '',
                 authProvider: authProvider || userData.authProvider || 'phone',
@@ -54,7 +60,7 @@ exports.syncUser = async (req, res) => {
         }
 
         // NEW USER - Require ALL fields
-        console.log(`🆕 Creating new user: ${firebaseUid}`);
+        console.log(`🆕 Creating new user: ${targetUid}`);
 
         // Strict validation for new users
         const missingFields = [];
@@ -64,7 +70,8 @@ exports.syncUser = async (req, res) => {
         if (!email || email.trim() === '') missingFields.push('email');
         if (!requestPhone || requestPhone.trim() === '') missingFields.push('phone');
         if (!studentClass || studentClass.trim() === '') missingFields.push('class');
-        if (!interest || interest.trim() === '') missingFields.push('interest');
+        // REPLACED: interest -> selectedField (Strict enforcement)
+        if (!selectedField || selectedField.trim() === '') missingFields.push('selectedField');
         if (!state || state.trim() === '') missingFields.push('state');
         if (!city || city.trim() === '') missingFields.push('city');
 
@@ -73,7 +80,7 @@ exports.syncUser = async (req, res) => {
             return res.status(400).json({
                 message: 'All fields are required for new users',
                 missingFields,
-                required: ['name', 'email', 'phone', 'class', 'interest', 'state', 'city']
+                required: ['name', 'email', 'phone', 'class', 'selectedField', 'state', 'city']
             });
         }
 
@@ -85,11 +92,14 @@ exports.syncUser = async (req, res) => {
             phoneNumber: finalPhone, // Legacy support
             photoURL: photoURL || '',
             class: studentClass.trim(),
-            interest: interest.trim(),
+            interest: interest ? interest.trim() : (selectedField || ''), // Fallback
+            selectedField: selectedField ? selectedField.trim() : '', // New Strict Field
             state: state.trim(),
             city: city.trim(),
             authProvider: authProvider || 'google',
-            firebaseUid,
+            city: city.trim(),
+            authProvider: authProvider || 'google',
+            firebaseUid: targetUid,
             role: role || 'student',
             status: 'active',
             purchasedTests: [], // Initialize empty array
@@ -99,8 +109,8 @@ exports.syncUser = async (req, res) => {
         if (targetExam) newUser.targetExam = targetExam;
 
         await userRef.set(newUser);
-        console.log(`✅ New user created successfully: ${firebaseUid}`);
-        res.status(201).json({ _id: firebaseUid, ...newUser });
+        console.log(`✅ New user created successfully: ${targetUid}`);
+        res.status(201).json({ _id: targetUid, ...newUser });
 
     } catch (error) {
         console.error("🔥 Sync User Error:", error);

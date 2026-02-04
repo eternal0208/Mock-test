@@ -97,7 +97,19 @@ exports.getAllTests = async (req, res) => {
 
         snapshot.forEach(doc => {
             const data = doc.data();
-            // Filter: Only show if Visible OR if user is Admin
+
+            // 1. Enforce STRICT FIELD VISIBILITY
+            const userField = req.user.selectedField || req.user.interest;
+            // Support both 'category' and 'field' keys in test document
+            const testField = data.category || data.field;
+
+            // If user has a field, they MUST NOT see other fields
+            // Admin sees all
+            if (!isAdmin && userField) {
+                if (testField !== userField) return;
+            }
+
+            // 2. Filter: Only show if Visible
             if (data.isVisible === false && !isAdmin) return;
 
             tests.push({
@@ -136,6 +148,15 @@ exports.getTestById = async (req, res) => {
 
         // Security: Check Visibility
         const isAdmin = req.user && req.user.role === 'admin';
+
+        // 1. Strict Field Lock
+        const userField = req.user.selectedField || req.user.interest;
+        const testField = data.category || data.field;
+
+        if (!isAdmin && userField && testField !== userField) {
+            return res.status(403).json({ message: 'Access Denied: You cannot access content from a different field.' });
+        }
+
         if (data.isVisible === false && !isAdmin) {
             return res.status(403).json({ message: 'Test is not currently available.' });
         }
@@ -428,7 +449,23 @@ exports.getTestAnalytics = async (req, res) => {
 exports.getAllSeries = async (req, res) => {
     try {
         const snapshot = await db.collection('testSeries').where('isActive', '==', true).get();
-        const series = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Strict Field Filter
+        // Note: Middleware 'protect' attaches req.user
+        const userField = req.user ? (req.user.selectedField || req.user.interest) : null;
+        const isAdmin = req.user && req.user.role === 'admin';
+
+        const series = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const seriesField = data.category || data.field;
+
+            if (!isAdmin && userField) {
+                if (seriesField !== userField) return;
+            }
+            series.push({ id: doc.id, ...data });
+        });
+
         res.status(200).json(series);
     } catch (error) {
         console.error("Fetch Series Error:", error);

@@ -1,16 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const { createTest, addQuestions, getAllTests, getTestById, submitTest } = require('../controllers/testController');
+const { protect } = require('../middleware/authMiddleware');
 
 router.post('/', createTest);
 router.put('/:id/questions', addQuestions);
-router.get('/series', require('../controllers/testController').getAllSeries); // Move before /:id to prevent conflict
-router.get('/', getAllTests);
-router.get('/:id', getTestById);
-router.post('/:id/submit', submitTest);
+
+// Public/Protected split: Ideally these should be protected to know the user's field
+router.get('/series', protect, require('../controllers/testController').getAllSeries);
+router.get('/', protect, getAllTests);
+router.get('/:id', protect, getTestById);
+
+router.post('/:id/submit', protect, submitTest);
 router.delete('/:id', require('../controllers/testController').deleteTest);
-// Note: Move /series before /:id to not conflict (Done)
-router.get('/:id/analytics', require('../controllers/testController').getTestAnalytics);
-router.put('/:id/visibility', require('../controllers/testController').toggleVisibility); // New Route
+
+router.get('/:id/analytics', protect, require('../controllers/testController').getTestAnalytics);
+router.put('/:id/visibility', require('../controllers/testController').toggleVisibility);
 
 module.exports = router;

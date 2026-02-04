@@ -306,6 +306,8 @@ const CreateSeriesForm = ({ onSuccess }) => {
                         <option value="JEE Advanced">JEE Advanced</option>
                         <option value="NEET">NEET</option>
                         <option value="CAT">CAT</option>
+                        <option value="Board Exam">Board Exam</option>
+                        <option value="Others">Others</option>
                     </select>
                 </div>
                 <div>
@@ -891,7 +893,7 @@ export default function AdminDashboard() {
                         // but sticking to Active vs Expired first is cleaner. 
                         // Let's add Category Filters? Or just Group headers? Group headers is better.
 
-                        const categories = ['JEE Main', 'JEE Advanced', 'NEET', 'Board Exam'];
+                        const categories = ['JEE Main', 'JEE Advanced', 'NEET', 'CAT', 'Board Exam', 'Others'];
 
                         return (
                             <div>
@@ -969,7 +971,7 @@ export default function AdminDashboard() {
                             </div>
                         );
 
-                        const categories = ['JEE Main', 'JEE Advanced', 'NEET', 'CAT'];
+                        const categories = ['JEE Main', 'JEE Advanced', 'NEET', 'CAT', 'Board Exam', 'Others'];
 
                         return (
                             <div>
@@ -1172,7 +1174,7 @@ export default function AdminDashboard() {
                             <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-700">Test Details</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div><label className="block text-sm font-medium text-gray-700">Title</label><input type="text" name="title" value={testDetails.title} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2" /></div>
-                                <div><label className="block text-sm font-medium text-gray-700">Series</label><select name="category" value={testDetails.category} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white"><option value="JEE Main">JEE Main</option><option value="JEE Advanced">JEE Advanced</option><option value="NEET">NEET</option><option value="Board Exam">Board Exam</option></select></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Category</label><select name="category" value={testDetails.category} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white"><option value="JEE Main">JEE Main</option><option value="JEE Advanced">JEE Advanced</option><option value="NEET">NEET</option><option value="CAT">CAT</option><option value="Board Exam">Board Exam</option><option value="Others">Others</option></select></div>
                                 <div><label className="block text-sm font-medium text-gray-700">Subject</label><select name="subject" value={testDetails.subject} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white"><option value="Full Mock">Full Mock</option><option value="Physics">Physics</option><option value="Chemistry">Chemistry</option><option value="Maths">Maths</option></select></div>
                                 <div><label className="block text-sm font-medium text-gray-700">Duration (Min)</label><input type="number" name="duration" value={testDetails.duration} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2" /></div>
 

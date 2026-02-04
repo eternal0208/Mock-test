@@ -180,6 +180,8 @@ export default function LoginModal({ isOpen, onClose }) {
                     <div className="inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4 shadow-sm">
                         <ShieldCheck size={28} className="md:w-8 md:h-8" />
                     </div>
+                    {/* Branding */}
+                    <h3 className="text-lg font-semibold text-indigo-600 mb-1">Apex Mock Test</h3>
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
                         {step === 'PHONE' ? 'Welcome Back' : 'Verify OTP'}
                     </h2>
