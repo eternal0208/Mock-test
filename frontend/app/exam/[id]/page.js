@@ -24,8 +24,14 @@ export default function ExamPage() {
 
         const fetchTest = async () => {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/tests/${id}`);
-                if (!res.ok) throw new Error('Test not found');
+                const token = await user.getIdToken();
+                const res = await fetch(`${API_BASE_URL}/api/tests/${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.message || 'Test not found');
+                }
                 const data = await res.json();
                 setTest(data);
             } catch (err) {
@@ -84,9 +90,13 @@ export default function ExamPage() {
 
     const handleSubmitTest = async (resultData) => {
         try {
-            const res = await fetch(`http://localhost:5001/api/tests/${id}/submit`, {
+            const token = await user.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/tests/${id}/submit`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     userId: user._id || user.uid,
                     ...resultData
