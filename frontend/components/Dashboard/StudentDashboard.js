@@ -132,14 +132,10 @@ export default function StudentDashboard() {
         }
     };
 
-    // Helper to filter content STRICTLY by field
-    // Even if backend sends more, frontend MUST NOT show mismatched content
-    const relevantTests = tests.filter(t =>
-        t.category === user.selectedField || t.field === user.selectedField // Support both keys for now
-    );
-    const relevantSeries = series.filter(s =>
-        s.category === user.selectedField || s.field === user.selectedField
-    );
+    // Backend now strictly enforces filtering based on user.selectedField.
+    // We can trust the API response directly.
+    const relevantTests = tests;
+    const relevantSeries = series;
 
     const handleStartTest = (testId) => {
         window.location.href = `/exam/${testId}`;
