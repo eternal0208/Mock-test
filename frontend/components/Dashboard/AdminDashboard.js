@@ -413,9 +413,15 @@ export default function AdminDashboard() {
         try {
             const res = await fetch(`${API_BASE_URL}/api/tests`);
             const data = await res.json();
-            setTests(data);
+            if (Array.isArray(data)) {
+                setTests(data);
+            } else {
+                console.error("Invalid tests data:", data);
+                setTests([]);
+            }
         } catch (error) {
             console.error("Error fetching tests:", error);
+            setTests([]);
         }
     };
 
@@ -423,9 +429,15 @@ export default function AdminDashboard() {
         try {
             const res = await fetch(`${API_BASE_URL}/api/admin/students`);
             const data = await res.json();
-            setUsersList(data);
+            if (Array.isArray(data)) {
+                setUsersList(data);
+            } else {
+                console.error("Invalid students data:", data);
+                setUsersList([]);
+            }
         } catch (error) {
             console.error("Error fetching students:", error);
+            setUsersList([]);
         }
     };
 
@@ -433,9 +445,15 @@ export default function AdminDashboard() {
         try {
             const res = await fetch(`${API_BASE_URL}/api/admin/series`);
             const data = await res.json();
-            setSeriesList(data);
+            if (Array.isArray(data)) {
+                setSeriesList(data);
+            } else {
+                console.error("Invalid series data:", data);
+                setSeriesList([]);
+            }
         } catch (error) {
             console.error("Error fetching series:", error);
+            setSeriesList([]);
         }
     };
 
@@ -703,7 +721,7 @@ export default function AdminDashboard() {
 
     // Filter tests for Modal (Ensure logic works even if series not loaded yet, though normally is)
     // Tests already in series
-    const seriesTests = managingSeries ? tests.filter(t => managingSeries.testIds?.includes(t._id)) : [];
+    const seriesTests = managingSeries ? tests.filter(t => (managingSeries.testIds || []).includes(t._id)) : [];
     // Tests available to add
     const availableTests = managingSeries ? tests.filter(t => !managingSeries.testIds?.includes(t._id) && t.category === managingSeries.category) : [];
 
