@@ -46,6 +46,9 @@ export default function StudentDashboard() {
                 // Fetch Tests
                 const testsRes = await fetch(`${API_BASE_URL}/api/tests`, { headers });
                 const testsData = await testsRes.json();
+                console.log("📊 [Dashboard Debug] User:", user);
+                console.log("📊 [Dashboard Debug] Tests Received:", testsData);
+
                 if (Array.isArray(testsData)) {
                     setTests(testsData);
                 } else {

@@ -103,6 +103,8 @@ exports.getAllTests = async (req, res) => {
             // Support both 'category' and 'field' keys in test document
             const testField = data.category || data.field;
 
+            console.log(`🔍 [Test Filtering] User Field: '${userField}' | Test Field: '${testField}' | Match: ${testField === userField}`);
+
             // If user has a field, they MUST NOT see other fields
             // Admin sees all
             if (!isAdmin) {
