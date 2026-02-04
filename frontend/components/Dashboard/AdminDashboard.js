@@ -741,16 +741,16 @@ export default function AdminDashboard() {
                 </div>
             )}
 
-            <div className="flex items-center justify-between pb-4 border-b border-gray-200">
-                <h2 className="text-3xl font-bold text-gray-800">Admin Controls</h2>
-                <div className="flex space-x-2">
-                    <button onClick={() => setActiveTab('profile')} className={`px-4 py-2 rounded-md ${activeTab === 'profile' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Profile</button>
-                    <button onClick={() => setActiveTab('manage')} className={`px-4 py-2 rounded-md ${activeTab === 'manage' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Tests</button>
-                    <button onClick={() => setActiveTab('series')} className={`px-4 py-2 rounded-md ${activeTab === 'series' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Series</button>
-                    <button onClick={() => setActiveTab('users')} className={`px-4 py-2 rounded-md ${activeTab === 'users' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Students</button>
-                    <button onClick={() => setActiveTab('revenue')} className={`px-4 py-2 rounded-md ${activeTab === 'revenue' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Revenue</button>
-                    <button onClick={() => setActiveTab('create')} className={`px-4 py-2 rounded-md ${activeTab === 'create' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>+ Create Test</button>
-                    <button onClick={() => window.location.href = '/login'} className="px-4 py-2 rounded-md bg-red-100 text-red-700 hover:bg-red-200 font-bold flex items-center gap-1"><LogOut size={16} /> Logout</button>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-gray-200 gap-4">
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Admin Controls</h2>
+                <div className="flex overflow-x-auto space-x-1 sm:space-x-2 pb-2 sm:pb-0">
+                    <button onClick={() => setActiveTab('profile')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'profile' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Profile</button>
+                    <button onClick={() => setActiveTab('manage')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'manage' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Tests</button>
+                    <button onClick={() => setActiveTab('series')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'series' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Series</button>
+                    <button onClick={() => setActiveTab('users')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'users' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Students</button>
+                    <button onClick={() => setActiveTab('revenue')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'revenue' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Revenue</button>
+                    <button onClick={() => setActiveTab('create')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'create' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>+ Create</button>
+                    <button onClick={() => window.location.href = '/login'} className="px-3 py-2 sm:px-4 rounded-md bg-red-100 text-red-700 hover:bg-red-200 font-bold flex items-center gap-1 text-sm whitespace-nowrap"><LogOut size={16} /> Logout</button>
                 </div>
             </div>
 

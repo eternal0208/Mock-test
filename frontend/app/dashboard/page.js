@@ -26,14 +26,14 @@ export default function Dashboard() {
                         <div className="flex items-center">
                             <span className="text-xl font-bold text-gray-900 cursor-pointer" onClick={() => router.push('/')}>Apex Mock</span>
                         </div>
-                        <div className="flex items-center">
-                            <span className="text-gray-700 mr-4">Welcome, {user.name}</span>
-                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 uppercase mr-4">
+                        <div className="flex items-center gap-2 sm:gap-4">
+                            <span className="hidden sm:inline text-gray-700 text-sm sm:text-base">Welcome, {user.name}</span>
+                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 uppercase">
                                 {user.role}
                             </span>
                             <button
                                 onClick={logout}
-                                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm transition-colors"
+                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 sm:px-4 rounded text-xs sm:text-sm transition-colors"
                             >
                                 Logout
                             </button>
@@ -42,7 +42,7 @@ export default function Dashboard() {
                 </div>
             </nav>
 
-            <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 text-black">
+            <main className="max-w-7xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:px-8 text-black">
                 {user.role === 'admin' ? <AdminDashboard /> : <StudentDashboard />}
             </main>
         </div>
