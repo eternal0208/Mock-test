@@ -4,10 +4,11 @@ import { useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { API_BASE_URL } from '@/lib/config';
-import { User, BookOpen, Heart, Phone, Loader2, CheckCircle } from 'lucide-react';
+import { User, BookOpen, Heart, Phone, Loader2, CheckCircle, Mail } from 'lucide-react';
 
 export default function SignupDetailsPage() {
     const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
     const [studentClass, setStudentClass] = useState('');
     const [interest, setInterest] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
@@ -70,8 +71,16 @@ export default function SignupDetailsPage() {
         }
 
         // Validate all fields
-        if (!name.trim() || !studentClass.trim() || !interest.trim()) {
+        if (!name.trim() || !email.trim() || !studentClass.trim() || !interest.trim()) {
             setError('Please fill in all fields');
+            setLoading(false);
+            return;
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setError('Please enter a valid email address');
             setLoading(false);
             return;
         }
@@ -82,6 +91,7 @@ export default function SignupDetailsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: name.trim(),
+                    email: email.trim().toLowerCase(),
                     class: studentClass.trim(),
                     interest: interest.trim(),
                     phoneNumber: user.phoneNumber,
@@ -160,6 +170,22 @@ export default function SignupDetailsPage() {
                                 onChange={(e) => setName(e.target.value)}
                                 className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none font-medium text-gray-800"
                                 placeholder="John Doe"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Email Address *</label>
+                        <div className="relative">
+                            <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none font-medium text-gray-800"
+                                placeholder="john@example.com"
                                 required
                             />
                         </div>

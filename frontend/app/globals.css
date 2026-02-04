@@ -19,3 +19,32 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ✅ SMOOTH SCROLL */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ✅ TOUCH ACTION FOR MOBILE SCROLL */
+.touch-pan-y {
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ✅ SCROLLBAR STYLES */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
