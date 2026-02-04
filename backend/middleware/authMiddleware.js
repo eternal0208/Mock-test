@@ -23,6 +23,7 @@ exports.protect = async (req, res, next) => {
         let userData = {};
         if (userDoc.exists) {
             userData = userDoc.data();
+            // console.log(`🔍 [Auth Debug] DB User Data for ${uid}:`, JSON.stringify(userData));
         } else {
             // Optional: Log that a user without a profile is accessing
             console.log(`ℹ️ Access by user without profile: ${uid}`);
@@ -34,7 +35,9 @@ exports.protect = async (req, res, next) => {
             _id: uid, // Alias for consistency
             email: decodedToken.email,
             role: userData.role || 'student',
-            selectedField: userData.selectedField || userData.interest || null,
+            // Normalize Field/Category to 'selectedField' for Controller Logic
+            selectedField: userData.selectedField || userData.interest || userData.targetExam || null,
+            targetExam: userData.targetExam || userData.selectedField || null, // Keeping both for safety
             ...userData
         };
 
