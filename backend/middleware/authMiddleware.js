@@ -20,11 +20,13 @@ exports.protect = async (req, res, next) => {
         // 2. Fetch User from Firestore to get Role & Selected Field
         const userDoc = await db.collection('users').doc(uid).get();
 
-        if (!userDoc.exists) {
-            return res.status(401).json({ message: 'User not found in database. Please complete signup.' });
+        let userData = {};
+        if (userDoc.exists) {
+            userData = userDoc.data();
+        } else {
+            // Optional: Log that a user without a profile is accessing
+            console.log(`ℹ️ Access by user without profile: ${uid}`);
         }
-
-        const userData = userDoc.data();
 
         // 3. Attach User to Request
         req.user = {
@@ -32,7 +34,7 @@ exports.protect = async (req, res, next) => {
             _id: uid, // Alias for consistency
             email: decodedToken.email,
             role: userData.role || 'student',
-            selectedField: userData.selectedField || userData.interest || null, // Map legacy interest if new field missing
+            selectedField: userData.selectedField || userData.interest || null,
             ...userData
         };
 

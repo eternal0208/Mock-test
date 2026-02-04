@@ -14,7 +14,7 @@ export default function Dashboard() {
             router.push('/');
         }
         // If user is authenticated but hasn't completed signup (missing required fields)
-        if (!loading && user && (!user.name || !user.email || !user.class || !user.interest || !user.state || !user.city)) {
+        if (!loading && user && (!user.name || !user.email || !user.class || !user.selectedField || !user.state || !user.city)) {
             console.log('User profile incomplete, redirecting to signup-details');
             router.push('/signup-details');
         }
@@ -29,7 +29,7 @@ export default function Dashboard() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16">
                         <div className="flex items-center">
-                            <span className="text-xl font-bold text-gray-900 cursor-pointer" onClick={() => router.push('/')}>Apex Mock</span>
+                            <span className="text-xl font-bold text-gray-900 cursor-pointer" onClick={() => router.push('/')}>Apex Mock Test</span>
                         </div>
                         <div className="flex items-center gap-2 sm:gap-4">
                             <span className="hidden sm:inline text-gray-700 text-sm sm:text-base">Welcome, {user.name}</span>

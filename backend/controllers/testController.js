@@ -105,7 +105,8 @@ exports.getAllTests = async (req, res) => {
 
             // If user has a field, they MUST NOT see other fields
             // Admin sees all
-            if (!isAdmin && userField) {
+            if (!isAdmin) {
+                if (!userField) return; // Block if user has no field selected
                 if (testField !== userField) return;
             }
 
@@ -460,7 +461,8 @@ exports.getAllSeries = async (req, res) => {
             const data = doc.data();
             const seriesField = data.category || data.field;
 
-            if (!isAdmin && userField) {
+            if (!isAdmin) {
+                if (!userField) return;
                 if (seriesField !== userField) return;
             }
             series.push({ id: doc.id, ...data });
