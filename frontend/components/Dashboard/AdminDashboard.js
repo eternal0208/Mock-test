@@ -411,7 +411,10 @@ export default function AdminDashboard() {
 
     const fetchTests = async () => {
         try {
-            const res = await fetch(`${API_BASE_URL}/api/tests`);
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/tests`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             const data = await res.json();
             if (Array.isArray(data)) {
                 setTests(data);
@@ -426,7 +429,10 @@ export default function AdminDashboard() {
 
     const fetchStudents = async () => {
         try {
-            const res = await fetch(`${API_BASE_URL}/api/admin/students`);
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/admin/students`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             const data = await res.json();
             if (Array.isArray(data)) {
                 setUsersList(data);
@@ -442,7 +448,10 @@ export default function AdminDashboard() {
 
     const fetchSeries = async () => {
         try {
-            const res = await fetch(`${API_BASE_URL}/api/admin/series`);
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/admin/series`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             const data = await res.json();
             if (Array.isArray(data)) {
                 setSeriesList(data);
@@ -469,7 +478,11 @@ export default function AdminDashboard() {
     const handleDeleteTest = async (testId) => {
         if (!confirm('Are you sure you want to delete this test? This cannot be undone.')) return;
         try {
-            const res = await fetch(`${API_BASE_URL}/api/admin/tests/${testId}`, { method: 'DELETE' });
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/admin/tests/${testId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             if (res.ok) {
                 setTests(prev => prev.filter(t => t._id !== testId));
                 alert("Test deleted successfully");
@@ -487,9 +500,13 @@ export default function AdminDashboard() {
     const handleUpdateRole = async (userId, newRole) => {
         if (!confirm(`Are you sure you want to promote/demote this user to ${newRole}?`)) return;
         try {
+            const token = await user?.getIdToken();
             const res = await fetch(`${API_BASE_URL}/api/admin/students/${userId}/role`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ role: newRole })
             });
             if (res.ok) {
@@ -689,9 +706,13 @@ export default function AdminDashboard() {
                 questions
             };
 
+            const token = await user?.getIdToken();
             const res = await fetch(`${API_BASE_URL}/api/tests`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify(payload)
             });
 

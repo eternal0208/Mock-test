@@ -25,7 +25,7 @@ export default function StudentDashboard() {
             if (!user) return;
 
             try {
-                // Fetch Tests (Backend will filter by user.selectedField via middleware/token logic or we pass param)
+                // Fetch Tests (Backend will filter by user.category via middleware/token logic or we pass param)
                 // Since we haven't fully implemented backend middleware filtering yet, keeping client safe?
                 // The PLAN says Backend filtering. 
                 // But for now, let's assume the endpoint returns EVERYTHING and we filter here strictly until backend is ready?
@@ -34,7 +34,7 @@ export default function StudentDashboard() {
                 // So I will implement this assuming backend WILL return filtered data, 
                 // BUT just in case, I will also add a safety check here to NOT render anything if it mismatches.
                 // Wait, if backend sends everything, and I hide it, it's still "Not allowed" technically?
-                // I'll add a param `?field=${user.selectedField}` for now so existing backend might use it if I update it? 
+                // I'll add a param `?field=${user.category}` for now so existing backend might use it if I update it? 
                 // Or wait for the backend update.
 
                 // For this step (Frontend), I will remove the UI filters.
@@ -132,7 +132,7 @@ export default function StudentDashboard() {
         }
     };
 
-    // Backend now strictly enforces filtering based on user.selectedField.
+    // Backend now strictly enforces filtering based on user.category.
     // We can trust the API response directly.
     const relevantTests = tests;
     const relevantSeries = series;
@@ -151,7 +151,7 @@ export default function StudentDashboard() {
                         <h1 className="text-3xl font-bold mb-2">Welcome back, {user.name ? user.name.split(' ')[0] : 'Student'}</h1>
                         <div className="flex items-center gap-2 text-indigo-200">
                             <ShieldCheck size={18} />
-                            <span className="uppercase tracking-wide font-semibold text-sm">Target: {user.selectedField}</span>
+                            <span className="uppercase tracking-wide font-semibold text-sm">Target: {user.category}</span>
                         </div>
                     </div>
                 </div>
@@ -194,7 +194,7 @@ export default function StudentDashboard() {
                 <div>
                     <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                         <span className="text-gray-800">Recommended Series</span>
-                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full font-bold uppercase">{user.selectedField}</span>
+                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full font-bold uppercase">{user.category}</span>
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {relevantSeries.map(s => (
@@ -262,7 +262,7 @@ export default function StudentDashboard() {
 
                 {relevantTests.length === 0 && (
                     <div className="py-12 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                        <p className="text-gray-500 font-medium">No tests available for {user.selectedField} yet.</p>
+                        <p className="text-gray-500 font-medium">No tests available for {user.category} yet.</p>
                         <p className="text-xs text-gray-400 mt-1">Check back later or contact admin.</p>
                     </div>
                 )}
