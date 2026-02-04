@@ -11,7 +11,7 @@ export default function SignupDetailsPage() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [studentClass, setStudentClass] = useState('');
-    const [selectedField, setSelectedField] = useState(''); // REPLACED: interest -> selectedField
+    const [category, setCategory] = useState(''); // Unified Field
     const [phoneNumber, setPhoneNumber] = useState('');
     const [state, setState] = useState('');
     const [city, setCity] = useState('');
@@ -122,7 +122,7 @@ export default function SignupDetailsPage() {
         }
 
         // Validate all required fields
-        if (!name.trim() || !email.trim() || !phoneNumber.trim() || !studentClass.trim() || !selectedField.trim() || !state || !city) {
+        if (!name.trim() || !email.trim() || !phoneNumber.trim() || !studentClass.trim() || !category.trim() || !state || !city) {
             setError('Please fill in all required fields');
             setLoading(false);
             return;
@@ -169,7 +169,7 @@ export default function SignupDetailsPage() {
                     email: email.trim().toLowerCase(),
                     phone: phoneNumber.trim(),
                     class: studentClass.trim(),
-                    selectedField: selectedField.trim(), // REPLACED: interest -> selectedField
+                    category: category.trim(),
                     state: state,
                     city: city,
                     photoURL: finalPhotoURL,
@@ -368,8 +368,8 @@ export default function SignupDetailsPage() {
                         <div className="relative">
                             <Heart className="absolute left-3 top-3 text-gray-400" size={18} />
                             <select
-                                value={selectedField}
-                                onChange={(e) => setSelectedField(e.target.value)}
+                                value={category}
+                                onChange={(e) => setCategory(e.target.value)}
                                 className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none font-medium text-gray-800 appearance-none cursor-pointer"
                                 required
                             >

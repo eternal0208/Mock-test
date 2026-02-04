@@ -100,25 +100,19 @@ exports.getAllTests = async (req, res) => {
 
             // 1. Enforce STRICT FIELD VISIBILITY
             const userField = req.user.selectedField || req.user.interest;
-            // Support both 'category' and 'field' keys in test document
-            const testField = data.category || data.field;
+            // 1. Filter: User Field must match Test Category
+            const userCategory = req.user.category;
+            const testCategory = data.category;
 
-            console.log(`🔍 [Test Filtering] User Field: '${userField}' | Test Field: '${testField}' | Match: ${testField === userField}`);
-
-            // If user has a field, they MUST NOT see other fields
             // Admin sees all
-            if (!isAdmin) {
-                if (!userField || (testField !== userField)) {
-                    console.log(`⛔ [Hidden] field mismatch or undefined user field. User: '${userField}', Test: '${testField}'`);
-                    return; // Skip this test
+            if (req.user.role !== 'admin') {
+                if (!userCategory || userCategory !== testCategory) {
+                    return; // Skip if no category or mismatch
                 }
-            } else {
-                console.log(`✅ [Admin Access] Showing test: ${data.title}`);
             }
 
-            console.log(`✅ [Visible] Match found for ${data.title}`);
             // 2. Filter: Only show if Visible
-            if (data.isVisible === false && !isAdmin) return;
+            if (data.isVisible === false && req.user.role !== 'admin') return;
 
             tests.push({
                 _id: doc.id,

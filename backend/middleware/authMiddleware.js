@@ -35,9 +35,7 @@ exports.protect = async (req, res, next) => {
             _id: uid, // Alias for consistency
             email: decodedToken.email,
             role: userData.role || 'student',
-            // Normalize Field/Category to 'selectedField' for Controller Logic
-            selectedField: userData.selectedField || userData.interest || userData.targetExam || null,
-            targetExam: userData.targetExam || userData.selectedField || null, // Keeping both for safety
+            category: userData.category || userData.targetExam || userData.selectedField || null, // Unified
             ...userData
         };
 

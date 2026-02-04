@@ -3,22 +3,19 @@ const { db, auth } = require('../config/firebaseAdmin');
 // @desc    Sync User (Create or Update)
 // @route   POST /api/auth/sync
 exports.syncUser = async (req, res) => {
-    console.log("👉 Sync Request Body:", req.body);
     // Security: Use UID from Token (req.user) if available (via protect middleware)
     const uidFromToken = req.user ? req.user.uid : null;
-    const { name, email, firebaseUid, role, phoneNumber, phone, class: studentClass, interest, selectedField, targetExam, state, city, authProvider, photoURL } = req.body;
+    const { name, email, firebaseUid, role, phoneNumber, phone, class: studentClass, category, state, city, authProvider, photoURL } = req.body;
 
     // Use token UID as source of truth, fall back to body only if middleware missing (shouldn't happen now)
     const targetUid = uidFromToken || firebaseUid;
 
     if (!targetUid) {
-        console.error("❌ Missing firebaseUid (and no token UID)");
         return res.status(400).json({ message: 'Firebase UID is required' });
     }
 
     if (!db) {
-        console.error("❌ Firestore DB is NOT initialized. Check Vercel Env Vars.");
-        return res.status(503).json({ message: 'Database Connection Failed (Service Account Missing)' });
+        return res.status(503).json({ message: 'Database Connection Failed' });
     }
 
     try {
@@ -26,61 +23,48 @@ exports.syncUser = async (req, res) => {
         const doc = await userRef.get();
 
         if (doc.exists) {
-            // EXISTING USER - Update with partial data
+            // EXISTING USER - Update
             const userData = doc.data();
 
-            // Check if user is BLOCKED
             if (userData.status === 'blocked') {
-                console.warn(`⛔ Blocked user attempted login: ${firebaseUid}`);
-                return res.status(403).json({
-                    message: 'Your account has been blocked by the administrator. Please contact support.',
-                    error: 'ACCOUNT_BLOCKED'
-                });
+                return res.status(403).json({ message: 'Account blocked' });
             }
 
             console.log(`✅ User exists: ${targetUid}. Updating...`);
-            const finalPhone = phone || phoneNumber || userData.phoneNumber || userData.phone || null;
+            const finalPhone = phone || phoneNumber || userData.phoneNumber;
+
             await userRef.update({
                 name: name || userData.name,
-                email: email || userData.email || '',
+                email: email || userData.email,
                 phone: finalPhone,
-                phoneNumber: finalPhone, // Legacy support
+                phoneNumber: finalPhone,
                 photoURL: photoURL || userData.photoURL || '',
                 class: studentClass || userData.class || '',
-                interest: interest || userData.interest || '',
-                selectedField: selectedField || userData.selectedField || '', // Added selectedField
+                category: category || userData.category || '', // Unified Field
                 state: state || userData.state || '',
                 city: city || userData.city || '',
                 authProvider: authProvider || userData.authProvider || 'phone',
-                targetExam: targetExam || userData.targetExam || '', // Legacy support
                 updatedAt: new Date().toISOString()
             });
+
             const updatedDoc = await userRef.get();
             return res.status(200).json({ _id: updatedDoc.id, ...updatedDoc.data() });
         }
 
-        // NEW USER - Require ALL fields
+        // NEW USER
         console.log(`🆕 Creating new user: ${targetUid}`);
 
-        // Strict validation for new users
+        // Strict validation
         const missingFields = [];
-        const requestPhone = phone || phoneNumber;
-
-        if (!name || name.trim() === '') missingFields.push('name');
-        if (!email || email.trim() === '') missingFields.push('email');
-        if (!requestPhone || requestPhone.trim() === '') missingFields.push('phone');
-        if (!studentClass || studentClass.trim() === '') missingFields.push('class');
-        // REPLACED: interest -> selectedField (Strict enforcement)
-        if (!selectedField || selectedField.trim() === '') missingFields.push('selectedField');
-        if (!state || state.trim() === '') missingFields.push('state');
-        if (!city || city.trim() === '') missingFields.push('city');
+        if (!name) missingFields.push('name');
+        if (!email) missingFields.push('email');
+        if (!phone && !phoneNumber) missingFields.push('phone');
+        if (!category) missingFields.push('category'); // Strict check for category
 
         if (missingFields.length > 0) {
-            console.error(`❌ Missing required fields for new user: ${missingFields.join(', ')}`);
             return res.status(400).json({
-                message: 'All fields are required for new users',
-                missingFields,
-                required: ['name', 'email', 'phone', 'class', 'selectedField', 'state', 'city']
+                message: 'Missing required fields',
+                missingFields
             });
         }
 
@@ -89,27 +73,21 @@ exports.syncUser = async (req, res) => {
             name: name.trim(),
             email: email.trim(),
             phone: finalPhone,
-            phoneNumber: finalPhone, // Legacy support
+            phoneNumber: finalPhone,
             photoURL: photoURL || '',
-            class: studentClass.trim(),
-            interest: interest ? interest.trim() : (selectedField || ''), // Fallback
-            selectedField: selectedField ? selectedField.trim() : '', // New Strict Field
-            state: state.trim(),
-            city: city.trim(),
-            authProvider: authProvider || 'google',
-            city: city.trim(),
+            class: studentClass ? studentClass.trim() : '',
+            category: category.trim(), // Unified
+            state: state ? state.trim() : '',
+            city: city ? city.trim() : '',
             authProvider: authProvider || 'google',
             firebaseUid: targetUid,
             role: role || 'student',
             status: 'active',
-            purchasedTests: [], // Initialize empty array
+            purchasedTests: [],
             createdAt: new Date().toISOString()
         };
 
-        if (targetExam) newUser.targetExam = targetExam;
-
         await userRef.set(newUser);
-        console.log(`✅ New user created successfully: ${targetUid}`);
         res.status(201).json({ _id: targetUid, ...newUser });
 
     } catch (error) {

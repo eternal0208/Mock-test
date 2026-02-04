@@ -413,11 +413,9 @@ export default function AdminDashboard() {
         try {
             const res = await fetch(`${API_BASE_URL}/api/tests`);
             const data = await res.json();
-            console.log("📊 [Admin Debug] Tests Fetch:", data);
             if (Array.isArray(data)) {
                 setTests(data);
             } else {
-                console.error("Invalid tests data:", data);
                 setTests([]);
             }
         } catch (error) {
