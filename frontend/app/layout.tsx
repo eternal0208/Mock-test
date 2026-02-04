@@ -7,6 +7,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata = {
   title: "Apex Mock: Don't Just Compete. Dominate.",
   description: "Advanced JEE/NEET Mock Test Platform",
+  verification: {
+    google: "google6d6707d667afda63",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
