@@ -26,7 +26,9 @@ function ExamCard({ title, description, icon: Icon, color, href }: { title: stri
         y: isTouchDevice ? 0 : y,
         rotateX: isTouchDevice ? 0 : rotateX,
         rotateY: isTouchDevice ? 0 : rotateY,
-        z: 100
+        z: 100,
+        touchAction: 'pan-y',
+        WebkitOverflowScrolling: 'touch'
       }}
       drag={!isTouchDevice} // Disable drag on touch devices
       dragElastic={0.16}
@@ -37,7 +39,6 @@ function ExamCard({ title, description, icon: Icon, color, href }: { title: stri
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
       className={`relative w-full h-96 rounded-2xl bg-gradient-to-br ${color} p-6 text-white shadow-xl transform-style-3d overflow-hidden group`}
-      style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
     >
       <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300" />
       <div className="relative z-10 flex flex-col h-full justify-between transform-style-3d translate-z-20">
@@ -371,8 +372,8 @@ export default function LandingPage() {
                           <button
                             onClick={() => handleEnrollment(series)}
                             className={`px-6 py-2 font-bold rounded-lg transition shadow-lg ${series.price === 0 || series.isPaid === false
-                                ? 'bg-green-600 text-white hover:bg-green-700 shadow-green-200'
-                                : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200'
+                              ? 'bg-green-600 text-white hover:bg-green-700 shadow-green-200'
+                              : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200'
                               }`}
                           >
                             {series.price === 0 || series.isPaid === false ? 'Enroll Now' : `Buy for ₹${series.price}`}
