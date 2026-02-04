@@ -387,11 +387,13 @@ export default function AdminDashboard() {
 
     // Initial Data Fetching
     useEffect(() => {
-        if (activeTab === 'manage') fetchTests();
-        if (activeTab === 'users') fetchStudents();
-        if (activeTab === 'series') fetchSeries();
-        if (activeTab === 'revenue') fetchRevenue();
-    }, [activeTab]);
+        if (user) {
+            if (activeTab === 'manage') fetchTests();
+            if (activeTab === 'users') fetchStudents();
+            if (activeTab === 'series') fetchSeries();
+            if (activeTab === 'revenue') fetchRevenue();
+        }
+    }, [activeTab, user]);
 
     // Fetch Syllabus on mount (mocked for now, implies backend endpoint needed)
     useEffect(() => {

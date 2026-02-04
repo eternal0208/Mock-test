@@ -97,11 +97,25 @@ exports.getAllTests = async (req, res) => {
 
         const tests = [];
         const isAdmin = req.user && req.user.role === 'admin';
+        let userCategory = req.user?.category;
+
+        // Fallback: Fetch user category from DB if not in token and not admin
+        if (!isAdmin && !userCategory && req.user?.uid) {
+            try {
+                const userDoc = await db.collection('users').doc(req.user.uid).get();
+                if (userDoc.exists) {
+                    const uData = userDoc.data();
+                    userCategory = uData.category || uData.selectedField || uData.targetExam || uData.interest;
+                }
+            } catch (e) {
+                console.error("Error fetching user category fallback:", e);
+            }
+        }
 
         console.log("🔍 [DEBUG] Requester:", {
             uid: req.user?.uid,
             role: req.user?.role,
-            category: req.user?.category
+            category: userCategory
         });
 
         snapshot.forEach(doc => {
@@ -129,7 +143,6 @@ exports.getAllTests = async (req, res) => {
             }
 
             // STUDENT: Apply strict filters
-            const userCategory = req.user?.category;
             const testCategory = data.category;
 
             // Debug check for specific tests if needed
@@ -200,7 +213,17 @@ exports.getTestById = async (req, res) => {
         }
 
         // STUDENT: Check category and visibility
-        const userCategory = req.user?.category;
+        let userCategory = req.user?.category;
+        if (!userCategory && req.user?.uid) {
+            try {
+                const userDoc = await db.collection('users').doc(req.user.uid).get();
+                if (userDoc.exists) {
+                    const uData = userDoc.data();
+                    userCategory = uData.category || uData.selectedField || uData.targetExam;
+                }
+            } catch (e) { }
+        }
+
         const testCategory = data.category;
 
         // Filter 1: Category must match
