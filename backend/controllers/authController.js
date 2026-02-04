@@ -22,20 +22,31 @@ exports.syncUser = async (req, res) => {
 
         if (doc.exists) {
             // EXISTING USER - Update with partial data
+            const userData = doc.data();
+
+            // Check if user is BLOCKED
+            if (userData.status === 'blocked') {
+                console.warn(`⛔ Blocked user attempted login: ${firebaseUid}`);
+                return res.status(403).json({
+                    message: 'Your account has been blocked by the administrator. Please contact support.',
+                    error: 'ACCOUNT_BLOCKED'
+                });
+            }
+
             console.log(`✅ User exists: ${firebaseUid}. Updating...`);
-            const finalPhone = phone || phoneNumber || doc.data().phoneNumber || doc.data().phone || null;
+            const finalPhone = phone || phoneNumber || userData.phoneNumber || userData.phone || null;
             await userRef.update({
-                name: name || doc.data().name,
-                email: email || doc.data().email || '',
+                name: name || userData.name,
+                email: email || userData.email || '',
                 phone: finalPhone,
                 phoneNumber: finalPhone, // Legacy support
-                photoURL: photoURL || doc.data().photoURL || '',
-                class: studentClass || doc.data().class || '',
-                interest: interest || doc.data().interest || '',
-                state: state || doc.data().state || '',
-                city: city || doc.data().city || '',
-                authProvider: authProvider || doc.data().authProvider || 'phone',
-                targetExam: targetExam || doc.data().targetExam || '', // Legacy support
+                photoURL: photoURL || userData.photoURL || '',
+                class: studentClass || userData.class || '',
+                interest: interest || userData.interest || '',
+                state: state || userData.state || '',
+                city: city || userData.city || '',
+                authProvider: authProvider || userData.authProvider || 'phone',
+                targetExam: targetExam || userData.targetExam || '', // Legacy support
                 updatedAt: new Date().toISOString()
             });
             const updatedDoc = await userRef.get();

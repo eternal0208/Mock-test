@@ -107,6 +107,27 @@ router.put('/students/:id/role', async (req, res) => {
     }
 });
 
+// PUT /api/admin/students/:id/status - Toggle User Status (Block/Unblock)
+router.put('/students/:id/status', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body; // 'active' or 'blocked'
+
+        if (!['active', 'blocked'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid status. Use active or blocked.' });
+        }
+
+        await db.collection('users').doc(id).update({
+            status,
+            updatedAt: new Date().toISOString()
+        });
+
+        res.json({ success: true, message: `User status updated to ${status}` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // GET /api/admin/student/:id/performance - Specific Student Performance
 router.get('/student/:id/performance', async (req, res) => {
     try {
