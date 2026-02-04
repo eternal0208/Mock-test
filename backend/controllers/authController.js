@@ -4,7 +4,7 @@ const { db, auth } = require('../config/firebaseAdmin');
 // @route   POST /api/auth/sync
 exports.syncUser = async (req, res) => {
     console.log("👉 Sync Request Body:", req.body);
-    const { name, email, firebaseUid, role, phoneNumber, class: studentClass, interest, targetExam } = req.body;
+    const { name, email, firebaseUid, role, phoneNumber, phone, class: studentClass, interest, targetExam, state, city, authProvider } = req.body;
 
     if (!firebaseUid) {
         console.error("❌ Missing firebaseUid");
@@ -23,12 +23,17 @@ exports.syncUser = async (req, res) => {
         if (doc.exists) {
             // EXISTING USER - Update with partial data
             console.log(`✅ User exists: ${firebaseUid}. Updating...`);
+            const finalPhone = phone || phoneNumber || doc.data().phoneNumber || doc.data().phone || null;
             await userRef.update({
                 name: name || doc.data().name,
                 email: email || doc.data().email || '',
-                phoneNumber: phoneNumber || doc.data().phoneNumber || '',
+                phone: finalPhone,
+                phoneNumber: finalPhone, // Legacy support
                 class: studentClass || doc.data().class || '',
                 interest: interest || doc.data().interest || '',
+                state: state || doc.data().state || '',
+                city: city || doc.data().city || '',
+                authProvider: authProvider || doc.data().authProvider || 'phone',
                 targetExam: targetExam || doc.data().targetExam || '', // Legacy support
                 updatedAt: new Date().toISOString()
             });
@@ -42,25 +47,32 @@ exports.syncUser = async (req, res) => {
         // Strict validation for new users
         const missingFields = [];
         if (!name || name.trim() === '') missingFields.push('name');
-        if (!phoneNumber) missingFields.push('phoneNumber');
+        if (!email || email.trim() === '') missingFields.push('email');
         if (!studentClass || studentClass.trim() === '') missingFields.push('class');
         if (!interest || interest.trim() === '') missingFields.push('interest');
+        if (!state || state.trim() === '') missingFields.push('state');
+        if (!city || city.trim() === '') missingFields.push('city');
 
         if (missingFields.length > 0) {
             console.error(`❌ Missing required fields for new user: ${missingFields.join(', ')}`);
             return res.status(400).json({
                 message: 'All fields are required for new users',
                 missingFields,
-                required: ['name', 'phoneNumber', 'class', 'interest']
+                required: ['name', 'email', 'class', 'interest', 'state', 'city']
             });
         }
 
+        const finalPhone = phone || phoneNumber || null;
         const newUser = {
             name: name.trim(),
-            email: email || '',
-            phoneNumber,
+            email: email.trim(),
+            phone: finalPhone,
+            phoneNumber: finalPhone, // Legacy support
             class: studentClass.trim(),
             interest: interest.trim(),
+            state: state.trim(),
+            city: city.trim(),
+            authProvider: authProvider || 'google',
             firebaseUid,
             role: role || 'student',
             status: 'active',

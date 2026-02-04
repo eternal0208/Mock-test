@@ -13,6 +13,11 @@ export default function Dashboard() {
         if (!loading && !user) {
             router.push('/');
         }
+        // If user is authenticated but hasn't completed signup (missing required fields)
+        if (!loading && user && (!user.name || !user.email || !user.class || !user.interest || !user.state || !user.city)) {
+            console.log('User profile incomplete, redirecting to signup-details');
+            router.push('/signup-details');
+        }
     }, [user, loading, router]);
 
     if (loading) return <div className="p-8 text-center text-black">Loading...</div>;

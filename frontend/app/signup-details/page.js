@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { API_BASE_URL } from '@/lib/config';
-import { User, BookOpen, Heart, Phone, Loader2, CheckCircle, Mail } from 'lucide-react';
+import { User, BookOpen, Heart, Phone, Loader2, CheckCircle, Mail, MapPin } from 'lucide-react';
 
 export default function SignupDetailsPage() {
     const [name, setName] = useState('');
@@ -12,6 +12,8 @@ export default function SignupDetailsPage() {
     const [studentClass, setStudentClass] = useState('');
     const [interest, setInterest] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
+    const [state, setState] = useState('');
+    const [city, setCity] = useState('');
     const [loading, setLoading] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
     const [error, setError] = useState('');
@@ -28,8 +30,13 @@ export default function SignupDetailsPage() {
                 return;
             }
 
-            // Set phone number from Firebase Auth
-            setPhoneNumber(user.phoneNumber || '');
+            // Pre-fill email and name from Google account
+            if (user.email) {
+                setEmail(user.email);
+            }
+            if (user.displayName) {
+                setName(user.displayName);
+            }
 
             // Guard 2: Check if user already has a profile
             try {
@@ -70,9 +77,9 @@ export default function SignupDetailsPage() {
             return;
         }
 
-        // Validate all fields
-        if (!name.trim() || !email.trim() || !studentClass.trim() || !interest.trim()) {
-            setError('Please fill in all fields');
+        // Validate all required fields
+        if (!name.trim() || !email.trim() || !studentClass.trim() || !interest.trim() || !state || !city) {
+            setError('Please fill in all required fields');
             setLoading(false);
             return;
         }
@@ -94,8 +101,11 @@ export default function SignupDetailsPage() {
                     email: email.trim().toLowerCase(),
                     class: studentClass.trim(),
                     interest: interest.trim(),
-                    phoneNumber: user.phoneNumber,
+                    phone: phoneNumber.trim() || null,
+                    state: state,
+                    city: city,
                     firebaseUid: user.uid,
+                    authProvider: 'google',
                     role: 'student'
                 })
             });
@@ -143,22 +153,6 @@ export default function SignupDetailsPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-5">
-                    {/* Phone Number (Read-only) */}
-                    <div>
-                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Phone Number</label>
-                        <div className="relative">
-                            <Phone className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <input
-                                type="tel"
-                                value={phoneNumber}
-                                className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 text-gray-700 font-medium cursor-not-allowed"
-                                disabled
-                                readOnly
-                            />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1 px-1">This is your verified phone number</p>
-                    </div>
-
                     {/* Full Name */}
                     <div>
                         <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Full Name *</label>
@@ -196,14 +190,22 @@ export default function SignupDetailsPage() {
                         <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Class / Grade *</label>
                         <div className="relative">
                             <BookOpen className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <input
-                                type="text"
+                            <select
                                 value={studentClass}
                                 onChange={(e) => setStudentClass(e.target.value)}
-                                className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none font-medium text-gray-800"
-                                placeholder="e.g. 11th, 12th, Dropper"
+                                className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none font-medium text-gray-800 appearance-none cursor-pointer"
                                 required
-                            />
+                            >
+                                <option value="">Select Class</option>
+                                <option value="8th">8th</option>
+                                <option value="9th">9th</option>
+                                <option value="10th">10th</option>
+                                <option value="11th">11th</option>
+                                <option value="12th">12th</option>
+                                <option value="Dropper">Dropper</option>
+                                <option value="College">College</option>
+                                <option value="Graduate">Graduate</option>
+                            </select>
                         </div>
                     </div>
 
@@ -212,15 +214,70 @@ export default function SignupDetailsPage() {
                         <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Interested Field / Exam *</label>
                         <div className="relative">
                             <Heart className="absolute left-3 top-3 text-gray-400" size={18} />
-                            <input
-                                type="text"
+                            <select
                                 value={interest}
                                 onChange={(e) => setInterest(e.target.value)}
+                                className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none font-medium text-gray-800 appearance-none cursor-pointer"
+                                required
+                            >
+                                <option value="">Select Exam</option>
+                                <option value="JEE Main">JEE Main</option>
+                                <option value="JEE Advanced">JEE Advanced</option>
+                                <option value="NEET">NEET</option>
+                                <option value="CAT">CAT</option>
+                                <option value="Board Exam">Board Exam</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* State */}
+                    <div>
+                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">State *</label>
+                        <div className="relative">
+                            <MapPin className="absolute left-3 top-3 text-gray-400" size={18} />
+                            <input
+                                type="text"
+                                value={state}
+                                onChange={(e) => setState(e.target.value)}
                                 className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none font-medium text-gray-800"
-                                placeholder="e.g. JEE, NEET, CAT"
+                                placeholder="e.g. Maharashtra, Delhi"
                                 required
                             />
                         </div>
+                    </div>
+
+                    {/* City */}
+                    <div>
+                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">City *</label>
+                        <div className="relative">
+                            <MapPin className="absolute left-3 top-3 text-gray-400" size={18} />
+                            <input
+                                type="text"
+                                value={city}
+                                onChange={(e) => setCity(e.target.value)}
+                                className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none font-medium text-gray-800"
+                                placeholder="e.g. Mumbai, Pune"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    {/* Phone Number (Optional) */}
+                    <div>
+                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Phone Number <span className="text-gray-400">(Optional)</span></label>
+                        <div className="relative">
+                            <Phone className="absolute left-3 top-3 text-gray-400" size={18} />
+                            <input
+                                type="tel"
+                                value={phoneNumber}
+                                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                                className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none font-medium text-gray-800"
+                                placeholder="9999999999"
+                                maxLength={10}
+                            />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1 px-1">10-digit mobile number</p>
                     </div>
 
                     <button

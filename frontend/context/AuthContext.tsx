@@ -15,12 +15,14 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     logout: () => Promise<void>;
+    signInWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
     user: null,
     loading: true,
     logout: async () => { },
+    signInWithGoogle: async () => { },
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -62,8 +64,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         router.push('/');
     };
 
+    const signInWithGoogle = async () => {
+        const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth');
+        const provider = new GoogleAuthProvider();
+        try {
+            await signInWithPopup(auth, provider);
+            // Auth state change will be handled by onAuthStateChanged
+        } catch (error) {
+            console.error('Google Sign-In Error:', error);
+            throw error;
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, loading, logout }}>
+        <AuthContext.Provider value={{ user, loading, logout, signInWithGoogle }}>
             {!loading && children}
         </AuthContext.Provider>
     );

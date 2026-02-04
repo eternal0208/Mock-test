@@ -7,7 +7,7 @@ import { ArrowRight, BookOpen, Target, Award, Users, Star, CheckCircle } from 'l
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/config';
-import LoginModal from '@/components/LoginModal';
+import GoogleLoginModal from '@/components/GoogleLoginModal';
 
 // 3D Card Component
 function ExamCard({ title, description, icon: Icon, color, href }: { title: string, description: string, icon: any, color: string, href: string }) {
@@ -192,7 +192,7 @@ export default function LandingPage() {
       <Script src="/js/vanta.clouds.min.js" strategy="afterInteractive" />
 
       {/* Login Modal */}
-      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+      <GoogleLoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
 
 
       <div ref={vantaRef} className="min-h-screen w-full relative overflow-hidden">
