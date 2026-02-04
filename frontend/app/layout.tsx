@@ -5,8 +5,8 @@ import { AuthProvider } from "@/context/AuthContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Apex Mock: Don't Just Compete. Dominate.",
-  description: "Advanced JEE/NEET Mock Test Platform",
+  title: "Apex Mock Test | NEET, JEE Mains, JEE Advanced & CAT Test Series",
+  description: "Join Apex Mock Test to practice robust test series for NEET, JEE Mains, JEE Advanced, and CAT. Enhance your preparation with our AI-driven analytics and real exam simulation.",
   verification: {
     google: "4ziAMDT4sEhielU-84GDTS2OfpO8EZ9N1_YuqSoiwZ8",
   },

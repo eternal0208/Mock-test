@@ -129,8 +129,8 @@ export default function ExamLandingPage({ title, description, stats, features, t
                     >
                         Official {title} Syllabus
                     </motion.div>
-                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-slate-900 mb-6 leading-tight tracking-tight">
-                        Crack <span className={`${colors.text}`}>{title}</span> with Confidence.
+                    <h1 className="text-4xl md:text-5xl lg:text-7xl font-black text-slate-900 mb-6 leading-tight tracking-tight">
+                        Apex Mock Test for <span className={`${colors.text}`}>{title}</span>
                     </h1>
                     <p className="text-base md:text-xl text-slate-600 mb-8 leading-relaxed font-medium">
                         {description}

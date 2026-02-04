@@ -202,9 +202,9 @@ export default function LandingPage() {
           {/* Navbar */}
           <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-white/30 border-b border-white/40 shadow-sm">
             <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-              <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+              <div className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
                 <Target className="text-indigo-600" /> APEX<span className="text-indigo-600">MOCK</span>
-              </h1>
+              </div>
               <div className="flex gap-2 md:gap-4">
                 {user ? (
                   <Link href="/dashboard">
@@ -241,16 +241,16 @@ export default function LandingPage() {
                 <span className="font-semibold">Trusted by 10,000+ Students</span>
               </motion.div>
 
-              <motion.h2
+              <motion.h1
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.15, ease: [0.23, 1, 0.32, 1] }}
                 className="text-4xl md:text-6xl lg:text-7xl font-black text-slate-900 drop-shadow-sm leading-tight"
               >
-                Apex Mock
+                Apex Mock Test
                 <br />
                 <span className="text-indigo-600">Don't Just Compete. Dominate.</span>
-              </motion.h2>
+              </motion.h1>
 
               <motion.p
                 initial={{ opacity: 0 }}
