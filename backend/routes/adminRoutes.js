@@ -128,6 +128,35 @@ router.put('/students/:id/status', async (req, res) => {
     }
 });
 
+// DELETE /api/admin/students/:id - Delete User Permanently
+router.delete('/students/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 1. Delete from Firebase Authentication
+        try {
+            const { auth } = require('../config/firebaseAdmin');
+            await auth.deleteUser(id);
+            console.log(`✅ Deleted user from Firebase Auth: ${id}`);
+        } catch (authError) {
+            console.error(`⚠️ Failed to delete from Auth (might not exist): ${authError.message}`);
+            // Continue to delete from Firestore even if Auth fails (e.g. user already deleted from Auth manually)
+        }
+
+        // 2. Delete from Firestore
+        await db.collection('users').doc(id).delete();
+
+        // Optional: Delete related data like results? 
+        // For now, we keep results for analytics integrity or delete them if strict cleanup is needed.
+        // Keeping results is safer for "Total Attempts" stats.
+
+        res.json({ success: true, message: 'User deleted permanently' });
+    } catch (error) {
+        console.error('Delete User Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // GET /api/admin/student/:id/performance - Specific Student Performance
 router.get('/student/:id/performance', async (req, res) => {
     try {

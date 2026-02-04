@@ -605,6 +605,27 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleDeleteUser = async (userId) => {
+        if (!confirm('Are you certain you want to DELETE this user permanently? This action CANNOT be undone and will remove all their data.')) return;
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/students/${userId}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                setUsersList(prev => prev.filter(u => u.id !== userId));
+                alert('User deleted permanently');
+            } else {
+                const err = await res.json();
+                alert(`Failed to delete user: ${err.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error("Delete User Error:", error);
+            alert("Error deleting user");
+        }
+    };
+
     const addQuestion = () => {
         // ... VALIDATION Logic (Keeping it same as before) ...
         if (currentQuestion.type === 'integer') {
@@ -1061,6 +1082,15 @@ export default function AdminDashboard() {
                                                     title="View Performance"
                                                 >
                                                     <BarChart2 size={18} />
+                                                </button>
+
+                                                {/* Delete User */}
+                                                <button
+                                                    onClick={() => handleDeleteUser(student.id)}
+                                                    className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded"
+                                                    title="Delete User Permanently"
+                                                >
+                                                    <Trash size={18} />
                                                 </button>
                                             </div>
                                         </td>
