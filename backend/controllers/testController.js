@@ -108,10 +108,15 @@ exports.getAllTests = async (req, res) => {
             // If user has a field, they MUST NOT see other fields
             // Admin sees all
             if (!isAdmin) {
-                if (!userField) return; // Block if user has no field selected
-                if (testField !== userField) return;
+                if (!userField || (testField !== userField)) {
+                    console.log(`⛔ [Hidden] field mismatch or undefined user field. User: '${userField}', Test: '${testField}'`);
+                    return; // Skip this test
+                }
+            } else {
+                console.log(`✅ [Admin Access] Showing test: ${data.title}`);
             }
 
+            console.log(`✅ [Visible] Match found for ${data.title}`);
             // 2. Filter: Only show if Visible
             if (data.isVisible === false && !isAdmin) return;
 
