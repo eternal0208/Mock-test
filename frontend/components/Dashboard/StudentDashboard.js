@@ -103,9 +103,11 @@ export default function StudentDashboard() {
         </div>
     );
 
-    // SAFETY CHECK: If user has no selectedField, redirect to signup-details?
+    // SAFETY CHECK: If user has no category/field, redirect to signup-details?
     // This is handled by Route Guards usually, but good practice here too.
-    if (!user?.selectedField) {
+    const userField = user?.category || user?.selectedField;
+
+    if (!userField) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
                 <div className="text-red-600 font-bold text-lg">User configuration error: No Field Selected.</div>
@@ -151,7 +153,7 @@ export default function StudentDashboard() {
                         <h1 className="text-3xl font-bold mb-2">Welcome back, {user.name ? user.name.split(' ')[0] : 'Student'}</h1>
                         <div className="flex items-center gap-2 text-indigo-200">
                             <ShieldCheck size={18} />
-                            <span className="uppercase tracking-wide font-semibold text-sm">Target: {user.category}</span>
+                            <span className="uppercase tracking-wide font-semibold text-sm">Target: {userField}</span>
                         </div>
                     </div>
                 </div>
@@ -194,7 +196,7 @@ export default function StudentDashboard() {
                 <div>
                     <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                         <span className="text-gray-800">Recommended Series</span>
-                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full font-bold uppercase">{user.category}</span>
+                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full font-bold uppercase">{userField}</span>
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {relevantSeries.map(s => (
@@ -262,7 +264,7 @@ export default function StudentDashboard() {
 
                 {relevantTests.length === 0 && (
                     <div className="py-12 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                        <p className="text-gray-500 font-medium">No tests available for {user.category} yet.</p>
+                        <p className="text-gray-500 font-medium">No tests available for {userField} yet.</p>
                         <p className="text-xs text-gray-400 mt-1">Check back later or contact admin.</p>
                     </div>
                 )}
