@@ -89,7 +89,7 @@ export default function LandingPage() {
       if (typeof window !== 'undefined' && window.VANTA && window.THREE && vantaRef.current && !vantaEffect) {
         try {
           // @ts-ignore
-          effect = window.VANTA.CLOUDS({
+          effect = window.VANTA.HALO({
             el: vantaRef.current,
             THREE: (window as any).THREE,
             mouseControls: true,
@@ -97,13 +97,12 @@ export default function LandingPage() {
             gyroControls: false,
             minHeight: 200.00,
             minWidth: 200.00,
-            skyColor: 0x68b0e3,
-            cloudColor: 0xffffff,
-            cloudShadowColor: 0x8cb6d9,
-            sunColor: 0xffd95c,
-            sunGlareColor: 0xff8c42,
-            sunlightColor: 0xffffff,
-            speed: 1.2
+            backgroundColor: 0xafb5d9,  // Soft blue-purple background
+            baseColor: 0x6366f1,        // Light indigo for subtle effect
+            amplitudeFactor: 0.8,       // Reduced for subtlety
+            xOffset: 0.1,
+            yOffset: 0.1,
+            size: 1.0
           });
           setVantaEffect(effect);
           clearInterval(interval);
@@ -188,21 +187,19 @@ export default function LandingPage() {
   return (
     <>
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
-      <Script src="/js/three.min.js" strategy="beforeInteractive" />
-      <Script src="/js/vanta.clouds.min.js" strategy="afterInteractive" />
 
       {/* Login Modal */}
       <GoogleLoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
 
 
-      <div ref={vantaRef} className="min-h-screen w-full relative overflow-hidden">
+      <div ref={vantaRef} className="min-h-screen w-full relative overflow-hidden" style={{ backgroundColor: '#afb5d9' }}>
         {/* Glass Overlay for Content readability if needed, but Vanta isbg */}
         <div className="relative z-10 min-h-screen flex flex-col">
 
           {/* Navbar */}
-          <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-white/30 border-b border-white/40 shadow-sm">
+          <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-white/80 border-b border-gray-200 shadow-sm">
             <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-              <div className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+              <div className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
                 <Target className="text-indigo-600" /> APEX<span className="text-indigo-600">MOCK</span>
               </div>
               <div className="flex gap-2 md:gap-4">
@@ -214,7 +211,7 @@ export default function LandingPage() {
                   </Link>
                 ) : (
                   <>
-                    <button onClick={openLogin} className="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-white/80 text-slate-900 border border-slate-200 hover:bg-white transition backdrop-blur-sm font-semibold text-sm md:text-base shadow-sm">
+                    <button onClick={openLogin} className="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-white text-slate-900 border border-gray-300 hover:bg-gray-50 transition backdrop-blur-sm font-semibold text-sm md:text-base shadow-sm">
                       Login
                     </button>
                     <button onClick={openSignup} className="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30 text-sm md:text-base">
@@ -235,7 +232,7 @@ export default function LandingPage() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 border border-slate-200 text-slate-800 backdrop-blur-md mb-4 font-semibold shadow-sm"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 border border-green-200 text-green-800 backdrop-blur-md mb-4 font-semibold shadow-sm"
               >
                 <Users size={18} className="text-green-600" />
                 <span className="font-semibold">Trusted by 10,000+ Students</span>
@@ -325,7 +322,7 @@ export default function LandingPage() {
             {/* Premium Test Series Section */}
             {testSeries.length > 0 && (
               <div className="w-full max-w-7xl mx-auto mb-20">
-                <h3 className="text-4xl font-black text-slate-800 mb-10 text-center">Premium <span className="text-indigo-600">Test Series</span></h3>
+                <h3 className="text-4xl font-black text-slate-900 mb-10 text-center">Premium <span className="text-indigo-600">Test Series</span></h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   {/* @ts-ignore */}
                   {testSeries.map((series: any, idx) => (

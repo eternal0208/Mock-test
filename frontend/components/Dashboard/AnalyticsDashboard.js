@@ -1,20 +1,25 @@
 'use client';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
-    BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
+    BarChart, Bar
 } from 'recharts';
-import { TrendingUp, AlertCircle, Award, Target } from 'lucide-react';
+import { TrendingUp, AlertCircle, Award, Target, Calendar, Clock, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 
 const AnalyticsDashboard = ({ results }) => {
-    // Process data for charts
+    const [activeTab, setActiveTab] = useState('overall'); // 'overall' | 'history'
+
+    // --- Data Processing ---
     const performanceTrend = useMemo(() => {
-        return results.map((r, i) => ({
-            name: `Test ${i + 1}`,
+        const chronological = [...results].reverse();
+        return chronological.map((r, i) => ({
+            name: (r.testDetails?.title || r.testId?.title) ? (r.testDetails?.title || r.testId?.title).substring(0, 15) + '...' : `Test ${i + 1}`,
+            fullName: r.testDetails?.title || r.testId?.title || `Test ${i + 1}`,
             score: r.score,
             accuracy: r.accuracy,
             date: new Date(r.submittedAt).toLocaleDateString()
-        })).reverse(); // Show oldest to newest
+        }));
     }, [results]);
 
     const subjectAnalysis = useMemo(() => {
@@ -41,9 +46,7 @@ const AnalyticsDashboard = ({ results }) => {
                 const topic = a.topic;
                 const subject = a.subject || 'General';
                 if (!topic) return;
-
-                const key = `${subject}||${topic}`; // Composite key
-
+                const key = `${subject}||${topic}`;
                 if (!topics[key]) topics[key] = { total: 0, correct: 0, subject, topic };
                 topics[key].total++;
                 if (a.isCorrect) topics[key].correct++;
@@ -61,135 +64,184 @@ const AnalyticsDashboard = ({ results }) => {
     }, [results]);
 
     if (!results || results.length === 0) {
-        return <div className="p-6 text-center text-gray-500">No test data available yet. Take a test to see analytics!</div>;
+        return <div className="p-8 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed">No test data available yet. Take a test to see analytics!</div>;
     }
 
     const latestResult = results[0];
     const avgAccuracy = Math.round(results.reduce((acc, r) => acc + r.accuracy, 0) / results.length);
+    const avgScore = Math.round(results.reduce((acc, r) => acc + r.score, 0) / results.length);
 
     return (
-        <div className="space-y-6">
-            {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-gray-500">Total Tests</p>
-                            <h3 className="text-2xl font-bold text-gray-800">{results.length}</h3>
-                        </div>
-                        <Award className="text-blue-500" size={24} />
-                    </div>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-gray-500">Avg Accuracy</p>
-                            <h3 className="text-2xl font-bold text-gray-800">{avgAccuracy}%</h3>
-                        </div>
-                        <Target className="text-green-500" size={24} />
-                    </div>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-gray-500">Last Score</p>
-                            <h3 className="text-2xl font-bold text-gray-800">{latestResult.score}</h3>
-                        </div>
-                        <TrendingUp className="text-purple-500" size={24} />
-                    </div>
-                </div>
+        <div className="space-y-8">
+            {/* Tabs / Header Switch */}
+            <div className="flex space-x-4 border-b pb-4">
+                <button
+                    onClick={() => setActiveTab('overall')}
+                    className={`text-lg font-bold px-4 py-2 rounded-lg transition-all ${activeTab === 'overall' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                >
+                    Overall Performance
+                </button>
+                <button
+                    onClick={() => setActiveTab('history')}
+                    className={`text-lg font-bold px-4 py-2 rounded-lg transition-all ${activeTab === 'history' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                >
+                    Test Wise History
+                </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Score Trend */}
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4">Performance Trend</h3>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={performanceTrend}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" />
-                                <YAxis />
-                                <RechartsTooltip />
-                                <Legend />
-                                <Line type="monotone" dataKey="score" stroke="#3b82f6" strokeWidth={2} />
-                                <Line type="monotone" dataKey="accuracy" stroke="#10b981" strokeWidth={2} />
-                            </LineChart>
-                        </ResponsiveContainer>
+            {/* OVERALL SECTION */}
+            {activeTab === 'overall' && (
+                <div className="space-y-6 animate-fadeIn">
+                    {/* Key Metrics Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Tests</p>
+                                <h3 className="text-3xl font-black text-gray-800 mt-1">{results.length}</h3>
+                            </div>
+                            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Award size={24} /></div>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Avg Accuracy</p>
+                                <h3 className="text-3xl font-black text-gray-800 mt-1">{avgAccuracy}%</h3>
+                            </div>
+                            <div className="p-3 bg-green-50 text-green-600 rounded-lg"><Target size={24} /></div>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Avg Score</p>
+                                <h3 className="text-3xl font-black text-gray-800 mt-1">{avgScore}</h3>
+                            </div>
+                            <div className="p-3 bg-purple-50 text-purple-600 rounded-lg"><TrendingUp size={24} /></div>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Last Score</p>
+                                <h3 className="text-3xl font-black text-gray-800 mt-1">{latestResult.score}</h3>
+                            </div>
+                            <div className="p-3 bg-orange-50 text-orange-600 rounded-lg"><Clock size={24} /></div>
+                        </div>
                     </div>
-                </div>
 
-                {/* Subject Strength */}
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4">Subject Wise Accuracy</h3>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={subjectAnalysis} layout="vertical">
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis type="number" domain={[0, 100]} />
-                                <YAxis dataKey="subject" type="category" width={80} />
-                                <RechartsTooltip />
-                                <Legend />
-                                <Bar dataKey="accuracy" fill="#8884d8" name="Accuracy %" />
-                            </BarChart>
-                        </ResponsiveContainer>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Score Trend */}
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h3 className="text-lg font-bold text-gray-800 mb-6">Score Progression</h3>
+                            <div className="h-72">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={performanceTrend}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                                        <YAxis tick={{ fontSize: 12 }} />
+                                        <RechartsTooltip
+                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                                        />
+                                        <Legend />
+                                        <Line type="monotone" dataKey="score" name="Score" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                                        <Line type="monotone" dataKey="accuracy" name="Accuracy %" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* Subject Strength */}
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h3 className="text-lg font-bold text-gray-800 mb-6">Subject Proficiency</h3>
+                            <div className="h-72">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={subjectAnalysis} layout="vertical" margin={{ left: 20 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
+                                        <XAxis type="number" domain={[0, 100]} hide />
+                                        <YAxis dataKey="subject" type="category" width={80} tick={{ fontSize: 12, fontWeight: 500 }} />
+                                        <RechartsTooltip cursor={{ fill: '#f9fafb' }} />
+                                        <Bar dataKey="accuracy" name="Accuracy %" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            {/* Weak Areas by Subject */}
-            {weakAreas.length > 0 && (
-                <div className="bg-red-50 p-6 rounded-lg border border-red-200">
-                    <h3 className="text-lg font-bold text-red-800 mb-4 flex items-center">
-                        <AlertCircle className="mr-2" /> Areas for Improvement (Subject-wise)
-                    </h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {['Physics', 'Chemistry', 'Maths'].map(subject => {
-                            const subjectWeakness = weakAreas.filter(w => w.subject === subject);
-                            if (subjectWeakness.length === 0) return null;
-
-                            return (
-                                <div key={subject} className="bg-white p-4 rounded shadow-sm">
-                                    <h4 className="font-bold text-gray-800 border-b pb-2 mb-3">{subject}</h4>
-                                    <div className="space-y-3">
-                                        {subjectWeakness.map((w, i) => (
-                                            <div key={i}>
-                                                <div className="flex justify-between text-xs mb-1">
-                                                    <span className="font-medium text-gray-700">{w.topic}</span>
-                                                    <span className="text-red-500 font-bold">{w.accuracy}%</span>
-                                                </div>
-                                                <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                                    <div
-                                                        className="bg-red-500 h-1.5 rounded-full"
-                                                        style={{ width: `${w.accuracy}%` }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    {weakAreas.filter(w => !['Physics', 'Chemistry', 'Maths'].includes(w.subject)).length > 0 && (
-                        <div className="mt-4">
-                            <h4 className="font-bold text-gray-800 border-b pb-2 mb-3">Other Topics</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                {weakAreas.filter(w => !['Physics', 'Chemistry', 'Maths'].includes(w.subject)).map((w, i) => (
-                                    <div key={i} className="bg-white p-3 rounded shadow-sm">
-                                        <div className="flex justify-between text-sm mb-1">
-                                            <span className="font-medium text-gray-700">{w.topic}</span>
-                                            <span className="text-red-500 font-bold">{w.accuracy}%</span>
+                    {/* Weak Areas */}
+                    {weakAreas.length > 0 && (
+                        <div className="bg-red-50 p-6 rounded-xl border border-red-100">
+                            <h3 className="text-lg font-bold text-red-800 mb-4 flex items-center">
+                                <AlertCircle className="mr-2" size={20} /> Focus Areas (Weak Topics)
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {weakAreas.map((w, i) => (
+                                    <div key={i} className="bg-white p-4 rounded-lg shadow-sm border border-red-100 flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-bold text-gray-500 uppercase">{w.subject}</p>
+                                            <p className="font-semibold text-gray-800">{w.topic}</p>
                                         </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                            <div className="bg-red-500 h-1.5 rounded-full" style={{ width: `${w.accuracy}%` }}></div>
+                                        <div className="text-right">
+                                            <span className="text-2xl font-bold text-red-500">{w.accuracy}%</span>
+                                            <p className="text-[10px] text-gray-400">Accuracy</p>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* HISTORY SECTION */}
+            {activeTab === 'history' && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th className="px-6 py-4 font-bold text-gray-600 text-sm uppercase tracking-wider">Test Name</th>
+                                    <th className="px-6 py-4 font-bold text-gray-600 text-sm uppercase tracking-wider">Date</th>
+                                    <th className="px-6 py-4 font-bold text-gray-600 text-sm uppercase tracking-wider">Score</th>
+                                    <th className="px-6 py-4 font-bold text-gray-600 text-sm uppercase tracking-wider">Accuracy</th>
+                                    <th className="px-6 py-4 font-bold text-gray-600 text-sm uppercase tracking-wider text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {results.map((result) => (
+                                    <tr key={result._id} className="hover:bg-gray-50 transition">
+                                        <td className="px-6 py-4">
+                                            <p className="font-bold text-gray-900">{result.testDetails?.title || result.testId?.title || 'Unknown Test'}</p>
+                                            <p className="text-xs text-gray-500">{result.testId?._id}</p>
+                                        </td>
+                                        <td className="px-6 py-4 text-gray-600 text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <Calendar size={14} />
+                                                {new Date(result.submittedAt).toLocaleDateString()}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                                                <Clock size={12} />
+                                                {new Date(result.submittedAt).toLocaleTimeString()}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="font-bold text-gray-800 bg-gray-100 px-2 py-1 rounded">{result.score}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                                                    <div className={`h-1.5 rounded-full ${result.accuracy >= 80 ? 'bg-green-500' : result.accuracy >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${result.accuracy}%` }}></div>
+                                                </div>
+                                                <span className="text-sm font-medium">{result.accuracy}%</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <Link
+                                                href={`/result/${result._id}`}
+                                                className="inline-flex items-center text-blue-600 hover:text-blue-800 font-semibold text-sm transition"
+                                            >
+                                                View Solution & Analysis <ChevronRight size={16} />
+                                            </Link>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
         </div>

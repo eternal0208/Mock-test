@@ -9,28 +9,40 @@ import Link from 'next/link';
 export default function ResultPage() {
     const { id } = useParams(); // result ID (not test ID)
     const { user } = useAuth();
-    const [result, setResult] = useState(null); // Added missing state for result
-    const [loading, setLoading] = useState(true); // Added missing state for loading
+    const [result, setResult] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [fullTest, setFullTest] = useState(null);
+    const [error, setError] = useState(null);
+    const [rankData, setRankData] = useState({ rank: '-', total: '-' });
 
     useEffect(() => {
         if (!user) return;
         const fetchData = async () => {
             try {
-                // 1. Fetch User Results
-                const res = await fetch(`${API_BASE_URL}/api/results/student/${user._id || user.uid}`);
-                const data = await res.json();
-                const specificResult = data.find(r => r._id === id);
+                const token = await user.getIdToken();
+                const headers = { 'Authorization': `Bearer ${token}` };
+
+                // 1. Fetch Specific Result
+                const res = await fetch(`${API_BASE_URL}/api/results/${id}`, { headers });
+                if (!res.ok) throw new Error('Result not found');
+                const specificResult = await res.json();
                 setResult(specificResult);
 
-                // 2. Fetch Full Test Details (for Questions & Solutions)
-                if (specificResult?.testId?._id) {
-                    const testRes = await fetch(`http://localhost:5001/api/tests/${specificResult.testId._id}`);
-                    const testData = await testRes.json();
-                    setFullTest(testData);
+                // 2. Try Fetch Full Test Details
+                const testId = specificResult.testId?._id || specificResult.testId;
+                if (testId) {
+                    const testRes = await fetch(`${API_BASE_URL}/api/tests/${testId}`, { headers });
+                    if (testRes.ok) {
+                        const testData = await testRes.json();
+                        setFullTest(testData);
+                    } else {
+                        console.warn("Test data unavailable (likely deleted). Showing cached result data.");
+                        // We do NOT set error state here to allow fallback rendering
+                    }
                 }
             } catch (error) {
-                console.error("Error fetching data", error);
+                console.error("Error fetching data:", error);
+                setError(error.message);
             } finally {
                 setLoading(false);
             }
@@ -38,33 +50,68 @@ export default function ResultPage() {
         fetchData();
     }, [id, user]);
 
-    if (loading) return <div className="p-8 text-center">Loading Result...</div>;
-    if (!result || !fullTest) return <div className="p-8 text-center text-red-500">Result/Test data not found.</div>;
-
-    // Derived Stats
-    const attemptedCount = result.attempt_data.length; // Raw attempts
-    const percentage = ((result.score / (fullTest.total_marks || (fullTest.questions.length * 4))) * 100).toFixed(2);
-
     // Ranking Logic
-    const [rankData, setRankData] = useState({ rank: '-', total: '-' });
     useEffect(() => {
-        if (!fullTest?._id) return;
+        if (!result) return;
+        const targetTestId = fullTest?._id || result.testId?._id || result.testId;
+        if (!targetTestId) return;
+
         const fetchRank = async () => {
             try {
-                const res = await fetch(`http://localhost:5001/api/results/test/${fullTest._id}`);
-                const allResults = await res.json();
-                // Assumed sorted by score desc from backend
-                const myRank = allResults.findIndex(r => r._id === result._id) + 1;
-                setRankData({ rank: myRank > 0 ? myRank : '-', total: allResults.length });
+                const token = await user.getIdToken();
+                const res = await fetch(`${API_BASE_URL}/api/results/test/${targetTestId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const allResults = await res.json();
+                    const myRank = allResults.findIndex(r => r._id === result._id) + 1;
+                    setRankData({ rank: myRank > 0 ? myRank : '-', total: allResults.length });
+                }
             } catch (e) { console.error("Rank fetch error", e); }
         };
         fetchRank();
-    }, [fullTest, result._id]);
+    }, [fullTest, result, user]); // Added user to dependency array
 
-    // Visibility Check
-    const now = new Date();
-    const isScheduled = fullTest.solutionVisibility === 'scheduled' && fullTest.resultDeclarationTime;
-    const showSolutions = !isScheduled || (new Date(fullTest.resultDeclarationTime) <= now);
+    if (loading) return <div className="p-8 text-center">Loading Result...</div>;
+    if (error) return <div className="p-8 text-center text-red-500 font-bold">{error}</div>;
+    if (!result) return <div className="p-8 text-center text-red-500">Result data not found.</div>;
+
+    // --- FALLBACK LOGIC ---
+    // Use test details from result if fullTest is missing
+    const testMeta = fullTest || result.testDetails || { title: 'Unknown Test', total_marks: 0 };
+    const maxMarks = testMeta.total_marks || (result.score * 1.5) || 100; // Fallback estimate
+    const percentage = ((result.score / maxMarks) * 100).toFixed(2);
+
+    // Check result visibility based on mode
+    const checkResultAccess = () => {
+        const mode = fullTest?.resultVisibility || 'immediate';
+        const declTime = fullTest?.resultDeclarationTime;
+        const testEndTime = fullTest?.endTime;
+        const now = new Date();
+
+        if (mode === 'immediate') return true;
+
+        if (mode === 'scheduled' && declTime) {
+            return new Date(declTime) <= now;
+        }
+
+        if (mode === 'afterTestEnds' && testEndTime) {
+            return new Date(testEndTime) <= now;
+        }
+
+        return true; // Fallback: show if mode is unclear
+    };
+
+    const showSolutions = checkResultAccess();
+    const questionsList = fullTest?.questions || [];
+
+    // Fallback: If no questions, reconstruct from attempt_data for display
+    const effectiveQuestions = questionsList.length > 0 ? questionsList : result.attempt_data.map((a, i) => ({
+        text: a.questionText || `Question ${i + 1}`,
+        correctAnswer: '?',
+        solution: 'Detailed solution unavailable (Test content deleted)',
+        _reconstructed: true
+    }));
 
     return (
         <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -74,13 +121,14 @@ export default function ResultPage() {
                 </Link>
 
                 <div className="bg-white rounded-xl shadow overflow-hidden mb-8">
+                    {/* Header */}
                     <div className="bg-blue-600 px-8 py-6 text-white flex justify-between items-center">
                         <div>
                             <h1 className="text-3xl font-bold">Exam Result</h1>
-                            <p className="opacity-90 mt-1">{fullTest.title}</p>
+                            <p className="opacity-90 mt-1">{testMeta.title} {!fullTest && <span className="bg-red-500 text-xs px-2 py-0.5 rounded ml-2">ARCHIVED</span>}</p>
                         </div>
                         <div className="text-right">
-                            <div className="text-4xl font-bold">{result.score} <span className="text-xl font-normal opacity-75">/ {fullTest.total_marks || (fullTest.questions.length * 4)}</span></div>
+                            <div className="text-4xl font-bold">{result.score} <span className="text-xl font-normal opacity-75">/ {maxMarks}</span></div>
                             <p className="text-sm opacity-90">Total Score</p>
                         </div>
                     </div>
@@ -109,118 +157,170 @@ export default function ResultPage() {
                         </div>
                     </div>
 
-                    {!showSolutions && isScheduled && (
-                        <div className="p-8 text-center bg-yellow-50 border-b border-yellow-100">
-                            <h2 className="text-xl font-bold text-yellow-700 mb-2">Solutions Hidden</h2>
-                            <p className="text-yellow-800">
-                                Detailed solutions and analysis will be available on <br />
-                                <span className="font-bold">{new Date(fullTest.resultDeclarationTime).toLocaleString()}</span>
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Solution PDF Download */}
-                    {showSolutions && fullTest.solutionPdf && (
-                        <div className="p-6 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
-                            <div>
-                                <h3 className="font-bold text-blue-800">Full Solution PDF Available</h3>
-                                <p className="text-sm text-blue-600">Download the detailed solution key for offline review.</p>
+                    {/* Result Visibility Check */}
+                    {!showSolutions ? (
+                        <div className="p-8 text-center">
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md mx-auto">
+                                <div className="text-yellow-600 mb-3">
+                                    <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-800 mb-2">Results Not Yet Available</h3>
+                                <p className="text-sm text-gray-600">
+                                    {fullTest?.resultVisibility === 'scheduled' && fullTest?.resultDeclarationTime && (
+                                        <>Results will be available on <strong>{new Date(fullTest.resultDeclarationTime).toLocaleString()}</strong></>
+                                    )}
+                                    {fullTest?.resultVisibility === 'afterTestEnds' && fullTest?.endTime && (
+                                        <>Results will be available after the test ends on <strong>{new Date(fullTest.endTime).toLocaleString()}</strong></>
+                                    )}
+                                    {!fullTest?.resultVisibility && <>Results will be available soon. Please check back later.</>}
+                                </p>
                             </div>
-                            <a
-                                href={fullTest.solutionPdf}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 shadow flex items-center gap-2"
-                            >
-                                <BarChart2 size={18} /> Download Solutions
-                            </a>
                         </div>
-                    )}
+                    ) : (
+                        <>
+                            {/* Performance Summary */}
+                            <div className="p-8 border-b border-gray-100">
+                                <h2 className="text-xl font-bold text-gray-800 mb-4">Performance Summary</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                                        <div className="text-sm text-green-600 mb-1">Correct</div>
+                                        <div className="text-2xl font-bold text-green-700">{result.correct_count || 0}</div>
+                                    </div>
+                                    <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+                                        <div className="text-sm text-red-600 mb-1">Incorrect</div>
+                                        <div className="text-2xl font-bold text-red-700">{result.incorrect_count || 0}</div>
+                                    </div>
+                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                        <div className="text-sm text-gray-600 mb-1">Unattempted</div>
+                                        <div className="text-2xl font-bold text-gray-700">{result.unattempted_count || 0}</div>
+                                    </div>
+                                </div>
+                            </div>
 
-                    {showSolutions && (
-                        <div className="p-6 bg-gray-50">
-                            <h3 className="font-bold text-gray-800 mb-4">Detailed Question Analysis</h3>
-                            <div className="space-y-4">
-                                {fullTest.questions.map((q, idx) => {
-                                    // Find User Attempt
-                                    // We match by basic assumption of order since qId might not be in attempt_data
-                                    // Ideally attempt_data should have qBaseId. Let's assume order for MVP or check text match 
-                                    const userAttempt = result.attempt_data.find(a => a.questionText === q.text); // Not robust but works if text unique
-                                    // Better: Match by index if attempt_data contains index? "q" + idx? 
-                                    // Actually, let's use the index logic if text match fails or just simple index mapping?
-                                    // result.attempt_data is ONLY attempted questions, so index mapping won't work directly against full list.
-                                    // Text match is safest fallback for now without QID.
+                            {/* Solution PDF Download */}
+                            {showSolutions && fullTest?.solutionPdf && (
+                                <div className="p-6 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
+                                    <div>
+                                        <h3 className="font-bold text-blue-800">Full Solution PDF Available</h3>
+                                        <p className="text-sm text-blue-600">Download the detailed solution key for offline review.</p>
+                                    </div>
+                                    <a
+                                        href={fullTest.solutionPdf}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 shadow flex items-center gap-2"
+                                    >
+                                        <BarChart2 size={18} /> Download Solutions
+                                    </a>
+                                </div>
+                            )}
 
-                                    const isAttempted = !!userAttempt;
-                                    const isCorrect = userAttempt?.isCorrect;
-                                    const selectedOption = userAttempt?.selectedOption;
+                            {/* Question Analysis */}
+                            {showSolutions && (
+                                <div className="p-6 bg-gray-50">
+                                    <h3 className="font-bold text-gray-800 mb-4">Detailed Question Analysis</h3>
+                                    {!fullTest && <div className="mb-4 text-xs text-red-500 bg-red-50 p-2 rounded border border-red-100">Note: Original test data is missing. Showing limited details from your attempt history.</div>}
 
-                                    // Status Color
-                                    let statusClass = 'border-gray-200 bg-white';
-                                    if (isAttempted) {
-                                        statusClass = isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50';
-                                    }
+                                    <div className="space-y-4">
+                                        {effectiveQuestions.map((q, idx) => {
+                                            // Robust matching: Try by Text first (if available in attempt)
+                                            // If q._reconstructed is true, q is DERIVED from attempt, so 'a' is simply the attempt at index idx?
+                                            // Wait, result.attempt_data might be subset (only attempted)? 
+                                            // But unattempted questions might NOT be in attempt_data if logic excluded them?
+                                            // In `submitTest`, we pushed `attemptData` only inside the loop of answers? 
+                                            // If user didn't answer, is it in attempt_data? 
+                                            // Checking submitTest: `answers` loop -> push to attemptData.
+                                            // If user skipped, it's NOT in attempt_data!
+                                            // So if fullTest is missing, we ONLY show Attempted questions.
 
-                                    return (
-                                        <div key={idx} className={`rounded-xl border shadow-sm overflow-hidden ${statusClass}`}>
-                                            <div className="p-4 flex gap-4">
-                                                <div className="flex-shrink-0">
-                                                    <span className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 font-bold text-gray-600 text-sm">
-                                                        {idx + 1}
-                                                    </span>
-                                                </div>
-                                                <div className="flex-grow">
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <h4 className="font-medium text-gray-900">{q.text}</h4>
-                                                        <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${isAttempted ? (isCorrect ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800') : 'bg-gray-100 text-gray-500'}`}>
-                                                            {isAttempted ? (isCorrect ? 'Correct' : 'Incorrect') : 'Skipped'}
-                                                        </span>
-                                                    </div>
+                                            // If we are iterating effectiveQuestions (which is attempt_data mapped if fullTest missing),
+                                            // then `userAttempt` IS `a` (the source).
 
-                                                    {q.image && <img src={q.image} alt="Q" className="h-32 mb-3 object-contain rounded border bg-white" />}
+                                            let userAttempt;
+                                            if (q._reconstructed) {
+                                                userAttempt = result.attempt_data[idx];
+                                            } else {
+                                                userAttempt = result.attempt_data.find(a => a.questionText === q.text);
+                                            }
 
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-3">
-                                                        <div className={`p-2 rounded ${isAttempted ? (isCorrect ? 'bg-green-100 text-green-900' : 'bg-red-100 text-red-900') : 'bg-gray-100 text-gray-500'}`}>
-                                                            <span className="font-bold mr-2">Your Answer:</span>
-                                                            {isAttempted ? selectedOption : 'Not Attempted'}
+                                            const isAttempted = !!userAttempt;
+                                            const isCorrect = userAttempt?.isCorrect;
+                                            const selectedOption = userAttempt?.selectedOption;
+
+                                            let statusClass = 'border-gray-200 bg-white';
+                                            if (isAttempted) {
+                                                statusClass = isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50';
+                                            }
+
+                                            return (
+                                                <div key={idx} className={`rounded-xl border shadow-sm overflow-hidden ${statusClass}`}>
+                                                    <div className="p-4 flex gap-4">
+                                                        <div className="flex-shrink-0">
+                                                            <span className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 font-bold text-gray-600 text-sm">
+                                                                {idx + 1}
+                                                            </span>
                                                         </div>
-                                                        <div className="p-2 rounded bg-blue-50 text-blue-900 border border-blue-100">
-                                                            <span className="font-bold mr-2">Correct Answer:</span>
-                                                            {q.correctAnswer}
-                                                            {q.type !== 'integer' && q.options && ` (${q.options[q.correctAnswer - 1] || ''})`}
-                                                        </div>
-                                                    </div>
+                                                        <div className="flex-grow">
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <h4 className="font-medium text-gray-900">{q.text}</h4>
+                                                                <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${isAttempted ? (isCorrect ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800') : 'bg-gray-100 text-gray-500'}`}>
+                                                                    {isAttempted ? (isCorrect ? 'Correct' : 'Incorrect') : 'Skipped'}
+                                                                </span>
+                                                            </div>
 
-                                                    {/* Solution Section */}
-                                                    <div className="mt-3 pt-3 border-t border-gray-200/50">
-                                                        <details className="group">
-                                                            <summary className="flex items-center text-sm font-bold text-blue-600 cursor-pointer hover:underline outline-none">
-                                                                View Solution
-                                                            </summary>
-                                                            <div className="mt-3 text-sm text-gray-700 bg-blue-50/50 p-3 rounded">
+                                                            {q.image && <img src={q.image} alt="Q" className="h-32 mb-3 object-contain rounded border bg-white" />}
 
-                                                                {q.solution ? (
-                                                                    <p className="whitespace-pre-wrap mb-2">{q.solution}</p>
-                                                                ) : (
-                                                                    <p className="italic text-gray-400">No text explanation provided.</p>
-                                                                )}
-
-                                                                {q.solutionImage && (
-                                                                    <div className="mt-2">
-                                                                        <p className="text-xs font-bold text-gray-500 mb-1">Solution Diagram:</p>
-                                                                        <img src={q.solutionImage} alt="Solution" className="max-h-48 rounded border shadow-sm" />
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-3">
+                                                                <div className={`p-2 rounded ${isAttempted ? (isCorrect ? 'bg-green-100 text-green-900' : 'bg-red-100 text-red-900') : 'bg-gray-100 text-gray-500'}`}>
+                                                                    <span className="font-bold mr-2">Your Answer:</span>
+                                                                    {isAttempted ? selectedOption : 'Not Attempted'}
+                                                                </div>
+                                                                {fullTest && (
+                                                                    <div className="p-2 rounded bg-blue-50 text-blue-900 border border-blue-100">
+                                                                        <span className="font-bold mr-2">Correct Answer:</span>
+                                                                        {q.type === 'integer' ? (
+                                                                            q.integerAnswer
+                                                                        ) : q.type === 'msq' ? (
+                                                                            // Multiple Select - show all correct options
+                                                                            Array.isArray(q.correctOptions) ? q.correctOptions.join(', ') : (q.correctOptions || 'N/A')
+                                                                        ) : (
+                                                                            // Single Select MCQ
+                                                                            <>
+                                                                                {q.correctOption}
+                                                                                {/* Show option text if available */}
+                                                                                {q.options && typeof q.correctOption === 'string' && q.correctOption.length === 1 && (
+                                                                                    ` (${q.options[q.correctOption.charCodeAt(0) - 65] || ''})`
+                                                                                )}
+                                                                            </>
+                                                                        )}
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                        </details>
+
+                                                            {fullTest && (
+                                                                <div className="mt-3 pt-3 border-t border-gray-200/50">
+                                                                    <details className="group">
+                                                                        <summary className="flex items-center text-sm font-bold text-blue-600 cursor-pointer hover:underline outline-none">
+                                                                            View Solution
+                                                                        </summary>
+                                                                        <div className="mt-3 text-sm text-gray-700 bg-blue-50/50 p-3 rounded">
+                                                                            {q.solution ? <p className="whitespace-pre-wrap mb-2">{q.solution}</p> : <p className="italic text-gray-400">No text explanation.</p>}
+                                                                            {q.solutionImage && <img src={q.solutionImage} alt="Solution" className="max-h-48 rounded border shadow-sm mt-2" />}
+                                                                        </div>
+                                                                    </details>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>

@@ -1,10 +1,39 @@
 const { db } = require('../config/firebaseAdmin');
 
+// @desc    Get Single Result by ID
+// @route   GET /api/results/:id
+// @access  Public/Student (Protected ideally, but ID validation is enough for MVP)
+exports.getResultById = async (req, res) => {
+    try {
+        const resultDoc = await db.collection('results').doc(req.params.id).get();
+        if (!resultDoc.exists) {
+            return res.status(404).json({ message: 'Result not found' });
+        }
+        res.status(200).json({ _id: resultDoc.id, ...resultDoc.data() });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
 // @desc    Get User Results
 // @route   GET /api/results/student/:userId
 // @access  Student
 exports.getStudentResults = async (req, res) => {
     try {
+        console.log("📊 [Results API] Fetching results for userId:", req.params.userId);
+        console.log("📊 [Results API] Authenticated user uid:", req.user.uid);
+        console.log("📊 [Results API] User role:", req.user.role);
+
+        // Security Check: Ensure User is requesting their own data or is Admin
+        if (req.user.uid !== req.params.userId && req.user.role !== 'admin') {
+            console.error("❌ [Results API] Unauthorized: uid mismatch", {
+                tokenUid: req.user.uid,
+                requestedUserId: req.params.userId
+            });
+            return res.status(403).json({ message: 'Unauthorized access to student results' });
+        }
+
         const resultsRef = db.collection('results');
         const snapshot = await resultsRef.where('userId', '==', req.params.userId).get();
 
@@ -56,7 +85,9 @@ exports.getTestResults = async (req, res) => {
     try {
         const { testId } = req.params;
         const resultsRef = db.collection('results');
-        const snapshot = await resultsRef.where('testId._id', '==', testId).get();
+        // Fix: testId is stored as a String in new implementation, not an object. 
+        // We query the 'testId' field directly.
+        const snapshot = await resultsRef.where('testId', '==', testId).get();
 
         const results = [];
         snapshot.forEach(doc => {

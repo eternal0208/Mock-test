@@ -5,7 +5,7 @@ const { db } = require('../config/firebaseAdmin');
 // @access  Admin
 exports.createTest = async (req, res) => {
     try {
-        const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts } = req.body;
+        const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts, resultVisibility, resultDeclarationTime } = req.body;
 
         const newTest = {
             title,
@@ -18,9 +18,18 @@ exports.createTest = async (req, res) => {
             instructions,
             startTime: startTime || null,
             endTime: endTime || null,
-            maxAttempts: maxAttempts !== undefined ? Number(maxAttempts) : null, // Store limit
-            expiryDate: req.body.expiryDate || null, // New Expiry Field
-            questions: questions || [],
+            maxAttempts: maxAttempts !== undefined ? Number(maxAttempts) : null,
+            expiryDate: req.body.expiryDate || null,
+            // Result visibility settings
+            resultVisibility: resultVisibility || 'immediate', // 'immediate' | 'scheduled' | 'afterTestEnds'
+            resultDeclarationTime: resultDeclarationTime || null, // ISO date string for scheduled mode
+            questions: (questions || []).map((q, i) => ({
+                ...q,
+                _id: q._id || `q_${Date.now()}_${i}`,
+                // Ensure solution fields are preserved
+                solution: q.solution || '',
+                solutionImage: q.solutionImage || ''
+            })),
             createdBy: req.user?._id || 'admin',
             createdAt: new Date().toISOString()
         };
@@ -227,25 +236,59 @@ exports.getTestById = async (req, res) => {
         const testCategory = data.category;
 
         // Filter 1: Category must match
-        if (!userCategory || userCategory !== testCategory) {
-            return res.status(403).json({ message: 'Access Denied: You cannot access tests from a different category.' });
-        }
+        // STRICT CHECK: Matches exactly.
+        const categoryMatch = userCategory && userCategory === testCategory;
 
         // Filter 2: Test must be visible
-        if (data.isVisible === false) {
-            return res.status(403).json({ message: 'Test is not currently available.' });
+        const isVisible = data.isVisible !== false;
+
+        // AUTH CHECK:
+        // A user can access the test if:
+        // 1. (Standard) Category Matches AND Test is Visible (Start Exam flow)
+        // 2. (Result Review) User has already ATTEMPTED the test (Result exists) -> Bypass restrictions so they can view solutions.
+
+        let hasAttempted = false;
+        const userId = req.user?.uid;
+
+        if (userId) {
+            try {
+                const resultCheck = await db.collection('results')
+                    .where('testId', '==', req.params.id)
+                    .where('userId', '==', userId)
+                    .limit(1)
+                    .get();
+                hasAttempted = !resultCheck.empty;
+            } catch (e) { console.error("Error checking attempt", e); }
         }
 
-        // Exclude correctOption for security 
-        const sanitizedQuestions = (data.questions || []).map(q => ({
-            ...q,
-            _id: q._id || Math.random().toString(36).substr(2, 9),
-            correctOption: undefined,
-            correctOptions: undefined,
-            integerAnswer: undefined
-        }));
+        if (!hasAttempted) {
+            if (!categoryMatch) return res.status(403).json({ message: 'Access Denied: Category mismatch.' });
+            if (!isVisible) return res.status(403).json({ message: 'Test is not currently available.' });
+        }
 
-        res.status(200).json({ _id: doc.id, ...data, questions: sanitizedQuestions });
+        // If User has attempted, we SHOW correctOption.
+        // If User has NOT attempted, we HIDE correctOption (Security).
+
+        let questionsToSend = data.questions || [];
+
+        if (!hasAttempted) {
+            // Sanitize for new attempts
+            questionsToSend = questionsToSend.map((q, i) => ({
+                ...q,
+                _id: q._id || `q_${doc.id}_${i}`,
+                correctOption: undefined,
+                correctOptions: undefined,
+                integerAnswer: undefined
+            }));
+        } else {
+            // Ensure IDs even for review
+            questionsToSend = questionsToSend.map((q, i) => ({
+                ...q,
+                _id: q._id || `q_${doc.id}_${i}`
+            }));
+        }
+
+        res.status(200).json({ _id: doc.id, ...data, questions: questionsToSend });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server Error' });
@@ -322,26 +365,23 @@ exports.submitTest = async (req, res) => {
         // Ideally, test.questions have stable IDs.
         // I will update the Seed script to add IDs.
 
-        const questionMap = new Map();
-        test.questions.forEach((q, idx) => {
-            // Use existing ID or fallback (this fallback won't match frontend's random ID though)
-            // If frontend sends an ID, it implies they got it from `getTestById`.
-            // If `getTestById` generates random ID, validation fails.
+        // Helper to ensure questions have IDs
+        const ensureIds = (qs) => qs.map((q, i) => ({
+            ...q,
+            _id: q._id || `q_${req.params.id}_${i}` // Deterministic Fallback
+        }));
 
-            // So `getTestById` SHOULD NOT generate random IDs if possible, or we accept we need IDs in DB.
-            if (q._id) questionMap.set(q._id.toString(), q);
-            // Also map by index-based ID? 
-        });
+        const dbQuestions = ensureIds(test.questions || []);
+        const questionMap = new Map(dbQuestions.map(q => [q._id.toString(), q]));
 
-        // Loop through answers
+        // Loop through answers using the map
         answers.forEach(ans => {
             let question = questionMap.get(ans.questionId);
 
-            // If not found by ID, maybe we can find by text if we trust the text in answer?
-            // Frontend validation.
-            if (!question) {
-                // Fallback: Find by text?
-                question = test.questions.find(q => q.text === req.body.questionText_DEBUG); // We don't have this.
+            // Fallback: If ID mismatch (legacy), try index matching if ID looks like index-based
+            if (!question && ans.questionId && ans.questionId.startsWith(`q_${req.params.id}_`)) {
+                const idx = parseInt(ans.questionId.split('_').pop());
+                if (!isNaN(idx)) question = dbQuestions[idx];
             }
 
             if (question) {
@@ -349,31 +389,29 @@ exports.submitTest = async (req, res) => {
 
                 // SCORING LOGIC BASED ON TYPE
                 if (question.type === 'msq') {
-                    // MSQ: Check if selectedOption (array) matches correctOptions (array) exactly
-                    // Frontend sends selectedOption as Array for MSQ? Or we handle comma joined?
-                    // Let's assume frontend sends array for MSQ.
-                    // If stored as comma string in DB?
                     const userAns = Array.isArray(ans.selectedOption) ? ans.selectedOption : [ans.selectedOption];
                     const correctAns = question.correctOptions || [];
+                    // Sort both for comparison
+                    const sortedUser = [...userAns].sort();
+                    const sortedCorrect = [...correctAns].sort();
 
-                    // Simple Exact Match
-                    if (userAns.length === correctAns.length && userAns.every(val => correctAns.includes(val))) {
+                    if (sortedUser.length === sortedCorrect.length &&
+                        sortedUser.every((val, index) => val === sortedCorrect[index])) {
                         isCorrect = true;
                     }
                 } else if (question.type === 'integer') {
-                    // Integer: Compare values
                     if (String(ans.selectedOption).trim() === String(question.integerAnswer).trim()) {
                         isCorrect = true;
                     }
                 } else {
-                    // MCQ (Default)
+                    // MCQ
                     isCorrect = question.correctOption === ans.selectedOption;
                 }
 
                 if (isCorrect) {
                     score += Number(question.marks);
                     correctCount++;
-                } else if (ans.selectedOption && ans.selectedOption.length > 0) { // Only negative if attempted
+                } else if (ans.selectedOption && (Array.isArray(ans.selectedOption) ? ans.selectedOption.length > 0 : true)) {
                     score -= Number(question.negativeMarks);
                     wrongCount++;
                 }
@@ -384,12 +422,13 @@ exports.submitTest = async (req, res) => {
                     subject: question.subject,
                     topic: question.topic,
                     selectedOption: ans.selectedOption,
-                    isCorrect
+                    isCorrect,
+                    markedAt: new Date().toISOString()
                 });
             }
         });
 
-        const totalQuestions = test.questions.length;
+        const totalQuestions = dbQuestions.length;
         const accuracy = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
 
         const newResult = {
@@ -461,7 +500,14 @@ exports.getTestAnalytics = async (req, res) => {
         for (const doc of resultsSnapshot.docs) {
             const data = doc.data();
             totalScore += Number(data.score) || 0;
-            if (data.feedback) feedbacks.push(data.feedback);
+
+            if (data.feedback) {
+                if (typeof data.feedback === 'object') {
+                    feedbacks.push(data.feedback);
+                } else {
+                    feedbacks.push({ rating: 0, comment: data.feedback });
+                }
+            }
 
             results.push({
                 userId: data.userId,
@@ -486,11 +532,15 @@ exports.getTestAnalytics = async (req, res) => {
 
         // 5. Enhance with Names
         const enrichedRankList = await Promise.all(results.map(async (r, idx) => {
-            let name = 'Unknown Student';
-            try {
-                const userDoc = await db.collection('users').doc(r.userId).get();
-                if (userDoc.exists) name = userDoc.data().name;
-            } catch (e) { }
+            let name = 'Student';
+            // Only fetch names if Admin or if it's the current user (optimization)
+            // Actually, we need names for the Admin view.
+            if (req.user?.role === 'admin' || r.userId === req.user?.uid) {
+                try {
+                    const userDoc = await db.collection('users').doc(r.userId).get();
+                    if (userDoc.exists) name = userDoc.data().name;
+                } catch (e) { }
+            }
 
             return {
                 rank: idx + 1,
@@ -505,16 +555,65 @@ exports.getTestAnalytics = async (req, res) => {
             };
         }));
 
+        // SECURITY FILTER:
+        // If Admin: Send full list.
+        // If Student: Send ONLY their entry (Privacy).
+        let finalRankList = enrichedRankList;
+        if (req.user?.role !== 'admin') {
+            finalRankList = enrichedRankList.filter(r => r.userId === req.user?.uid);
+        }
+
         res.status(200).json({
             testId,
             totalAttempts,
             avgScore,
-            rankList: enrichedRankList,
-            feedbacks
+            rankList: finalRankList,
+            feedbacks: req.user?.role === 'admin' ? feedbacks : [] // Hide feedback from others too
         });
 
     } catch (error) {
         console.error("Analytics Error:", error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Submit Feedback for a Test (Post-Submission)
+// @route   POST /api/tests/:id/feedback
+// @access  Student
+exports.submitFeedback = async (req, res) => {
+    try {
+        const { rating, comment } = req.body;
+        const testId = req.params.id;
+        const userId = req.user.uid;
+
+        if (!rating) {
+            return res.status(400).json({ message: 'Rating is required' });
+        }
+
+        // Find the most recent result for this test and user
+        const resultsRef = db.collection('results');
+        const snapshot = await resultsRef
+            .where('testId', '==', testId)
+            .where('userId', '==', userId)
+            .orderBy('submittedAt', 'desc')
+            .limit(1)
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({ message: 'No attempt found for this test to provide feedback on.' });
+        }
+
+        const resultDoc = snapshot.docs[0];
+        await resultDoc.ref.update({
+            feedback: {
+                rating: Number(rating),
+                comment: comment || ''
+            }
+        });
+
+        res.status(200).json({ message: 'Feedback submitted successfully' });
+    } catch (error) {
+        console.error("Submit Feedback Error:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
@@ -527,7 +626,7 @@ exports.getAllSeries = async (req, res) => {
 
         // Strict Field Filter
         // Note: Middleware 'protect' attaches req.user
-        const userField = req.user ? (req.user.selectedField || req.user.interest) : null;
+        const userField = req.user ? (req.user.category || req.user.selectedField || req.user.interest) : null;
         const isAdmin = req.user && req.user.role === 'admin';
 
         const series = [];

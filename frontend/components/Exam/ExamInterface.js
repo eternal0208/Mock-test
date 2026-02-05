@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAntiCheating } from '@/hooks/useAntiCheating';
-import { Clock, AlertTriangle, User, Info, ChevronRight, ChevronLeft, Maximize2, CheckCircle, Star } from 'lucide-react';
+import { Clock, AlertTriangle, User, Info, ChevronRight, ChevronLeft, Maximize2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const ExamInterface = ({ test, onSubmit }) => {
@@ -23,8 +23,7 @@ const ExamInterface = ({ test, onSubmit }) => {
     // Feedback
     const [feedback, setFeedback] = useState({ rating: 0, comment: '' });
     const [submittingFeedback, setSubmittingFeedback] = useState(false);
-
-    const { warnings } = useAntiCheating((msg) => alert(msg));
+    // const { warnings } = useAntiCheating((msg) => alert(msg));
     const timerRef = useRef(null);
     const router = useRouter();
 
@@ -134,6 +133,9 @@ const ExamInterface = ({ test, onSubmit }) => {
             // Auto switch subject tab if subject changes
             const nextSubject = test.questions[currentQuestionIndex + 1].subject || 'General';
             if (nextSubject !== activeSubject) setActiveSubject(nextSubject);
+        } else {
+            // Last Question - Submit
+            handleSubmitTest(false);
         }
     };
 
@@ -168,8 +170,10 @@ const ExamInterface = ({ test, onSubmit }) => {
     };
 
     const handleSubmitTest = (force = false) => {
+        console.log("handleSubmitTest triggered", { force });
         if (!force && !confirm("Are you sure you want to submit?")) return;
-        setMode('feedback'); // Show feedback modal instead of immediate API call
+        setMode('feedback');
+        console.log("Mode set to feedback");
     };
 
     const submitFeedbackAndFinish = () => {
@@ -231,20 +235,21 @@ const ExamInterface = ({ test, onSubmit }) => {
     }
 
     if (mode === 'feedback') {
+        console.log("Rendering Feedback Mode");
         return (
             <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
                 <div className="bg-white max-w-md w-full p-8 rounded-lg shadow-2xl text-center">
-                    <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">Test Completed!</h2>
                     <p className="text-gray-500 mb-6">Please rate your experience before viewing results.</p>
 
                     <div className="flex justify-center space-x-2 mb-6">
                         {[1, 2, 3, 4, 5].map((star) => (
-                            <button key={star} onClick={() => setFeedback({ ...feedback, rating: star })} className="focus:outline-none transition transform hover:scale-110">
-                                <Star
-                                    size={36}
-                                    className={`${feedback.rating >= star ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
-                                />
+                            <button
+                                key={star}
+                                onClick={() => setFeedback({ ...feedback, rating: star })}
+                                className={`text-3xl focus:outline-none transition transform hover:scale-110 ${feedback.rating >= star ? 'text-yellow-400' : 'text-gray-300'}`}
+                            >
+                                ★
                             </button>
                         ))}
                     </div>

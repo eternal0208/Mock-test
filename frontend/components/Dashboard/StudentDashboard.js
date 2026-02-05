@@ -19,6 +19,7 @@ export default function StudentDashboard() {
     const [results, setResults] = useState([]);
     const [testRanks, setTestRanks] = useState({});
     const [loading, setLoading] = useState(true);
+    const [currentFilter, setFilter] = useState('all');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -66,23 +67,35 @@ export default function StudentDashboard() {
                     setSeries([]);
                 }
 
-                // Fetch Results
-                const resultsRes = await fetch(`${API_BASE_URL}/api/results/student/${user._id || user.uid}`);
+                // Fetch Results (Protected Route - Needs Headers)
+                const userId = user.uid || user._id; // Prefer uid (Firebase standard)
+                const resultsRes = await fetch(`${API_BASE_URL}/api/results/student/${userId}`, { headers });
                 const resultsData = await resultsRes.json();
-                setResults(resultsData);
 
-                // Fetch Rank
+                console.log("📊 [Results Debug] Results Response:", resultsData);
+                console.log("📊 [Results Debug] Is Array?", Array.isArray(resultsData));
+
+                // Validate resultsData is an array before using it
+                const validResults = Array.isArray(resultsData) ? resultsData : [];
+                if (!Array.isArray(resultsData)) {
+                    console.error("⚠️ [Results Error] Expected array but got:", typeof resultsData, resultsData);
+                }
+                setResults(validResults);
+
+                // Fetch Rank - only if we have valid results
                 const ranks = {};
-                await Promise.all(resultsData.map(async (res) => {
-                    try {
-                        const anaRes = await fetch(`${API_BASE_URL}/api/tests/${res.testId}/analytics`, { headers });
-                        const anaData = await anaRes.json();
-                        const myRankEntry = anaData.rankList.find(r => r.userId === (user._id || user.uid));
-                        if (myRankEntry) {
-                            ranks[res.testId] = { rank: myRankEntry.rank, total: anaData.totalAttempts };
-                        }
-                    } catch (e) { console.error("Rank fetch failed", e); }
-                }));
+                if (validResults.length > 0) {
+                    await Promise.all(validResults.map(async (res) => {
+                        try {
+                            const anaRes = await fetch(`${API_BASE_URL}/api/tests/${res.testId}/analytics`, { headers });
+                            const anaData = await anaRes.json();
+                            const myRankEntry = anaData.rankList.find(r => r.userId === userId);
+                            if (myRankEntry) {
+                                ranks[res.testId] = { rank: myRankEntry.rank, total: anaData.totalAttempts };
+                            }
+                        } catch (e) { console.error("Rank fetch failed", e); }
+                    }));
+                }
                 setTestRanks(ranks);
 
             } catch (error) {
@@ -136,8 +149,18 @@ export default function StudentDashboard() {
 
     // Backend now strictly enforces filtering based on user.category.
     // We can trust the API response directly.
-    const relevantTests = tests;
-    const relevantSeries = series;
+    // Filter Tests
+    const relevantTests = tests.filter(test => {
+        if (currentFilter === 'free') return test.price === 0 || test.accessType === 'free';
+        if (currentFilter === 'paid') return test.price > 0 || test.accessType === 'paid';
+        return true;
+    });
+
+    // Strict Frontend Filter for Series (matching user field)
+    const relevantSeries = series.filter(s => {
+        if (!userField || !s.category) return false;
+        return s.category.toLowerCase() === userField.toLowerCase();
+    });
 
     const handleStartTest = (testId) => {
         window.location.href = `/exam/${testId}`;
@@ -162,33 +185,7 @@ export default function StudentDashboard() {
             {/* Analytics Section */}
             <div>
                 <h2 className="text-xl font-bold mb-4 text-gray-800">Your Performance</h2>
-                {results.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                        {results.slice(0, 3).map((res, idx) => {
-                            const rankInfo = testRanks[res.testId];
-                            const testMeta = res.testDetails || res.testId || {};
-                            return (
-                                <div key={idx} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
-                                    <h4 className="font-bold text-gray-800 truncate mb-3">{testMeta.title || 'Test Result'}</h4>
-                                    <div className="flex justify-between items-end">
-                                        <div>
-                                            <div className="text-2xl font-bold text-indigo-600">{res.score} <span className="text-xs text-gray-400 font-normal">/ {testMeta.total_marks || '?'}</span></div>
-                                        </div>
-                                        {rankInfo && (
-                                            <div className="text-right">
-                                                <div className="text-lg font-bold text-emerald-600">#{rankInfo.rank} <span className="text-xs text-gray-400 font-normal">/ {rankInfo.total}</span></div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                ) : (
-                    <div className="bg-gray-50 rounded-xl p-6 text-center text-gray-500 mb-8 border border-dashed border-gray-300">
-                        No tests attempted yet. Start a test to see your analytics.
-                    </div>
-                )}
+                <AnalyticsDashboard results={results} />
             </div>
 
             {/* Test Series Packages */}
@@ -213,10 +210,10 @@ export default function StudentDashboard() {
                                         </span>
                                     </div>
                                     <button
-                                        onClick={() => processDemoPayment(s, 'series')}
+                                        onClick={() => window.location.href = `/series/${s.id}`}
                                         className={`w-full py-2.5 rounded-lg font-bold text-sm transition ${s.price > 0 ? 'bg-gray-900 text-white hover:bg-black' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
                                     >
-                                        {s.price > 0 ? 'Unlock Series' : 'Join Now'}
+                                        {s.price > 0 ? 'View Details & Unlock' : 'View Series Content'}
                                     </button>
                                 </div>
                             </div>
@@ -232,6 +229,19 @@ export default function StudentDashboard() {
                 </h2>
 
                 {/* No filters displayed anymore - strictly field based */}
+
+                {/* Filters */}
+                <div className="flex space-x-2 mb-6">
+                    {['all', 'free', 'paid'].map(filter => (
+                        <button
+                            key={filter}
+                            onClick={() => setFilter(filter)}
+                            className={`px-4 py-2 rounded-full text-sm font-bold capitalize transition ${currentFilter === filter ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-600 border hover:bg-gray-50'}`}
+                        >
+                            {filter}
+                        </button>
+                    ))}
+                </div>
 
                 <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                     {relevantTests.map(test => {

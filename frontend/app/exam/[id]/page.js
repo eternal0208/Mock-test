@@ -46,21 +46,10 @@ export default function ExamPage() {
     // Security Measures
     useEffect(() => {
         const handleVisibilityChange = () => {
+            // Optional: Keep tab switch warning if desired, or remove.
+            // Leaving it as a soft warning for now.
             if (document.hidden) {
-                alert('Warning: You switched tabs! The test will be auto-submitted if you do this again.');
-            }
-        };
-
-        const handleFullscreenChange = () => {
-            const isFull = !!document.fullscreenElement;
-            setIsFullscreen(isFull);
-
-            if (!isFull) {
-                // User exited fullscreen
-                setShowWarning(true);
-                setWarningMessage('You must be in Fullscreen mode to continue correctly.');
-            } else {
-                setShowWarning(false);
+                // alert('Warning: You switched tabs!');
             }
         };
 
@@ -68,15 +57,10 @@ export default function ExamPage() {
         const handleContextMenu = (e) => e.preventDefault();
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
         document.addEventListener('contextmenu', handleContextMenu);
-
-        // Initial check
-        setIsFullscreen(!!document.fullscreenElement);
 
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
             document.removeEventListener('contextmenu', handleContextMenu);
         };
     }, []);
@@ -117,40 +101,12 @@ export default function ExamPage() {
     if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
     if (!test) return null;
 
-    if (showWarning && !loading) {
-        return (
-            <div className="fixed inset-0 bg-red-100 flex flex-col items-center justify-center z-50 p-4">
-                <div className="bg-white p-8 rounded-lg shadow-xl text-center max-w-md">
-                    <h2 className="text-2xl font-bold text-red-600 mb-4">Security Violation</h2>
-                    <p className="text-gray-700 mb-6">{warningMessage || "Please return to fullscreen mode."}</p>
-                    <button
-                        onClick={enterFullscreen}
-                        className="bg-red-600 text-white px-6 py-3 rounded font-bold hover:bg-red-700 w-full"
-                    >
-                        Return to Fullscreen
-                    </button>
-                </div>
-            </div>
-        );
-    }
+
 
     // Force user interaction to start/enter fullscreen
     return (
         <div className="min-h-screen bg-gray-100">
-            {!isFullscreen ? (
-                <div className="fixed inset-0 bg-white flex flex-col items-center justify-center z-50">
-                    <h1 className="text-2xl font-bold mb-4">Exam Security Check</h1>
-                    <p className="mb-6 text-gray-600">This test requires Fullscreen mode. Switching tabs is prohibited.</p>
-                    <button
-                        onClick={enterFullscreen}
-                        className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold shadow-lg hover:bg-blue-700 transition"
-                    >
-                        Start Exam in Fullscreen
-                    </button>
-                </div>
-            ) : (
-                <ExamInterface test={test} onSubmit={handleSubmitTest} />
-            )}
+            <ExamInterface test={test} onSubmit={handleSubmitTest} />
         </div>
     );
 }

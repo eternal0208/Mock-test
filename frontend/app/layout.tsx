@@ -15,6 +15,10 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <script src="/js/three.r134.min.js" />
+        <script src="/js/vanta.halo.min.js" />
+      </head>
       <body className={inter.className}>
         <AuthProvider>
           {children}

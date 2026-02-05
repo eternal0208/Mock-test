@@ -12,6 +12,7 @@ router.get('/', protect, getAllTests);
 router.get('/:id', protect, getTestById);
 
 router.post('/:id/submit', protect, submitTest);
+router.post('/:id/feedback', protect, require('../controllers/testController').submitFeedback);
 router.delete('/:id', require('../controllers/testController').deleteTest);
 
 router.get('/:id/analytics', protect, require('../controllers/testController').getTestAnalytics);

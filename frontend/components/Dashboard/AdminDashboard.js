@@ -536,27 +536,32 @@ export default function AdminDashboard() {
         endTime: '',
         accessType: 'free',
         format: 'full-mock',
-        chapters: '', // Comma separated string for input
-        instructions: '', // New Field
-        seriesId: '', // Optional linkage
-        isVisible: true // Visibility Control
+        chapters: '',
+        instructions: '',
+        seriesId: '',
+        isVisible: true,
+        // Result visibility settings
+        resultVisibility: 'immediate', // 'immediate' | 'scheduled' | 'afterTestEnds'
+        resultDeclarationTime: ''      // ISO date string for scheduled mode
     });
 
     // ... Question State Setup ...
     const [questions, setQuestions] = useState([]);
     const [currentQuestion, setCurrentQuestion] = useState({
         text: '',
-        image: '',
         type: 'mcq',
         options: ['', '', '', ''],
-        optionImages: ['', '', '', ''],
         correctOption: '',
         correctOptions: [],
         integerAnswer: '',
+        subject: 'Physics',
+        topic: '',
         marks: 4,
         negativeMarks: 1,
-        subject: 'Physics',
-        topic: ''
+        image: null,
+        optionImages: [null, null, null, null],
+        solution: '',      // Solution text explanation
+        solutionImage: ''  // Solution image URL
     });
 
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -1215,7 +1220,44 @@ export default function AdminDashboard() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div><label className="block text-sm font-medium text-gray-700">Title</label><input type="text" name="title" value={testDetails.title} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2" /></div>
                                 <div><label className="block text-sm font-medium text-gray-700">Category</label><select name="category" value={testDetails.category} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white"><option value="JEE Main">JEE Main</option><option value="JEE Advanced">JEE Advanced</option><option value="NEET">NEET</option><option value="CAT">CAT</option><option value="Board Exam">Board Exam</option><option value="Others">Others</option></select></div>
-                                <div><label className="block text-sm font-medium text-gray-700">Subject</label><select name="subject" value={testDetails.subject} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white"><option value="Full Mock">Full Mock</option><option value="Physics">Physics</option><option value="Chemistry">Chemistry</option><option value="Maths">Maths</option></select></div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Subject</label>
+                                    <div className="flex flex-col gap-2">
+                                        <select
+                                            name="subject"
+                                            value={['Full Mock', 'Physics', 'Chemistry', 'Maths', 'Biology', 'English', 'Reasoning', 'General Knowledge'].includes(testDetails.subject) ? testDetails.subject : 'custom'}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val === 'custom') {
+                                                    setTestDetails({ ...testDetails, subject: '' });
+                                                } else {
+                                                    setTestDetails({ ...testDetails, subject: val });
+                                                }
+                                            }}
+                                            className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white"
+                                        >
+                                            <option value="Full Mock">Full Mock</option>
+                                            <option value="Physics">Physics</option>
+                                            <option value="Chemistry">Chemistry</option>
+                                            <option value="Maths">Maths</option>
+                                            <option value="Biology">Biology</option>
+                                            <option value="English">English</option>
+                                            <option value="Reasoning">Reasoning</option>
+                                            <option value="General Knowledge">General Knowledge</option>
+                                            <option value="custom">Other / Custom...</option>
+                                        </select>
+                                        {!['Full Mock', 'Physics', 'Chemistry', 'Maths', 'Biology', 'English', 'Reasoning', 'General Knowledge'].includes(testDetails.subject) && (
+                                            <input
+                                                type="text"
+                                                value={testDetails.subject}
+                                                onChange={(e) => setTestDetails({ ...testDetails, subject: e.target.value })}
+                                                className="block w-full border border-blue-300 rounded p-2 bg-blue-50"
+                                                placeholder="Enter Custom Subject Name"
+                                                autoFocus
+                                            />
+                                        )}
+                                    </div>
+                                </div>
                                 <div><label className="block text-sm font-medium text-gray-700">Duration (Min)</label><input type="number" name="duration" value={testDetails.duration} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2" /></div>
 
                                 {/* New Granular Fields */}
@@ -1297,20 +1339,31 @@ export default function AdminDashboard() {
                                 <input type="text" name="solutionPdf" value={testDetails.solutionPdf || ''} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2" placeholder="https://drive.google.com/..." />
                             </div>
 
-                            {/* Solution Visibility */}
+                            {/* Result Visibility Control */}
                             <div className="mt-4 md:col-span-2 p-4 bg-blue-50 rounded border border-blue-200">
-                                <label className="block text-sm font-bold text-blue-800 mb-2">Solution Visibility</label>
+                                <label className="block text-sm font-bold text-blue-800 mb-2">Result & Solution Visibility</label>
+                                <p className="text-xs text-gray-600 mb-3">Control when students can see their results and solutions</p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <select name="solutionVisibility" value={testDetails.solutionVisibility || 'immediate'} onChange={handleTestChange} className="block w-full border border-gray-300 rounded p-2 bg-white">
-                                            <option value="immediate">Show Immediately after Test</option>
-                                            <option value="scheduled">Schedule for Later Date</option>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Visibility Mode</label>
+                                        <select name="resultVisibility" value={testDetails.resultVisibility || 'immediate'} onChange={handleTestChange} className="block w-full border border-gray-300 rounded p-2 bg-white">
+                                            <option value="immediate">Immediate (Right after submission)</option>
+                                            <option value="scheduled">Scheduled (Specific date & time)</option>
+                                            <option value="afterTestEnds">After Test Ends (For live tests)</option>
                                         </select>
                                     </div>
-                                    {testDetails.solutionVisibility === 'scheduled' && (
+                                    {testDetails.resultVisibility === 'scheduled' && (
                                         <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Result Declaration Time</label>
                                             <input type="datetime-local" name="resultDeclarationTime" value={testDetails.resultDeclarationTime || ''} onChange={handleTestChange} className="block w-full border border-gray-300 rounded p-2" />
                                             <p className="text-xs text-gray-500 mt-1">Students will see results/solutions after this time.</p>
+                                        </div>
+                                    )}
+                                    {testDetails.resultVisibility === 'afterTestEnds' && (
+                                        <div className="bg-yellow-50 p-2 rounded border border-yellow-200">
+                                            <p className="text-xs text-yellow-800">
+                                                <strong>Note:</strong> Results will be visible after the test end time set above.
+                                            </p>
                                         </div>
                                     )}
                                 </div>
@@ -1331,8 +1384,56 @@ export default function AdminDashboard() {
                                         <option value="integer">Integer</option>
                                     </select>
                                 </div>
-                                <div><label className="block text-xs font-bold text-gray-500">Subject</label><select name="subject" value={currentQuestion.subject} onChange={handleQuestionChange} className="w-full border p-2 rounded bg-white"><option value="Physics">Physics</option><option value="Chemistry">Chemistry</option><option value="Maths">Maths</option></select></div>
-                                <div><label className="block text-xs font-bold text-gray-500">Marks</label><input type="number" name="marks" value={currentQuestion.marks} onChange={handleQuestionChange} className="w-full border p-2 rounded" /></div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500">Subject</label>
+                                    <select
+                                        name="subject"
+                                        value={['Physics', 'Chemistry', 'Maths', 'Biology', 'English', 'Reasoning', 'General Knowledge'].includes(currentQuestion.subject) ? currentQuestion.subject : 'custom'}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === 'custom') {
+                                                setCurrentQuestion({ ...currentQuestion, subject: '' });
+                                            } else {
+                                                setCurrentQuestion({ ...currentQuestion, subject: val });
+                                            }
+                                        }}
+                                        className="w-full border p-2 rounded bg-white mb-1"
+                                    >
+                                        <option value="Physics">Physics</option>
+                                        <option value="Chemistry">Chemistry</option>
+                                        <option value="Maths">Maths</option>
+                                        <option value="Biology">Biology</option>
+                                        <option value="English">English</option>
+                                        <option value="Reasoning">Reasoning</option>
+                                        <option value="General Knowledge">General Knowledge</option>
+                                        <option value="custom">Other...</option>
+                                    </select>
+                                    {!['Physics', 'Chemistry', 'Maths', 'Biology', 'English', 'Reasoning', 'General Knowledge'].includes(currentQuestion.subject) && (
+                                        <input
+                                            type="text"
+                                            value={currentQuestion.subject}
+                                            onChange={(e) => setCurrentQuestion({ ...currentQuestion, subject: e.target.value })}
+                                            className="w-full border p-2 rounded bg-blue-50 border-blue-200 text-sm"
+                                            placeholder="Type Subject..."
+                                        />
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500">Marks</label>
+                                    <input type="number" name="marks" value={currentQuestion.marks} onChange={handleQuestionChange} className="w-full border p-2 rounded" placeholder="Marks" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-red-500">Negative Marks</label>
+                                    <input
+                                        type="number"
+                                        name="negativeMarks"
+                                        value={currentQuestion.negativeMarks !== undefined ? currentQuestion.negativeMarks : 0}
+                                        onChange={handleQuestionChange}
+                                        className="w-full border p-2 rounded border-red-200 bg-red-50 text-red-700 font-bold"
+                                        placeholder="e.g. 1 (Positive Value)"
+                                    />
+                                    <p className="text-[10px] text-gray-400 mt-1">Deducted on wrong ans</p>
+                                </div>
                             </div>
 
                             <div className="mb-4">
@@ -1397,6 +1498,40 @@ export default function AdminDashboard() {
                                 {currentQuestion.type === 'integer' && (
                                     <input type="text" name="integerAnswer" value={currentQuestion.integerAnswer} onChange={handleQuestionChange} className="block w-full border p-2 rounded" placeholder="Enter Integer Answer" />
                                 )}
+                            </div>
+
+                            {/* Solution Section */}
+                            <div className="mb-6 p-4 bg-purple-50 rounded border border-purple-200">
+                                <label className="block text-sm font-bold text-purple-800 mb-2">Solution (Optional)</label>
+                                <p className="text-xs text-gray-600 mb-3">Provide detailed explanation for this question</p>
+
+                                {/* Solution Text */}
+                                <div className="mb-3">
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Solution Explanation</label>
+                                    <textarea
+                                        name="solution"
+                                        value={currentQuestion.solution || ''}
+                                        onChange={handleQuestionChange}
+                                        className="block w-full border border-gray-300 rounded p-2 min-h-[100px]"
+                                        placeholder="Enter detailed solution explanation here..."
+                                    />
+                                </div>
+
+                                {/* Solution Image */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Solution Image (Optional)</label>
+                                    <input
+                                        type="file"
+                                        onChange={(e) => uploadImage(e.target.files[0], 'solution')}
+                                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                                        accept="image/*"
+                                    />
+                                    {currentQuestion.solutionImage && (
+                                        <div className="mt-2">
+                                            <img src={currentQuestion.solutionImage} alt="Solution" className="h-20 w-auto object-contain border rounded" />
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             <button onClick={addQuestion} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 flex justify-center items-center font-bold">
