@@ -17,7 +17,6 @@
     "next": "16.1.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-latex-next": "^3.0.0",
     "recharts": "^3.6.0",
     "three": "^0.121.0",
     "vanta": "^0.5.24",
