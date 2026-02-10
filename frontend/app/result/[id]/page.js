@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { BarChart2, Award, Clock, ArrowLeft } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/config';
 import Link from 'next/link';
+import MathText from '@/components/ui/MathText';
 
 export default function ResultPage() {
     const { id } = useParams(); // result ID (not test ID)
@@ -264,7 +265,9 @@ export default function ResultPage() {
                                                         </div>
                                                         <div className="flex-grow">
                                                             <div className="flex justify-between items-start mb-2">
-                                                                <h4 className="font-medium text-gray-900">{q.text}</h4>
+                                                                <div className="font-medium text-gray-900">
+                                                                    <MathText text={q.text} />
+                                                                </div>
                                                                 <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${isAttempted ? (isCorrect ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800') : 'bg-gray-100 text-gray-500'}`}>
                                                                     {isAttempted ? (isCorrect ? 'Correct' : 'Incorrect') : 'Skipped'}
                                                                 </span>
@@ -275,7 +278,7 @@ export default function ResultPage() {
                                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-3">
                                                                 <div className={`p-2 rounded ${isAttempted ? (isCorrect ? 'bg-green-100 text-green-900' : 'bg-red-100 text-red-900') : 'bg-gray-100 text-gray-500'}`}>
                                                                     <span className="font-bold mr-2">Your Answer:</span>
-                                                                    {isAttempted ? selectedOption : 'Not Attempted'}
+                                                                    <MathText text={isAttempted ? selectedOption : 'Not Attempted'} />
                                                                 </div>
                                                                 {fullTest && (
                                                                     <div className="p-2 rounded bg-blue-50 text-blue-900 border border-blue-100">
@@ -288,10 +291,12 @@ export default function ResultPage() {
                                                                         ) : (
                                                                             // Single Select MCQ
                                                                             <>
-                                                                                {q.correctOption}
+                                                                                <MathText text={q.correctOption} />
                                                                                 {/* Show option text if available */}
                                                                                 {q.options && typeof q.correctOption === 'string' && q.correctOption.length === 1 && (
-                                                                                    ` (${q.options[q.correctOption.charCodeAt(0) - 65] || ''})`
+                                                                                    <span className="ml-1 text-gray-600">
+                                                                                        (<MathText text={q.options[q.correctOption.charCodeAt(0) - 65] || ''} />)
+                                                                                    </span>
                                                                                 )}
                                                                             </>
                                                                         )}
@@ -306,7 +311,11 @@ export default function ResultPage() {
                                                                             View Solution
                                                                         </summary>
                                                                         <div className="mt-3 text-sm text-gray-700 bg-blue-50/50 p-3 rounded">
-                                                                            {q.solution ? <p className="whitespace-pre-wrap mb-2">{q.solution}</p> : <p className="italic text-gray-400">No text explanation.</p>}
+                                                                            {q.solution ? (
+                                                                                <div className="whitespace-pre-wrap mb-2">
+                                                                                    <MathText text={q.solution} />
+                                                                                </div>
+                                                                            ) : <p className="italic text-gray-400">No text explanation.</p>}
                                                                             {q.solutionImage && <img src={q.solutionImage} alt="Solution" className="max-h-48 rounded border shadow-sm mt-2" />}
                                                                         </div>
                                                                     </details>

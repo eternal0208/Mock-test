@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAntiCheating } from '@/hooks/useAntiCheating';
 import { Clock, AlertTriangle, User, Info, ChevronRight, ChevronLeft, Maximize2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import MathText from '@/components/ui/MathText';
 
 const ExamInterface = ({ test, onSubmit }) => {
     // MODES: 'instruction' | 'countdown' | 'test' | 'feedback'
@@ -327,7 +328,11 @@ const ExamInterface = ({ test, onSubmit }) => {
                         <div className="flex items-start gap-4 mb-6">
                             <span className="font-bold text-lg text-gray-500 w-8 pt-1">Q{currentQuestionIndex + 1}.</span>
                             <div className="flex-1">
-                                {currentQ.text && <div className="text-lg md:text-xl text-gray-900 leading-relaxed font-serif mb-4 whitespace-pre-wrap">{currentQ.text}</div>}
+                                {currentQ.text && (
+                                    <div className="text-lg md:text-xl text-gray-900 leading-relaxed font-serif mb-4 whitespace-pre-wrap">
+                                        <MathText text={currentQ.text} />
+                                    </div>
+                                )}
                                 {currentQ.image && <img src={currentQ.image} alt="Question" className="max-h-96 w-auto border rounded shadow-sm object-contain mb-4" />}
 
                                 {/* ANSWER AREA */}
@@ -343,7 +348,11 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                         </div>
                                                     </div>
                                                     <div className="flex-1">
-                                                        {opt && <span className={`text-lg ${answers[currentQ._id] === opt ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>{opt}</span>}
+                                                        {opt && (
+                                                            <div className={`text-lg ${answers[currentQ._id] === opt ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
+                                                                <MathText text={opt} />
+                                                            </div>
+                                                        )}
                                                         {currentQ.optionImages && currentQ.optionImages[idx] && <img src={currentQ.optionImages[idx]} alt={`Opt ${idx}`} className="mt-2 h-24 object-contain border rounded" />}
                                                     </div>
                                                 </label>
@@ -364,7 +373,11 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                             </div>
                                                         </div>
                                                         <div className="flex-1">
-                                                            {opt && <span className={`text-lg ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>{opt}</span>}
+                                                            {opt && (
+                                                                <div className={`text-lg ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
+                                                                    <MathText text={opt} />
+                                                                </div>
+                                                            )}
                                                             {currentQ.optionImages && currentQ.optionImages[idx] && <img src={currentQ.optionImages[idx]} alt={`Opt ${idx}`} className="mt-2 h-24 object-contain border rounded" />}
                                                         </div>
                                                     </label>

@@ -2,6 +2,8 @@
 // Admin Dashboard Updated: 2026-02-04
 import { useState, useEffect } from 'react';
 import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X } from 'lucide-react';
+import MathToolbar from './MathToolbar';
+import MathText from '@/components/ui/MathText';
 import { API_BASE_URL } from '@/lib/config';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -598,6 +600,14 @@ export default function AdminDashboard() {
             newCorrect.push(option);
         }
         setCurrentQuestion({ ...currentQuestion, correctOptions: newCorrect });
+    };
+
+    const insertMath = (field, latex) => {
+        const currentValue = currentQuestion[field] || '';
+        // different logic if it's an array like options? 
+        // For now, let's assume this helper is for text fields (text, solution)
+        // A better way would be to pass a ref, but simple append works for MVP
+        setCurrentQuestion({ ...currentQuestion, [field]: currentValue + ' ' + latex });
     };
 
     const uploadImage = async (file, type, index = null) => {
@@ -1443,8 +1453,22 @@ export default function AdminDashboard() {
 
                             {/* Question Content */}
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Question Text</label>
-                                <textarea name="text" value={currentQuestion.text} onChange={handleQuestionChange} rows={3} className="block w-full border border-gray-300 rounded p-2" placeholder="Enter text..." />
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Question Text (Math Enabled)</label>
+                                <div className="border border-gray-300 rounded mb-2 bg-white">
+                                    <MathToolbar onInsert={(latex) => insertMath('text', latex)} />
+                                    <textarea
+                                        name="text"
+                                        value={currentQuestion.text}
+                                        onChange={handleQuestionChange}
+                                        rows={3}
+                                        className="block w-full p-2 outline-none border-b border-gray-100 min-h-[80px]"
+                                        placeholder="Enter text... (Click buttons to add Math)"
+                                    />
+                                    <div className="p-2 bg-gray-50 text-sm border-t border-gray-100">
+                                        <p className="text-xs text-gray-400 font-bold uppercase mb-1">Preview:</p>
+                                        <MathText text={currentQuestion.text || 'Preview appears here...'} className="text-gray-800" />
+                                    </div>
+                                </div>
 
                                 <div className="mt-2">
                                     <label className="block text-xs font-bold text-gray-500 mb-1">Upload Question Image</label>
@@ -1508,13 +1532,21 @@ export default function AdminDashboard() {
                                 {/* Solution Text */}
                                 <div className="mb-3">
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Solution Explanation</label>
-                                    <textarea
-                                        name="solution"
-                                        value={currentQuestion.solution || ''}
-                                        onChange={handleQuestionChange}
-                                        className="block w-full border border-gray-300 rounded p-2 min-h-[100px]"
-                                        placeholder="Enter detailed solution explanation here..."
-                                    />
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Solution Explanation</label>
+                                    <div className="border border-gray-300 rounded mb-2 bg-white">
+                                        <MathToolbar onInsert={(latex) => insertMath('solution', latex)} />
+                                        <textarea
+                                            name="solution"
+                                            value={currentQuestion.solution || ''}
+                                            onChange={handleQuestionChange}
+                                            className="block w-full p-2 outline-none border-b border-gray-100 min-h-[100px]"
+                                            placeholder="Enter detailed solution explanation here..."
+                                        />
+                                        <div className="p-2 bg-gray-50 text-sm border-t border-gray-100">
+                                            <p className="text-xs text-gray-400 font-bold uppercase mb-1">Preview:</p>
+                                            <MathText text={currentQuestion.solution || 'Preview...'} className="text-gray-800" />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* Solution Image */}
@@ -1548,7 +1580,9 @@ export default function AdminDashboard() {
                                 <div key={idx} className="border p-2 rounded bg-gray-50 relative">
                                     <div className="absolute top-1 right-1 cursor-pointer text-red-500" onClick={() => removeQuestion(idx)}><Trash size={14} /></div>
                                     <div className="text-xs font-bold text-blue-600 mb-1">{q.type.toUpperCase()} | {q.subject} {q.topic && `| ${q.topic}`}</div>
-                                    <p className="text-sm truncate">{q.text}</p>
+                                    <div className="text-sm truncate">
+                                        <MathText text={q.text} />
+                                    </div>
                                 </div>
                             ))}
                         </div>
