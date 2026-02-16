@@ -41,8 +41,13 @@ exports.protect = async (req, res, next) => {
 
         next();
     } catch (error) {
-        console.error('Auth Middleware Error:', error);
-        return res.status(401).json({ message: 'Not authorized, token failed' });
+        console.error('🔥 [Auth Middleware Error] Failed to verify token:', error.message);
+        if (error.code === 'auth/id-token-expired') {
+            console.error('❌ Token has expired');
+        } else if (error.code === 'auth/argument-error') {
+            console.error('❌ Invalid token format or missing token');
+        }
+        return res.status(401).json({ message: 'Not authorized, token failed', error: error.message });
     }
 };
 

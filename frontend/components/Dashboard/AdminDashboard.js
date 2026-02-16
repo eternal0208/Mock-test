@@ -1,7 +1,7 @@
 'use client';
 // Admin Dashboard Updated: 2026-02-04
 import { useState, useEffect } from 'react';
-import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X } from 'lucide-react';
+import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X, Download } from 'lucide-react';
 import MathToolbar from './MathToolbar';
 import MathText from '@/components/ui/MathText';
 import { API_BASE_URL } from '@/lib/config';
@@ -135,6 +135,92 @@ const AnalyticsModal = ({ testId, onClose }) => {
                             ))}
                             {(!stats.feedbacks || stats.feedbacks.length === 0) && <p className="text-gray-500 italic">No feedback received yet.</p>}
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const BulkUploadModal = ({ onUpload, onClose }) => {
+    const [csvText, setCsvText] = useState('');
+
+    const handleParse = () => {
+        if (!csvText.trim()) return alert("Please paste CSV data");
+
+        try {
+            const lines = csvText.trim().split('\n');
+            const questions = lines.map(line => {
+                const parts = line.split(',').map(p => p.trim());
+                if (parts.length < 6) return null; // Minimal: text + 4 options + correct
+
+                const [text, a, b, c, d, correct, marks, negMarks, subject, topic] = parts;
+
+                return {
+                    text,
+                    type: 'mcq',
+                    options: [a, b, c, d],
+                    correctOption: correct,
+                    correctOptions: [],
+                    integerAnswer: '',
+                    marks: marks || 4,
+                    negativeMarks: negMarks || 1,
+                    subject: subject || 'Physics',
+                    topic: topic || '',
+                    image: null,
+                    optionImages: [null, null, null, null],
+                    solution: '',
+                    solutionImage: ''
+                };
+            }).filter(q => q !== null);
+
+            if (questions.length === 0) throw new Error("No valid questions found");
+
+            onUpload(questions);
+            onClose();
+            alert(`Imported ${questions.length} questions!`);
+        } catch (err) {
+            alert("Error parsing CSV. Format: Question,A,B,C,D,CorrectOption,Marks,NegMarks,Subject,Topic");
+        }
+    };
+
+    const downloadTemplate = () => {
+        const header = "Question Text,Option A,Option B,Option C,Option D,Correct Option Text,Marks,Negative Marks,Subject,Topic\n";
+        const sample = "What is the unit of Force?,Newton,Joule,Watt,Pascal,Newton,4,1,Physics,Mechanics";
+        const blob = new Blob([header + sample], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'question_template.csv';
+        a.click();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold">Bulk Upload Questions</h3>
+                    <button onClick={onClose}><X size={24} /></button>
+                </div>
+                <div className="mb-4">
+                    <p className="text-sm text-gray-600 mb-2">Paste your CSV content below. Format:</p>
+                    <code className="text-[10px] bg-gray-100 p-2 block rounded break-all">
+                        Question,OptionA,OptionB,OptionC,OptionD,CorrectOptionText,Marks,NegMarks,Subject,Topic
+                    </code>
+                </div>
+                <textarea
+                    className="w-full h-64 border rounded p-2 font-mono text-xs mb-4"
+                    placeholder="Example: What is 2+2?,3,4,5,6,4,4,1,Maths,Basic"
+                    value={csvText}
+                    onChange={(e) => setCsvText(e.target.value)}
+                />
+                <div className="flex justify-between">
+                    <button onClick={downloadTemplate} className="text-indigo-600 text-sm font-bold flex items-center gap-1">
+                        <Save size={16} /> Download CSV Template
+                    </button>
+                    <div className="space-x-2">
+                        <button onClick={onClose} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
+                        <button onClick={handleParse} className="px-6 py-2 bg-indigo-600 text-white rounded font-bold">Import Questions</button>
                     </div>
                 </div>
             </div>
@@ -386,6 +472,8 @@ export default function AdminDashboard() {
     const [revenueStats, setRevenueStats] = useState(null);
     const [loading, setLoading] = useState(false);
     const [viewingStudent, setViewingStudent] = useState(null); // Report Modal State
+
+    const [showBulkUpload, setShowBulkUpload] = useState(false);
 
     // Initial Data Fetching
     useEffect(() => {
@@ -743,13 +831,46 @@ export default function AdminDashboard() {
                 difficulty: 'medium', totalMarks: 0, isLive: false, startTime: '', endTime: '', instructions: '',
                 isVisible: true
             });
-        } catch (error) {
-            console.error(error);
-            alert('Error creating test');
         } finally {
             setLoading(false);
         }
     };
+
+    const handleDownloadTemplate = () => {
+        const header = "Question Text,Option A,Option B,Option C,Option D,Correct Option Text,Marks,Negative Marks,Subject,Topic\n";
+        const sample = "What is the unit of Force?,Newton,Joule,Watt,Pascal,Newton,4,1,Physics,Mechanics";
+        const blob = new Blob([header + sample], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'question_template.csv';
+        a.click();
+    };
+
+    const handleExportQueue = () => {
+        if (questions.length === 0) return alert("Queue is empty!");
+        const header = "Question Text,Option A,Option B,Option C,Option D,Correct Option Text,Marks,Negative Marks,Subject,Topic\n";
+        const rows = questions.map(q => [
+            `"${(q.text || '').replace(/"/g, '""')}"`,
+            `"${(q.options[0] || '').replace(/"/g, '""')}"`,
+            `"${(q.options[1] || '').replace(/"/g, '""')}"`,
+            `"${(q.options[2] || '').replace(/"/g, '""')}"`,
+            `"${(q.options[3] || '').replace(/"/g, '""')}"`,
+            `"${(q.correctOption || '').replace(/"/g, '""')}"`,
+            q.marks,
+            q.negativeMarks,
+            q.subject,
+            q.topic || ''
+        ].join(',')).join('\n');
+
+        const blob = new Blob([header + rows], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `test_queue_${Date.now()}.csv`;
+        a.click();
+    };
+
 
     // URL Driven Series Management
     const managingSeriesId = searchParams.get('series');
@@ -766,7 +887,7 @@ export default function AdminDashboard() {
         if (!managingSeries) return;
         const updatedIds = [...(managingSeries.testIds || []), testId];
         try {
-            await fetch(`http://localhost:5001/api/admin/series/${managingSeries.id}`, {
+            await fetch(`${API_BASE_URL}/api/admin/series/${managingSeries.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ testIds: updatedIds })
@@ -782,7 +903,7 @@ export default function AdminDashboard() {
         if (!managingSeries) return;
         const updatedIds = managingSeries.testIds.filter(id => id !== testId);
         try {
-            await fetch(`http://localhost:5001/api/admin/series/${managingSeries.id}`, {
+            await fetch(`${API_BASE_URL}/api/admin/series/${managingSeries.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ testIds: updatedIds })
@@ -796,6 +917,7 @@ export default function AdminDashboard() {
         <div className="space-y-6 relative">
             {showAnalytics && <AnalyticsModal testId={showAnalytics} onClose={() => setShowAnalytics(null)} />}
             {viewingStudent && <StudentReportModal student={viewingStudent} onClose={() => setViewingStudent(null)} />}
+            {showBulkUpload && <BulkUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowBulkUpload(false)} />}
 
             {/* Manage Series Modal */}
             {managingSeries && (
@@ -1380,8 +1502,29 @@ export default function AdminDashboard() {
                             </div>
                         </div>
 
+                        <div className="mt-8 pt-6 border-t border-gray-100 flex justify-between items-center">
+                            <div>
+                                <h4 className="font-bold text-gray-800">Bulk Actions</h4>
+                                <p className="text-xs text-gray-500">Add many questions at once</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleDownloadTemplate}
+                                    className="px-4 py-2 bg-green-50 text-green-700 rounded-lg border border-green-200 font-bold flex items-center gap-2 hover:bg-green-100 transition"
+                                >
+                                    <Save size={18} /> Download Template
+                                </button>
+                                <button
+                                    onClick={() => setShowBulkUpload(true)}
+                                    className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 font-bold flex items-center gap-2 hover:bg-indigo-100 transition"
+                                >
+                                    <UploadCloud size={20} /> Bulk Upload (CSV)
+                                </button>
+                            </div>
+                        </div>
+
                         {/* Add Question */}
-                        <div className="bg-white p-6 rounded-lg shadow border-2 border-blue-100">
+                        <div className="bg-white p-6 rounded-lg shadow border-2 border-blue-100 mt-6">
                             <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-700">Add Question</h3>
 
                             {/* Type & Metadata */}
@@ -1532,7 +1675,6 @@ export default function AdminDashboard() {
                                 {/* Solution Text */}
                                 <div className="mb-3">
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Solution Explanation</label>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Solution Explanation</label>
                                     <div className="border border-gray-300 rounded mb-2 bg-white">
                                         <MathToolbar onInsert={(latex) => insertMath('solution', latex)} />
                                         <textarea
@@ -1574,7 +1716,14 @@ export default function AdminDashboard() {
 
                     {/* Preview (Right Col) */}
                     <div className="bg-white p-6 rounded-lg shadow h-full flex flex-col">
-                        <h3 className="text-lg font-semibold mb-4">Queue: {questions.length}</h3>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold">Queue: {questions.length}</h3>
+                            {questions.length > 0 && (
+                                <button onClick={handleExportQueue} className="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center gap-1">
+                                    <Download size={14} /> Export CSV
+                                </button>
+                            )}
+                        </div>
                         <div className="flex-1 overflow-y-auto max-h-[600px] space-y-4 mb-4">
                             {questions.map((q, idx) => (
                                 <div key={idx} className="border p-2 rounded bg-gray-50 relative">

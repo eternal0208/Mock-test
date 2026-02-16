@@ -1,3 +1,4 @@
+// Admin Dashboard Updated: 2026-02-16 19:04
 const express = require('express');
 const cluster = require('cluster');
 const os = require('os');
@@ -6,7 +7,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 
-dotenv.config();
+dotenv.config({ override: true });
 
 const app = express();
 
@@ -16,6 +17,8 @@ app.use(cors({
     origin: [
         'http://localhost:3000',
         'http://127.0.0.1:3000',
+        'http://localhost:3002',
+        'http://127.0.0.1:3002',
         /\.vercel\.app$/, // Allow any Vercel deployment
         process.env.FRONTEND_URL // Explicit production URL
     ],
