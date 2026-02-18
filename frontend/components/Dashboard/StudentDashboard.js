@@ -256,9 +256,7 @@ export default function StudentDashboard() {
     const Sidebar = () => (
         <div className="w-full md:w-72 bg-white/90 backdrop-blur-xl border-r border-gray-100 flex-shrink-0 flex flex-col h-full fixed md:relative z-20 hidden md:flex shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
             <div className="p-8">
-                <h2 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 tracking-tight">
-                    Apex Mock
-                </h2>
+                <img src="/logo.ico" alt="Apex Mock" className="h-32 w-auto mb-2" />
                 <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 rounded-full border border-indigo-100">
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
                     <p className="text-[10px] text-indigo-700 font-bold uppercase tracking-wider">{userField || 'Student'}</p>
@@ -354,117 +352,7 @@ export default function StudentDashboard() {
         </div>
     );
 
-    // 4. Profile View
-    const ProfileView = () => {
-        const handlePhotoUpload = (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                if (file.size > 500 * 1024) { // 500KB limit
-                    alert("Image too large. Max 500KB.");
-                    return;
-                }
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setProfileForm(prev => ({ ...prev, photoURL: reader.result }));
-                };
-                reader.readAsDataURL(file);
-            }
-        };
 
-        const handleSaveProfile = async () => {
-            setProfileLoading(true);
-            try {
-                const res = await fetch(`${API_BASE_URL}/api/auth/profile`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(profileForm)
-                });
-                const data = await res.json();
-
-                if (res.ok) {
-                    alert("Profile Updated Successfully!");
-                    // Update context user if needed, or force reload/re-fetch
-                    // simple fix: reload page to refresh context
-                    window.location.reload();
-                } else {
-                    alert(data.message || "Failed to update profile");
-                }
-            } catch (error) {
-                console.error("Profile update error", error);
-                alert("An error occurred.");
-            } finally {
-                setProfileLoading(false);
-            }
-        };
-
-        return (
-            <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in duration-500">
-                <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
-                    <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 mb-6">Edit Profile</h2>
-
-                    {/* Photo Section */}
-                    <div className="flex flex-col items-center mb-8">
-                        <div className="relative group">
-                            <div className="h-32 w-32 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-100">
-                                <img
-                                    src={profileForm.photoURL || "https://via.placeholder.com/150"}
-                                    alt="Profile"
-                                    className="h-full w-full object-cover"
-                                />
-                            </div>
-                            <label className="absolute bottom-0 right-0 bg-indigo-600 text-white p-2 rounded-full cursor-pointer hover:bg-indigo-700 hover:scale-110 transition shadow-md">
-                                <User size={16} />
-                                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                            </label>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-3">Click icon to change photo (Max 500KB)</p>
-                    </div>
-
-                    {/* Form Fields */}
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Display Name</label>
-                            <input
-                                type="text"
-                                value={profileForm.name}
-                                onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition bg-gray-50"
-                                placeholder="Enter your name"
-                            />
-                            <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                                <ShieldCheck size={12} />
-                                Note: You can only change your name once every 7 days.
-                            </p>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Email (Read Only)</label>
-                            <input
-                                type="email"
-                                value={user.email}
-                                disabled
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed"
-                            />
-                        </div>
-
-                        <div className="pt-4">
-                            <button
-                                onClick={handleSaveProfile}
-                                disabled={profileLoading}
-                                className={`w-full py-4 rounded-xl font-bold text-white shadow-lg shadow-indigo-200 transition-all ${profileLoading ? 'bg-indigo-400 cursor-wait' : 'bg-indigo-600 hover:bg-indigo-700 hover:scale-[1.01]'
-                                    }`}
-                            >
-                                {profileLoading ? 'Saving Changes...' : 'Save Profile Changes'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    };
 
     // 6. Enhanced Test Library Component
     const TestsLibrary = () => {
@@ -550,7 +438,7 @@ export default function StudentDashboard() {
 
                             <div className="flex justify-between items-start mb-4">
                                 <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-md tracking-wider ${test.category === 'JEE' ? 'bg-orange-50 text-orange-600' :
-                                        test.category === 'NEET' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'
+                                    test.category === 'NEET' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'
                                     }`}>{test.category}</span>
                                 {test.accessType === 'paid' && <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100"><Star size={10} fill="currentColor" /> PREMIUM</span>}
                             </div>

@@ -146,9 +146,9 @@ export default function LandingPage() {
 
           {/* Navbar */}
           <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-white/80 border-b border-gray-200 shadow-sm">
-            <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-              <div className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                <Target className="text-indigo-600" /> APEX<span className="text-indigo-600">MOCK</span>
+            <div className="max-w-7xl mx-auto px-6 py-0 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <img src="/logo.ico" alt="Apex Mock Test" className="h-20 w-auto" />
               </div>
               <div className="flex gap-2 md:gap-4">
                 {user ? (
@@ -283,9 +283,8 @@ export default function LandingPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
                 {/* Brand Section */}
                 <div>
-                  <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                    <Target className="text-indigo-400" size={24} />
-                    APEX<span className="text-indigo-400">MOCK</span>
+                  <h3 className="mb-3 flex items-center gap-2">
+                    <img src="/logo.ico" alt="Apex Mock Test" className="h-20 w-auto" />
                   </h3>
                   <p className="text-sm text-slate-400 mb-2">
                     An initiative of SR Club

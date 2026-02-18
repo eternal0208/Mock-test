@@ -723,6 +723,7 @@ export default function AdminDashboard() {
         endTime: '',
         accessType: 'free',
         format: 'full-mock',
+        calculator: false, // Default false
         chapters: '',
         instructions: '',
         seriesId: '',
@@ -999,7 +1000,8 @@ export default function AdminDashboard() {
             setTestDetails({
                 title: '', duration: 180, subject: 'Full Mock', category: 'JEE Main',
                 difficulty: 'medium', totalMarks: 0, isLive: false, startTime: '', endTime: '', instructions: '',
-                isVisible: true
+                isVisible: true,
+                calculator: false
             });
         } finally {
             setLoading(false);
@@ -1138,8 +1140,11 @@ export default function AdminDashboard() {
                 </div>
             )}
 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-gray-200 gap-4">
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Admin Controls</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-0 border-b border-gray-200 gap-2">
+                <div className="flex items-center gap-3">
+                    <img src="/logo.ico" alt="Apex Mock" className="h-16 w-auto" />
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Admin Controls</h2>
+                </div>
                 <div className="flex overflow-x-auto space-x-1 sm:space-x-2 pb-2 sm:pb-0">
                     <button onClick={() => setActiveTab('profile')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'profile' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Profile</button>
                     <button onClick={() => setActiveTab('manage')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'manage' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Tests</button>
@@ -1647,6 +1652,18 @@ export default function AdminDashboard() {
                                         ))}
                                     </select>
                                     <p className="text-xs text-gray-500">Only showing {testDetails.category} series.</p>
+                                </div>
+                                <div className="mt-4 flex items-center md:col-span-2">
+                                    <input
+                                        type="checkbox"
+                                        id="calculator"
+                                        checked={testDetails.calculator}
+                                        onChange={(e) => setTestDetails({ ...testDetails, calculator: e.target.checked })}
+                                        className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                    />
+                                    <label htmlFor="calculator" className="ml-2 block text-sm font-bold text-gray-700 select-none">
+                                        Enable Scientific Calculator (On-Screen)
+                                    </label>
                                 </div>
                                 <div>
                                     <div>
