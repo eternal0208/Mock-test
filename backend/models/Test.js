@@ -16,6 +16,8 @@ class Test {
         this.format = data.format || 'full-mock'; // 'full-mock' | 'chapter-wise' | 'part-test'
         this.chapters = data.chapters || []; // Array of strings (e.g., ['Kinematics', 'Laws of Motion']) - relevant for chapter-wise
 
+        this.calculator = data.calculator !== undefined ? data.calculator : false; // Scientific Calculator Toggle
+
         this.instructions = data.instructions || '1. All questions are compulsory.\n2. +4 for correct, -1 for wrong answer (MCQ).\n3. 0 Marks for unattempted.';
 
         this.startTime = data.startTime || null; // ISO String for Live Test Start
@@ -68,6 +70,7 @@ class Test {
             accessType: this.accessType,
             format: this.format,
             chapters: this.chapters,
+            calculator: this.calculator,
             instructions: this.instructions,
             startTime: this.startTime,
             endTime: this.endTime,

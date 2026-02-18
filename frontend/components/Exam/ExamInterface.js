@@ -5,8 +5,8 @@ import { Clock, AlertTriangle, User, Info, ChevronRight, ChevronLeft, Maximize2 
 import { useRouter } from 'next/navigation';
 import MathText from '@/components/ui/MathText';
 import Calculator from './Tools/Calculator';
-import PeriodicTable from './Tools/PeriodicTable';
-import { Calculator as CalcIcon, FlaskConical, PenTool } from 'lucide-react';
+
+import { Calculator as CalcIcon, PenTool } from 'lucide-react';
 
 const ExamInterface = ({ test, onSubmit }) => {
     // MODES: 'instruction' | 'countdown' | 'test' | 'feedback'
@@ -30,7 +30,6 @@ const ExamInterface = ({ test, onSubmit }) => {
 
     // Tools State
     const [showCalculator, setShowCalculator] = useState(false);
-    const [showPeriodicTable, setShowPeriodicTable] = useState(false);
     // const { warnings } = useAntiCheating((msg) => alert(msg));
     const timerRef = useRef(null);
     const router = useRouter();
@@ -307,20 +306,15 @@ const ExamInterface = ({ test, onSubmit }) => {
                 {/* Tools & Subject Tabs */}
                 <div className="flex bg-blue-800 px-4 items-center gap-4">
                     <div className="flex space-x-2 py-1">
-                        <button
-                            onClick={() => setShowCalculator(!showCalculator)}
-                            className={`flex items-center gap-1 px-3 py-1 rounded text-xs font-bold transition ${showCalculator ? 'bg-yellow-400 text-black' : 'bg-blue-900 text-blue-200 hover:bg-blue-700'}`}
-                            title="Scientific Calculator"
-                        >
-                            <CalcIcon size={14} /> Calc
-                        </button>
-                        <button
-                            onClick={() => setShowPeriodicTable(!showPeriodicTable)}
-                            className={`flex items-center gap-1 px-3 py-1 rounded text-xs font-bold transition ${showPeriodicTable ? 'bg-purple-400 text-black' : 'bg-blue-900 text-blue-200 hover:bg-blue-700'}`}
-                            title="Periodic Table"
-                        >
-                            <FlaskConical size={14} /> Table
-                        </button>
+                        {test.calculator && (
+                            <button
+                                onClick={() => setShowCalculator(!showCalculator)}
+                                className={`flex items-center gap-1 px-3 py-1 rounded text-xs font-bold transition ${showCalculator ? 'bg-yellow-400 text-black' : 'bg-blue-900 text-blue-200 hover:bg-blue-700'}`}
+                                title="Scientific Calculator"
+                            >
+                                <CalcIcon size={14} /> Calc
+                            </button>
+                        )}
                     </div>
 
                     <div className="flex space-x-1 overflow-x-auto no-scrollbar mask-gradient flex-1">
@@ -486,7 +480,7 @@ const ExamInterface = ({ test, onSubmit }) => {
             </div>
             {/* Tool Modals */}
             {showCalculator && <Calculator onClose={() => setShowCalculator(false)} />}
-            {showPeriodicTable && <PeriodicTable onClose={() => setShowPeriodicTable(false)} />}
+            {showCalculator && <Calculator onClose={() => setShowCalculator(false)} />}
         </div>
     );
 };
