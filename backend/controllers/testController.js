@@ -7,7 +7,8 @@ exports.createTest = async (req, res) => {
     try {
         const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts, resultVisibility, resultDeclarationTime } = req.body;
 
-        const newTest = {
+        // 1. Create Test Document (Header) - OMIT questions array to save space
+        const newTestHeader = {
             title,
             duration_minutes: Number(duration),
             total_marks: Number(totalMarks),
@@ -20,23 +21,34 @@ exports.createTest = async (req, res) => {
             endTime: endTime || null,
             maxAttempts: maxAttempts !== undefined ? Number(maxAttempts) : null,
             expiryDate: req.body.expiryDate || null,
-            // Result visibility settings
-            resultVisibility: resultVisibility || 'immediate', // 'immediate' | 'scheduled' | 'afterTestEnds'
-            resultDeclarationTime: resultDeclarationTime || null, // ISO date string for scheduled mode
-            questions: (questions || []).map((q, i) => ({
-                ...q,
-                _id: q._id || `q_${Date.now()}_${i}`,
-                // Ensure solution fields are preserved
-                solution: q.solution || '',
-                solutionImage: q.solutionImage || ''
-            })),
+            resultVisibility: resultVisibility || 'immediate',
+            resultDeclarationTime: resultDeclarationTime || null,
             createdBy: req.user?._id || 'admin',
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            questionCount: (questions || []).length // Store count for quick display
         };
 
-        const docRef = await db.collection('tests').add(newTest);
+        const docRef = await db.collection('tests').add(newTestHeader);
+        const testId = docRef.id;
 
-        // Link to Series if seriesId provided
+        // 2. Upload Questions to Sub-collection
+        if (questions && questions.length > 0) {
+            const batch = db.batch();
+            questions.forEach((q, index) => {
+                // Create a reference in the sub-collection
+                const qRef = db.collection('tests').doc(testId).collection('questions').doc(); // Auto-ID
+                batch.set(qRef, {
+                    ...q,
+                    order: index, // Maintain order
+                    _id: qRef.id, // Ensure internal ID matches doc ID
+                    solution: q.solution || '',
+                    solutionImage: q.solutionImage || ''
+                });
+            });
+            await batch.commit();
+        }
+
+        // Link to Series (Optional)
         if (req.body.seriesId) {
             try {
                 const seriesRef = db.collection('testSeries').doc(req.body.seriesId);
@@ -44,40 +56,56 @@ exports.createTest = async (req, res) => {
                 if (seriesDoc.exists) {
                     const currentTestIds = seriesDoc.data().testIds || [];
                     await seriesRef.update({
-                        testIds: [...currentTestIds, docRef.id]
+                        testIds: [...currentTestIds, testId]
                     });
                 }
             } catch (err) {
                 console.error("Failed to link test to series:", err);
-                // Non-critical error, continue
             }
         }
 
-        res.status(201).json({ _id: docRef.id, ...newTest });
+        res.status(201).json({ _id: testId, ...newTestHeader });
     } catch (error) {
         console.error("Create Test Error:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
 
-// @desc    Add questions to a test (Legacy/Optional)
+// @desc    Add questions to a test
 // @route   POST /api/tests/:id/questions
 // @access  Admin
 exports.addQuestions = async (req, res) => {
     try {
         const { questions } = req.body;
-        const testRef = db.collection('tests').doc(req.params.id);
+        const testId = req.params.id;
+        const testRef = db.collection('tests').doc(testId);
         const doc = await testRef.get();
 
         if (!doc.exists) return res.status(404).json({ message: 'Test not found' });
 
-        const currentQuestions = doc.data().questions || [];
-        const updatedQuestions = [...currentQuestions, ...questions];
+        // Get current question count to handle ordering
+        const currentQsSnapshot = await testRef.collection('questions').get();
+        let currentCount = currentQsSnapshot.size;
 
-        await testRef.update({ questions: updatedQuestions });
+        if (questions && questions.length > 0) {
+            const batch = db.batch();
+            questions.forEach((q, index) => {
+                const qRef = testRef.collection('questions').doc();
+                batch.set(qRef, {
+                    ...q,
+                    order: currentCount + index,
+                    _id: qRef.id
+                });
+            });
+            await batch.commit();
 
-        res.status(200).json({ _id: doc.id, ...doc.data(), questions: updatedQuestions });
+            // Update main doc count
+            await testRef.update({ questionCount: currentCount + questions.length });
+        }
+
+        res.status(200).json({ message: 'Questions added successfully' });
     } catch (error) {
+        console.error("Add Questions Error:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
@@ -87,7 +115,21 @@ exports.addQuestions = async (req, res) => {
 // @access  Admin
 exports.deleteTest = async (req, res) => {
     try {
-        await db.collection('tests').doc(req.params.id).delete();
+        const testId = req.params.id;
+
+        // 1. Delete Sub-collection Questions (Must be done manually in Firestore)
+        const qsSnapshot = await db.collection('tests').doc(testId).collection('questions').get();
+
+        // Firestore batch delete limit is 500. Assuming < 500 for now or simple loop.
+        const batch = db.batch();
+        qsSnapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+
+        // 2. Delete Test Document
+        await db.collection('tests').doc(testId).delete();
+
         res.status(200).json({ message: 'Test deleted successfully' });
     } catch (error) {
         console.error("Delete Test Error:", error);
@@ -100,15 +142,15 @@ exports.deleteTest = async (req, res) => {
 // @access  Student/Admin
 exports.getAllTests = async (req, res) => {
     try {
-        console.log("🔍 [API] GET /api/tests called");
+        // console.log("🔍 [API] GET /api/tests called");
         const snapshot = await db.collection('tests').get();
-        console.log(`🔍 [DEBUG] Tests found in DB: ${snapshot.size}`);
+        // console.log(`🔍 [DEBUG] Tests found in DB: ${snapshot.size}`);
 
         const tests = [];
         const isAdmin = req.user && req.user.role === 'admin';
         let userCategory = req.user?.category;
 
-        // Fallback: Fetch user category from DB if not in token and not admin
+        // Fallback: Fetch user category
         if (!isAdmin && !userCategory && req.user?.uid) {
             try {
                 const userDoc = await db.collection('users').doc(req.user.uid).get();
@@ -116,77 +158,38 @@ exports.getAllTests = async (req, res) => {
                     const uData = userDoc.data();
                     userCategory = uData.category || uData.selectedField || uData.targetExam || uData.interest;
                 }
-            } catch (e) {
-                console.error("Error fetching user category fallback:", e);
-            }
+            } catch (e) { }
         }
-
-        console.log("🔍 [DEBUG] Requester:", {
-            uid: req.user?.uid,
-            role: req.user?.role,
-            category: userCategory
-        });
 
         snapshot.forEach(doc => {
             const data = doc.data();
-            const testId = doc.id;
 
-            // ADMIN: Show all tests regardless of category or visibility
+            // Handle Legacy Data: If 'questions' array exists in doc, use length. If not, use 'questionCount'.
+            const qCount = data.questions ? data.questions.length : (data.questionCount || 0);
+
             if (isAdmin) {
                 tests.push({
                     _id: doc.id,
-                    title: data.title,
-                    duration_minutes: data.duration_minutes,
-                    total_marks: data.total_marks,
-                    subject: data.subject,
-                    category: data.category || 'JEE Main',
-                    difficulty: data.difficulty,
-                    isVisible: data.isVisible !== undefined ? data.isVisible : true,
-                    startTime: data.startTime,
-                    endTime: data.endTime,
-                    expiryDate: data.expiryDate || null,
-                    maxAttempts: data.maxAttempts,
-                    questionCount: data.questions?.length || 0
+                    ...data,
+                    questions: undefined, // Don't send heavy data in list view
+                    questionCount: qCount
                 });
                 return;
             }
 
-            // STUDENT: Apply strict filters
+            // Student Filters
             const testCategory = data.category;
-
-            // Debug check for specific tests if needed
-            // console.log(`🔍 Checking Test ${data.title}: UserCat=${userCategory}, TestCat=${testCategory}, Visible=${data.isVisible}`);
-
-            // Filter 1: Category must match (Case Insensitive)
-            if (!userCategory || !testCategory || userCategory.toLowerCase() !== testCategory.toLowerCase()) {
-                // console.log(`❌ Skipping Test ${data.title}: Category Mismatch (${userCategory} vs ${testCategory})`);
-                return;
-            }
-
-            // Filter 2: Only show visible tests
-            if (data.isVisible === false) {
-                // console.log(`❌ Skipping Test ${data.title}: Not Visible`);
-                return;
-            }
+            if (!userCategory || !testCategory || userCategory.toLowerCase() !== testCategory.toLowerCase()) return;
+            if (data.isVisible === false) return;
 
             tests.push({
                 _id: doc.id,
-                title: data.title,
-                duration_minutes: data.duration_minutes,
-                total_marks: data.total_marks,
-                subject: data.subject,
-                category: data.category || 'JEE Main',
-                difficulty: data.difficulty,
-                isVisible: data.isVisible !== undefined ? data.isVisible : true,
-                startTime: data.startTime,
-                endTime: data.endTime,
-                expiryDate: data.expiryDate || null,
-                maxAttempts: data.maxAttempts,
-                questionCount: data.questions?.length || 0
+                ...data,
+                questions: undefined,
+                questionCount: qCount
             });
         });
 
-        console.log(`✅ [DEBUG] Returning ${tests.length} tests to client`);
         res.status(200).json(tests);
     } catch (error) {
         console.error("❌ [API ERROR] getAllTests:", error);
@@ -199,31 +202,30 @@ exports.getAllTests = async (req, res) => {
 // @access  Student/Admin
 exports.getTestById = async (req, res) => {
     try {
-        const doc = await db.collection('tests').doc(req.params.id).get();
+        const testId = req.params.id;
+        const doc = await db.collection('tests').doc(testId).get();
         if (!doc.exists) {
             return res.status(404).json({ message: 'Test not found' });
         }
 
         const data = doc.data();
 
-        // Security: Check permissions
-        const isAdmin = req.user && req.user.role === 'admin';
+        // FETCH QUESTIONS: Check sub-collection first, fallback to legacy array
+        let questions = [];
+        const qsSnapshot = await db.collection('tests').doc(testId).collection('questions').orderBy('order').get();
 
-        // ADMIN: Can access any test
-        if (isAdmin) {
-            const sanitizedQuestions = (data.questions || []).map(q => ({
-                ...q,
-                _id: q._id || Math.random().toString(36).substr(2, 9),
-                correctOption: undefined,
-                correctOptions: undefined,
-                integerAnswer: undefined
-            }));
-            return res.status(200).json({ _id: doc.id, ...data, questions: sanitizedQuestions });
+        if (!qsSnapshot.empty) {
+            questions = qsSnapshot.docs.map(d => ({ _id: d.id, ...d.data() }));
+        } else if (data.questions && Array.isArray(data.questions)) {
+            // Legacy Fallback
+            questions = data.questions;
         }
 
-        // STUDENT: Check category and visibility
+        // Security & Permissions
+        const isAdmin = req.user && req.user.role === 'admin';
         let userCategory = req.user?.category;
-        if (!userCategory && req.user?.uid) {
+
+        if (!isAdmin && !userCategory && req.user?.uid) {
             try {
                 const userDoc = await db.collection('users').doc(req.user.uid).get();
                 if (userDoc.exists) {
@@ -233,62 +235,43 @@ exports.getTestById = async (req, res) => {
             } catch (e) { }
         }
 
-        const testCategory = data.category;
+        // Student Checks
+        if (!isAdmin) {
+            const testCategory = data.category;
+            const categoryMatch = userCategory && userCategory === testCategory;
+            const isVisible = data.isVisible !== false;
 
-        // Filter 1: Category must match
-        // STRICT CHECK: Matches exactly.
-        const categoryMatch = userCategory && userCategory === testCategory;
+            // Check if attempted
+            let hasAttempted = false;
+            const userId = req.user?.uid;
+            if (userId) {
+                try {
+                    const resultCheck = await db.collection('results')
+                        .where('testId', '==', testId)
+                        .where('userId', '==', userId)
+                        .limit(1)
+                        .get();
+                    hasAttempted = !resultCheck.empty;
+                } catch (e) { }
+            }
 
-        // Filter 2: Test must be visible
-        const isVisible = data.isVisible !== false;
+            if (!hasAttempted) {
+                if (!categoryMatch) return res.status(403).json({ message: 'Access Denied: Category mismatch.' });
+                if (!isVisible) return res.status(403).json({ message: 'Test is not currently available.' });
+            }
 
-        // AUTH CHECK:
-        // A user can access the test if:
-        // 1. (Standard) Category Matches AND Test is Visible (Start Exam flow)
-        // 2. (Result Review) User has already ATTEMPTED the test (Result exists) -> Bypass restrictions so they can view solutions.
-
-        let hasAttempted = false;
-        const userId = req.user?.uid;
-
-        if (userId) {
-            try {
-                const resultCheck = await db.collection('results')
-                    .where('testId', '==', req.params.id)
-                    .where('userId', '==', userId)
-                    .limit(1)
-                    .get();
-                hasAttempted = !resultCheck.empty;
-            } catch (e) { console.error("Error checking attempt", e); }
+            // Sanitization
+            if (!hasAttempted) {
+                questions = questions.map(q => ({
+                    ...q,
+                    correctOption: undefined,
+                    correctOptions: undefined,
+                    integerAnswer: undefined
+                }));
+            }
         }
 
-        if (!hasAttempted) {
-            if (!categoryMatch) return res.status(403).json({ message: 'Access Denied: Category mismatch.' });
-            if (!isVisible) return res.status(403).json({ message: 'Test is not currently available.' });
-        }
-
-        // If User has attempted, we SHOW correctOption.
-        // If User has NOT attempted, we HIDE correctOption (Security).
-
-        let questionsToSend = data.questions || [];
-
-        if (!hasAttempted) {
-            // Sanitize for new attempts
-            questionsToSend = questionsToSend.map((q, i) => ({
-                ...q,
-                _id: q._id || `q_${doc.id}_${i}`,
-                correctOption: undefined,
-                correctOptions: undefined,
-                integerAnswer: undefined
-            }));
-        } else {
-            // Ensure IDs even for review
-            questionsToSend = questionsToSend.map((q, i) => ({
-                ...q,
-                _id: q._id || `q_${doc.id}_${i}`
-            }));
-        }
-
-        res.status(200).json({ _id: doc.id, ...data, questions: questionsToSend });
+        res.status(200).json({ _id: doc.id, ...data, questions });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server Error' });
@@ -301,7 +284,8 @@ exports.getTestById = async (req, res) => {
 exports.submitTest = async (req, res) => {
     try {
         const { userId, answers } = req.body;
-        const testRef = db.collection('tests').doc(req.params.id);
+        const testId = req.params.id;
+        const testRef = db.collection('tests').doc(testId);
         const testDoc = await testRef.get();
 
         if (!testDoc.exists) {
@@ -314,87 +298,37 @@ exports.submitTest = async (req, res) => {
         let wrongCount = 0;
         const attemptData = [];
 
-        // Map for lookup. Note: In Firestore, questions are just array objects, they might not have unique _id unless we added them.
-        // My previous code expected q._id. Admin creating tests uses the UI which currently doesn't add _id.
-        // BUT invalidating the reliance on q._id is risky.
-        // Let's assume we match by Index if ID is missing or match by Text?
-        // Index is safer for specific test instance.
-        // The submitted answers usually contain questionId.
-        // If questionId is missing in `questions` array objects, we have a problem.
-        // Fix: My `getTestById` above adds a dummy ID if missing, but that's random per request! 
-        // THIS IS ARCTITECTURALLY FLAWED if IDs aren't persistent.
-        // FIX: The seed script and Admin UI should add IDs. 
-        // HOWEVER, to be robust: let's match by index provided we tell frontend the index.
-        // Frontend uses `q._id`.
+        // FETCH QUESTIONS for Validation (Sub-collection or Legacy)
+        let dbQuestions = [];
+        const qsSnapshot = await testRef.collection('questions').orderBy('order').get();
 
-        // TEMPORARY FIX: If test questions don't have IDs, we can't reliably score.
-        // I will assume for now we use index as ID if real ID is missing, but frontend sends ID.
-        // Let's rely on the fact that I will re-seed data properly or update the Admin tool to add IDs.
-        // For now, let's map by text comparison if ID fails? No, questions might be duplicate text.
+        if (!qsSnapshot.empty) {
+            dbQuestions = qsSnapshot.docs.map(d => ({ _id: d.id, ...d.data() }));
+        } else if (test.questions && Array.isArray(test.questions)) {
+            dbQuestions = test.questions.map((q, i) => ({
+                ...q,
+                _id: q._id || `q_${testId}_${i}` // Fallback ID
+            }));
+        }
 
-        // Simpler: The frontend received `questions` with generated IDs (random) in `getTestById` above!
-        // So the frontend sends back those random IDs. 
-        // Iterate through the `questions` array and try to find equality?
-        // Since `getTestById` generates random IDs on the fly, we CANNOT verify them on submit unless we stored them.
-        // CRITICAL FIX: `getTestById` must NOT return random IDs if they aren't persisted.
-
-        // I must update `createTest` to add IDs to questions.
-        // AND for `submitTest`, I must iterate carefully.
-
-        // Let's update `createTest` logic in this replacement as well (handled above? No, I didn't add IDs in createTest).
-        // Actually, let's handle `submitTest` by assuming the `questions` array order matches. 
-        // But the frontend sends `questionId`.
-
-        // STRATEGY: 
-        // 1. In `createTest` (Admin), assume data comes with IDs or we generate them.
-        // 2. In `submitTest`, if we can't find by ID, we fail?
-        // Let's look at `users` answers.
-
-        // Let's create a map based on question text (risky but works for likely unique questions)
-        // OR better: Just loop and check `questionId`.
-        // If `questionId` corresponds to nothing, we skip?
-        // Wait, Mongoose subdocs had `_id` automatically. Firestore object arrays do NOT.
-        // Implementation:
-        // When checking answers, we iterate `test.questions`.
-        // If `test.questions` elements have no `_id`, we can't match `answer.questionId`.
-
-        // PROPOSED FIX for Legacy Mongoose compatibility:
-        // We will assume `answer.questionId` might be an index if it's a number? No, mongo IDs are strings.
-
-        // Let's just Loop through users answers and match against test.questions.
-        // Ideally, test.questions have stable IDs.
-        // I will update the Seed script to add IDs.
-
-        // Helper to ensure questions have IDs
-        const ensureIds = (qs) => qs.map((q, i) => ({
-            ...q,
-            _id: q._id || `q_${req.params.id}_${i}` // Deterministic Fallback
-        }));
-
-        const dbQuestions = ensureIds(test.questions || []);
         const questionMap = new Map(dbQuestions.map(q => [q._id.toString(), q]));
 
-        // Loop through answers using the map
         answers.forEach(ans => {
             let question = questionMap.get(ans.questionId);
 
-            // Fallback: If ID mismatch (legacy), try index matching if ID looks like index-based
-            if (!question && ans.questionId && ans.questionId.startsWith(`q_${req.params.id}_`)) {
+            // Logic to find question if ID mismatch (Legacy index based)
+            if (!question && ans.questionId && ans.questionId.startsWith(`q_${testId}_`)) {
                 const idx = parseInt(ans.questionId.split('_').pop());
                 if (!isNaN(idx)) question = dbQuestions[idx];
             }
 
             if (question) {
                 let isCorrect = false;
-
-                // SCORING LOGIC BASED ON TYPE
                 if (question.type === 'msq') {
                     const userAns = Array.isArray(ans.selectedOption) ? ans.selectedOption : [ans.selectedOption];
                     const correctAns = question.correctOptions || [];
-                    // Sort both for comparison
                     const sortedUser = [...userAns].sort();
                     const sortedCorrect = [...correctAns].sort();
-
                     if (sortedUser.length === sortedCorrect.length &&
                         sortedUser.every((val, index) => val === sortedCorrect[index])) {
                         isCorrect = true;
@@ -404,7 +338,6 @@ exports.submitTest = async (req, res) => {
                         isCorrect = true;
                     }
                 } else {
-                    // MCQ
                     isCorrect = question.correctOption === ans.selectedOption;
                 }
 
@@ -433,9 +366,9 @@ exports.submitTest = async (req, res) => {
 
         const newResult = {
             userId,
-            testId: req.params.id, // Store as String for querying
-            testDetails: { // Store metadata separately
-                _id: req.params.id,
+            testId: testId,
+            testDetails: {
+                _id: testId,
                 title: test.title,
                 subject: test.subject,
                 total_marks: test.total_marks
@@ -457,19 +390,6 @@ exports.submitTest = async (req, res) => {
 
     } catch (error) {
         console.error("Submit Test Error:", error);
-        res.status(500).json({ message: 'Server Error' });
-    }
-};
-
-// @desc    Delete a test
-// @route   DELETE /api/tests/:id
-// @access  Admin
-exports.deleteTest = async (req, res) => {
-    try {
-        await db.collection('tests').doc(req.params.id).delete();
-        res.status(200).json({ message: 'Test deleted successfully' });
-    } catch (error) {
-        console.error("Delete Test Error:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
@@ -635,8 +555,10 @@ exports.getAllSeries = async (req, res) => {
             const seriesField = data.category || data.field;
 
             if (!isAdmin) {
-                if (!userField) return;
-                if (seriesField !== userField) return;
+                // If userField is present (Logged In), filter by it.
+                // If userField is null (Guest), SHOW ALL (or show none? Standard is show relevant or all public).
+                // Let's show ALL for guests to entice them.
+                if (userField && seriesField && seriesField !== userField) return;
             }
             series.push({ id: doc.id, ...data });
         });

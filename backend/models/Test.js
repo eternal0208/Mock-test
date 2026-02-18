@@ -47,7 +47,8 @@ class Test {
             subject: q.subject,
             topic: q.topic || '',
             solution: q.solution || '', // Explanation Text
-            solutionImage: q.solutionImage || '' // Explanation Image
+            solutionImage: q.solutionImage || '', // Explanation Image (Legacy)
+            solutionImages: q.solutionImages || [] // Explanation Images (New Array)
         }));
 
         this.createdBy = data.createdBy || 'admin';
@@ -74,7 +75,10 @@ class Test {
             solutionPdf: this.solutionPdf,
             solutionVisibility: this.solutionVisibility,
             resultDeclarationTime: this.resultDeclarationTime,
-            questions: this.questions,
+            questions: this.questions.map(q => ({
+                ...q,
+                solutionImages: q.solutionImages || []
+            })),
             createdBy: this.createdBy,
             createdAt: this.createdAt
         };

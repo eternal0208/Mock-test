@@ -2,6 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Clock, CheckCircle, AlertTriangle, Play } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/config';
+import { useAuth } from '@/context/AuthContext';
 
 interface Test {
     title: string;
@@ -14,16 +16,30 @@ interface Test {
 export default function InstructionPage() {
     const { id } = useParams();
     const router = useRouter();
+    const { user, loading: authLoading } = useAuth();
     const [test, setTest] = useState<Test | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (authLoading) return;
+
+        if (!user) {
+            // Optional: Redirect to login or just show unauthorized
+            setLoading(false);
+            return;
+        }
+
         const fetchTest = async () => {
             try {
-                const res = await fetch(`http://localhost:5001/api/tests/${id}`);
+                const token = await user.getIdToken();
+                const res = await fetch(`${API_BASE_URL}/api/tests/${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 if (res.ok) {
                     const data = await res.json();
                     setTest(data);
+                } else {
+                    console.error("Fetch failed", res.status);
                 }
             } catch (error) {
                 console.error("Failed to fetch test details", error);
@@ -32,9 +48,20 @@ export default function InstructionPage() {
             }
         };
         fetchTest();
-    }, [id]);
+    }, [id, user, authLoading]);
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center">Loading Instructions...</div>;
+    if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center">Loading Instructions...</div>;
+
+    if (!user) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+                <p className="text-xl">Please log in to view exam instructions.</p>
+                <button onClick={() => router.push('/')} className="text-indigo-600 hover:underline">Go Home</button>
+            </div>
+        );
+    }
+
+    if (!test) return <div className="min-h-screen flex items-center justify-center">Test Not Found</div>;
     if (!test) return <div className="min-h-screen flex items-center justify-center">Test Not Found</div>;
 
     return (

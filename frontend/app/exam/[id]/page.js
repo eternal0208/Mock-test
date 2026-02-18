@@ -8,7 +8,7 @@ import ExamInterface from '@/components/Exam/ExamInterface';
 
 export default function ExamPage() {
     const { id } = useParams();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const router = useRouter();
     const [test, setTest] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -20,7 +20,12 @@ export default function ExamPage() {
     const [isFullscreen, setIsFullscreen] = useState(false);
 
     useEffect(() => {
-        if (!user) return; // Wait for auth
+        if (authLoading) return;
+
+        if (!user) {
+            setLoading(false);
+            return;
+        }
 
         const fetchTest = async () => {
             try {
@@ -41,7 +46,7 @@ export default function ExamPage() {
             }
         };
         fetchTest();
-    }, [id, user]);
+    }, [id, user, authLoading]);
 
     // Security Measures
     useEffect(() => {

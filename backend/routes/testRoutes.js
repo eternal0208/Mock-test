@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { createTest, addQuestions, getAllTests, getTestById, submitTest } = require('../controllers/testController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, optionalProtect } = require('../middleware/authMiddleware');
 
 router.post('/', createTest);
 router.put('/:id/questions', addQuestions);
 
 // Public/Protected split: Ideally these should be protected to know the user's field
-router.get('/series', protect, require('../controllers/testController').getAllSeries);
+router.get('/series', optionalProtect, require('../controllers/testController').getAllSeries);
 router.get('/', protect, getAllTests);
 router.get('/:id', protect, getTestById);
 

@@ -62,3 +62,42 @@ exports.authorize = (...roles) => {
         next();
     };
 };
+
+// Middleware that attaches user if token exists, but doesn't block if not
+exports.optionalProtect = async (req, res, next) => {
+    let token;
+
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!token) {
+        return next(); // Proceed as Guest
+    }
+
+    try {
+        const decodedToken = await auth.verifyIdToken(token);
+        const uid = decodedToken.uid;
+        const userDoc = await db.collection('users').doc(uid).get();
+
+        let userData = {};
+        if (userDoc.exists) {
+            userData = userDoc.data();
+        }
+
+        req.user = {
+            uid: uid,
+            _id: uid,
+            email: decodedToken.email,
+            role: userData.role || 'student',
+            category: userData.category || userData.targetExam || userData.selectedField || null,
+            ...userData
+        };
+        next();
+    } catch (error) {
+        // If token invalid, proceed as guest or warn? 
+        // Better to treat as guest to avoid blocking valid public access if stale token exists
+        console.warn('⚠️ [Optional Auth] Token validation failed, proceeding as Guest:', error.message);
+        next();
+    }
+};

@@ -381,16 +381,34 @@ export default function ResultPage() {
                                                                             <div className="mb-3 whitespace-pre-wrap"><MathText text={q.solution} /></div>
                                                                         ) : <p className="text-gray-400 italic mb-2">No text explanation provided.</p>}
 
-                                                                        {q.solutionImage && (
-                                                                            <div>
-                                                                                <p className="text-xs font-bold text-gray-500 mb-1">Solution Image:</p>
-                                                                                <img
-                                                                                    src={q.solutionImage}
-                                                                                    alt="Solution"
-                                                                                    className="max-h-64 rounded border bg-white shadow-sm cursor-zoom-in hover:opacity-95 transition-opacity"
-                                                                                    onClick={() => setPreviewImage(q.solutionImage)}
-                                                                                />
+                                                                        {/* Multiple Images Support */}
+                                                                        {q.solutionImages && q.solutionImages.length > 0 ? (
+                                                                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                                {q.solutionImages.map((img, i) => (
+                                                                                    <div key={i}>
+                                                                                        {i === 0 && <p className="text-xs font-bold text-gray-500 mb-1">Solution Images:</p>}
+                                                                                        <img
+                                                                                            src={img}
+                                                                                            alt={`Solution ${i + 1}`}
+                                                                                            className="max-h-64 rounded border bg-white shadow-sm cursor-zoom-in hover:opacity-95 transition-opacity"
+                                                                                            onClick={() => setPreviewImage(img)}
+                                                                                        />
+                                                                                    </div>
+                                                                                ))}
                                                                             </div>
+                                                                        ) : (
+                                                                            /* Legacy Single Image Fallback */
+                                                                            q.solutionImage && (
+                                                                                <div>
+                                                                                    <p className="text-xs font-bold text-gray-500 mb-1">Solution Image:</p>
+                                                                                    <img
+                                                                                        src={q.solutionImage}
+                                                                                        alt="Solution"
+                                                                                        className="max-h-64 rounded border bg-white shadow-sm cursor-zoom-in hover:opacity-95 transition-opacity"
+                                                                                        onClick={() => setPreviewImage(q.solutionImage)}
+                                                                                    />
+                                                                                </div>
+                                                                            )
                                                                         )}
                                                                     </div>
                                                                 </div>

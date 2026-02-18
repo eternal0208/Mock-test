@@ -17,7 +17,7 @@ export default function LandingPage() {
   const vantaRef = useRef(null);
   const [vantaEffect, setVantaEffect] = useState<any>(null);
   const { user } = useAuth();
-  const [testSeries, setTestSeries] = useState([]);
+  const [testSeries, setTestSeries] = useState<any[]>([]);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const router = useRouter();
 
@@ -57,7 +57,14 @@ export default function LandingPage() {
     // Fetch Test Series
     fetch(`${API_BASE_URL}/api/tests/series`)
       .then(res => res.json())
-      .then(data => setTestSeries(data))
+      .then(data => {
+        if (Array.isArray(data)) {
+          setTestSeries(data);
+        } else {
+          console.error("Invalid series data:", data);
+          setTestSeries([]);
+        }
+      })
       .catch(err => console.error(err));
 
     return () => {

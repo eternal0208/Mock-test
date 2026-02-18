@@ -2,13 +2,13 @@
 // Admin Dashboard Updated: 2026-02-04
 import { useState, useEffect } from 'react';
 import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X, Download } from 'lucide-react';
-import MathToolbar from './MathToolbar';
+import SubjectToolbar from './SubjectToolbar';
 import MathText from '@/components/ui/MathText';
 import { API_BASE_URL } from '@/lib/config';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-// import { storage } from '@/lib/firebase';
-// import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const AnalyticsModal = ({ testId, onClose }) => {
     const [stats, setStats] = useState(null);
@@ -748,7 +748,8 @@ export default function AdminDashboard() {
         image: null,
         optionImages: [null, null, null, null],
         solution: '',      // Solution text explanation
-        solutionImage: ''  // Solution image URL
+        solutionImage: '',  // Solution image URL (Legacy)
+        solutionImages: []  // Solution images array (New)
     });
 
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -795,38 +796,98 @@ export default function AdminDashboard() {
         setCurrentQuestion({ ...currentQuestion, [field]: currentValue + ' ' + latex });
     };
 
-    const uploadImage = (file, type, index = null) => {
+    const compressImage = (file) => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    const MAX_HEIGHT = 800;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    // Compress to JPEG with 0.7 quality
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    resolve(dataUrl);
+                };
+            };
+        });
+    };
+
+    const uploadImage = async (file, type, index = null) => {
         if (!file) return;
 
-        // Size validation (limit to 200KB to avoid hitting Firestore 1MB document limit)
-        if (file.size > 200 * 1024) {
-            alert("File too large! Please upload a smaller image (max 200KB) to prevent database errors.");
-            return;
-        }
-
         setUploadingImage(true);
-        const reader = new FileReader();
+        try {
+            // 1. Compress the image (returns Base64)
+            const compressedBase64 = await compressImage(file);
 
-        reader.onloadend = () => {
-            const base64String = reader.result;
+            // 2. Convert Base64 to Blob
+            const response = await fetch(compressedBase64);
+            const blob = await response.blob();
 
+            // 3. Create Storage Reference
+            // Add randomness to filename to avoid collisions and handle missing names
+            const safeName = file.name ? file.name.replace(/\s+/g, '_') : 'pasted_image.jpg';
+            const filename = `${Date.now()}_${Math.random().toString(36).substring(7)}_${safeName}`;
+            const storageRef = ref(storage, `questions/${filename}`);
+
+            // 4. Upload File
+            await uploadBytes(storageRef, blob);
+
+            // 5. Get Download URL
+            const downloadURL = await getDownloadURL(storageRef);
+            console.log("Image uploaded to Storage:", downloadURL);
+
+            // 6. Update State with URL
             if (type === 'question') {
-                setCurrentQuestion(prev => ({ ...prev, image: base64String }));
+                setCurrentQuestion(prev => ({ ...prev, image: downloadURL }));
             } else if (type === 'solution') {
-                setCurrentQuestion(prev => ({ ...prev, solutionImage: base64String }));
+                setCurrentQuestion(prev => ({
+                    ...prev,
+                    solutionImages: [...(prev.solutionImages || []), downloadURL]
+                }));
             } else if (type === 'option' && index !== null) {
-                handleOptionImageChange(index, base64String);
+                handleOptionImageChange(index, downloadURL);
             }
+        } catch (error) {
+            console.error("Error uploading image:", error);
+            alert("Failed to upload image. Please check your internet connection.");
+        } finally {
             setUploadingImage(false);
-        };
+        }
+    };
 
-        reader.onerror = () => {
-            console.error("Error reading file");
-            alert("Failed to read file");
-            setUploadingImage(false);
-        };
-
-        reader.readAsDataURL(file);
+    const handlePaste = (e, type, index = null) => {
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf("image") !== -1) {
+                const blob = items[i].getAsFile();
+                uploadImage(blob, type, index);
+                e.preventDefault(); // Prevent pasting the image binary string
+                return;
+            }
+        }
     };
 
     const handleUpdateStatus = async (userId, currentStatus) => {
@@ -1116,8 +1177,8 @@ export default function AdminDashboard() {
                         const activeTests = tests.filter(t => !isExpired(t.expiryDate));
                         const expiredTests = tests.filter(t => isExpired(t.expiryDate));
 
-                        const renderTestTable = (testList, title) => (
-                            <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+                        const renderTestTable = (testList, title, key) => (
+                            <div key={key} className="bg-white rounded-lg shadow overflow-hidden mb-6">
                                 <div className="p-6 border-b border-gray-200 bg-gray-50"><h3 className="text-xl font-bold text-gray-800">{title} ({testList.length})</h3></div>
                                 {testList.length === 0 ? (
                                     <div className="p-6 text-center text-gray-500">No tests found in this category.</div>
@@ -1188,7 +1249,7 @@ export default function AdminDashboard() {
                                 {categories.map(cat => {
                                     const catTests = activeTests.filter(t => t.category === cat);
                                     if (catTests.length === 0) return null;
-                                    return renderTestTable(catTests, `${cat} - Active`);
+                                    return renderTestTable(catTests, `${cat} - Active`, cat);
                                 })}
                                 {activeTests.length === 0 && <p className="text-gray-500 italic">No active tests.</p>}
 
@@ -1196,7 +1257,7 @@ export default function AdminDashboard() {
                                 {categories.map(cat => {
                                     const catTests = expiredTests.filter(t => t.category === cat);
                                     if (catTests.length === 0) return null;
-                                    return renderTestTable(catTests, `${cat} - Expired`);
+                                    return renderTestTable(catTests, `${cat} - Expired`, cat);
                                 })}
                             </div>
                         );
@@ -1221,8 +1282,8 @@ export default function AdminDashboard() {
                         const activeSeries = seriesList.filter(s => !isExpired(s.expiryDate));
                         const expiredSeries = seriesList.filter(s => isExpired(s.expiryDate));
 
-                        const renderSeriesTable = (list, title) => (
-                            <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
+                        const renderSeriesTable = (list, title, key) => (
+                            <div key={key} className="bg-white rounded-lg shadow overflow-hidden mb-8">
                                 <div className="p-6 border-b border-gray-200 bg-gray-50"><h3 className="text-xl font-bold text-gray-800">{title} ({list.length})</h3></div>
                                 <div className="overflow-x-auto">
                                     <table className="min-w-full divide-y divide-gray-200">
@@ -1266,14 +1327,14 @@ export default function AdminDashboard() {
                                 {categories.map(cat => {
                                     const catSeries = activeSeries.filter(s => s.category === cat);
                                     if (catSeries.length === 0) return null;
-                                    return renderSeriesTable(catSeries, `${cat}`);
+                                    return renderSeriesTable(catSeries, `${cat}`, cat);
                                 })}
 
                                 <h2 className="text-2xl font-bold text-gray-800 mb-4 mt-8 pt-8 border-t">Expired Series</h2>
                                 {categories.map(cat => {
                                     const catSeries = expiredSeries.filter(s => s.category === cat);
                                     if (catSeries.length === 0) return null;
-                                    return renderSeriesTable(catSeries, `${cat} - Expired`);
+                                    return renderSeriesTable(catSeries, `${cat} - Expired`, cat);
                                 })}
                             </div>
                         );
@@ -1775,7 +1836,7 @@ export default function AdminDashboard() {
                             <div className="mb-4">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Question Text (Math Enabled)</label>
                                 <div className="border border-gray-300 rounded mb-2 bg-white">
-                                    <MathToolbar onInsert={(latex) => insertMath('text', latex)} />
+                                    <SubjectToolbar onInsert={(latex) => insertMath('text', latex)} />
                                     <textarea
                                         name="text"
                                         value={currentQuestion.text}
@@ -1783,6 +1844,7 @@ export default function AdminDashboard() {
                                         rows={3}
                                         className="block w-full p-2 outline-none border-b border-gray-100 min-h-[80px]"
                                         placeholder="Enter text... (Click buttons to add Math)"
+                                        onPaste={(e) => handlePaste(e, 'question')}
                                     />
                                     <div className="p-2 bg-gray-50 text-sm border-t border-gray-100">
                                         <p className="text-xs text-gray-400 font-bold uppercase mb-1">Preview:</p>
@@ -1794,7 +1856,7 @@ export default function AdminDashboard() {
                                     <label className="block text-xs font-bold text-gray-500 mb-1">Upload Question Image</label>
                                     <input key={fileInputKey} type="file" onChange={(e) => uploadImage(e.target.files[0], 'question')} className="text-sm text-gray-500" />
                                     {uploadingImage && <span className="text-xs text-blue-500">Uploading...</span>}
-                                    {currentQuestion.image && <img src={currentQuestion.image} alt="Q Preview" className="h-20 mt-2 object-contain border" />}
+                                    {currentQuestion.image && <img src={currentQuestion.image} alt="Q Preview" className="max-h-80 w-auto mt-2 object-contain border rounded bg-gray-50" />}
                                 </div>
                             </div>
 
@@ -1806,10 +1868,17 @@ export default function AdminDashboard() {
                                         <div key={idx} className="flex flex-col gap-1 border-b pb-2">
                                             <div className="flex items-center gap-2">
                                                 <span className="font-mono">{String.fromCharCode(65 + idx)}</span>
-                                                <input type="text" value={opt} onChange={(e) => handleOptionChange(idx, e.target.value)} className="flex-1 border p-1 rounded" placeholder={`Option Text`} />
+                                                <input
+                                                    type="text"
+                                                    value={opt}
+                                                    onChange={(e) => handleOptionChange(idx, e.target.value)}
+                                                    className="flex-1 border p-1 rounded"
+                                                    placeholder={`Option Text`}
+                                                    onPaste={(e) => handlePaste(e, 'option', idx)}
+                                                />
                                                 <input key={`${fileInputKey}-opt-${idx}`} type="file" onChange={(e) => uploadImage(e.target.files[0], 'option', idx)} className="text-xs w-24" />
                                             </div>
-                                            {currentQuestion.optionImages[idx] && <img src={currentQuestion.optionImages[idx]} alt="Opt Img" className="h-10 w-10 object-contain ml-6" />}
+                                            {currentQuestion.optionImages[idx] && <img src={currentQuestion.optionImages[idx]} alt="Opt Img" className="h-32 w-auto object-contain ml-6 border rounded bg-gray-50" />}
                                         </div>
                                     ))}
                                 </div>
@@ -1853,13 +1922,14 @@ export default function AdminDashboard() {
                                 <div className="mb-3">
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Solution Explanation</label>
                                     <div className="border border-gray-300 rounded mb-2 bg-white">
-                                        <MathToolbar onInsert={(latex) => insertMath('solution', latex)} />
+                                        <SubjectToolbar onInsert={(latex) => insertMath('solution', latex)} />
                                         <textarea
                                             name="solution"
                                             value={currentQuestion.solution || ''}
                                             onChange={handleQuestionChange}
                                             className="block w-full p-2 outline-none border-b border-gray-100 min-h-[100px]"
                                             placeholder="Enter detailed solution explanation here..."
+                                            onPaste={(e) => handlePaste(e, 'solution')}
                                         />
                                         <div className="p-2 bg-gray-50 text-sm border-t border-gray-100">
                                             <p className="text-xs text-gray-400 font-bold uppercase mb-1">Preview:</p>
@@ -1878,11 +1948,23 @@ export default function AdminDashboard() {
                                         className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
                                         accept="image/*"
                                     />
-                                    {currentQuestion.solutionImage && (
-                                        <div className="mt-2">
-                                            <img src={currentQuestion.solutionImage} alt="Solution" className="h-20 w-auto object-contain border rounded" />
-                                        </div>
-                                    )}
+                                    {/* Display Multiple Solution Images */}
+                                    <div className="mt-2 grid grid-cols-2 gap-2">
+                                        {(currentQuestion.solutionImages || []).map((img, idx) => (
+                                            <div key={idx} className="relative group bg-gray-50 border rounded p-1">
+                                                <img src={img} alt={`Sol ${idx}`} className="h-48 w-full object-contain" />
+                                                <button
+                                                    onClick={() => {
+                                                        const newImages = currentQuestion.solutionImages.filter((_, i) => i !== idx);
+                                                        setCurrentQuestion({ ...currentQuestion, solutionImages: newImages });
+                                                    }}
+                                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+                                                >
+                                                    <Trash size={12} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
 

@@ -12,12 +12,14 @@ interface Test {
     duration_minutes: number;
     difficulty?: string;
     questions?: any[];
+    questionCount?: number;
 }
 
 interface TestListProps {
     category?: string;
 }
 
+import { API_BASE_URL } from '@/lib/config';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 
 // ... (interface definitions remain same)
@@ -31,7 +33,7 @@ const TestList = ({ category }: TestListProps) => {
             try {
                 // In a real app, you might want a specific query for by category
                 // For now, fetching all and filtering client side or assume API supports ?category=
-                const res = await fetch('http://localhost:5001/api/tests');
+                const res = await fetch(`${API_BASE_URL}/api/tests`);
                 const data: Test[] = await res.json();
 
                 // Filter by category if provided
@@ -89,7 +91,7 @@ const TestList = ({ category }: TestListProps) => {
                             </div>
                             <div className="flex items-center gap-1">
                                 <CheckCircle size={16} />
-                                <span>{test.questions?.length || 0} Qs</span>
+                                <span>{test.questionCount || test.questions?.length || 0} Qs</span>
                             </div>
                         </div>
                     </div>
