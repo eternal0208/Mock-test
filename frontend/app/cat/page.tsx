@@ -1,6 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import TestList from '@/components/Exam/TestList';
+import SyllabusDownload from '@/components/Exam/SyllabusDownload';
 import ExamLandingPage from '@/components/ExamLandingPage';
 
 export const metadata: Metadata = {
@@ -23,6 +24,11 @@ export default function CATPage() {
             themeColor="purple"
         >
             <TestList category="CAT" />
+
+            {/* Syllabus Section */}
+            <div className="mt-12 mb-12 flex justify-center">
+                <SyllabusDownload category="CAT" />
+            </div>
 
             {/* SEO Content Section */}
             <div className="mt-20 prose prose-lg max-w-none text-slate-700">

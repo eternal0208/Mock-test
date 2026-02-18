@@ -6,6 +6,7 @@ import { BarChart2, Award, Clock, ArrowLeft } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/config';
 import Link from 'next/link';
 import MathText from '@/components/ui/MathText';
+import ImageViewer from '@/components/ui/ImageViewer';
 
 export default function ResultPage() {
     const { id } = useParams(); // result ID (not test ID)
@@ -15,6 +16,7 @@ export default function ResultPage() {
     const [fullTest, setFullTest] = useState(null);
     const [error, setError] = useState(null);
     const [rankData, setRankData] = useState({ rank: '-', total: '-' });
+    const [previewImage, setPreviewImage] = useState(null);
 
     useEffect(() => {
         if (!user) return;
@@ -106,7 +108,6 @@ export default function ResultPage() {
     const showSolutions = checkResultAccess();
     const questionsList = fullTest?.questions || [];
 
-    // Fallback: If no questions, reconstruct from attempt_data for display
     const effectiveQuestions = questionsList.length > 0 ? questionsList : result.attempt_data.map((a, i) => ({
         text: a.questionText || `Question ${i + 1}`,
         correctAnswer: '?',
@@ -114,8 +115,15 @@ export default function ResultPage() {
         _reconstructed: true
     }));
 
+
+
     return (
-        <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gray-50 py-4 px-4 sm:px-6 lg:px-8">
+            <ImageViewer
+                src={previewImage}
+                onClose={() => setPreviewImage(null)}
+            />
+
             <div className="max-w-4xl mx-auto">
                 <Link href="/dashboard" className="flex items-center text-gray-600 mb-6 hover:text-gray-900 transition">
                     <ArrowLeft className="mr-2" size={20} /> Back to Dashboard
@@ -187,15 +195,15 @@ export default function ResultPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="bg-green-50 p-4 rounded-lg border border-green-100">
                                         <div className="text-sm text-green-600 mb-1">Correct</div>
-                                        <div className="text-2xl font-bold text-green-700">{result.correct_count || 0}</div>
+                                        <div className="text-2xl font-bold text-green-700">{result.correctAnswers || 0}</div>
                                     </div>
                                     <div className="bg-red-50 p-4 rounded-lg border border-red-100">
                                         <div className="text-sm text-red-600 mb-1">Incorrect</div>
-                                        <div className="text-2xl font-bold text-red-700">{result.incorrect_count || 0}</div>
+                                        <div className="text-2xl font-bold text-red-700">{result.wrongAnswers || 0}</div>
                                     </div>
                                     <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
                                         <div className="text-sm text-gray-600 mb-1">Unattempted</div>
-                                        <div className="text-2xl font-bold text-gray-700">{result.unattempted_count || 0}</div>
+                                        <div className="text-2xl font-bold text-gray-700">{(result.totalQuestions - (result.correctAnswers || 0) - (result.wrongAnswers || 0)) || 0}</div>
                                     </div>
                                 </div>
                             </div>
@@ -225,107 +233,173 @@ export default function ResultPage() {
                                     {!fullTest && <div className="mb-4 text-xs text-red-500 bg-red-50 p-2 rounded border border-red-100">Note: Original test data is missing. Showing limited details from your attempt history.</div>}
 
                                     <div className="space-y-4">
-                                        {effectiveQuestions.map((q, idx) => {
-                                            // Robust matching: Try by Text first (if available in attempt)
-                                            // If q._reconstructed is true, q is DERIVED from attempt, so 'a' is simply the attempt at index idx?
-                                            // Wait, result.attempt_data might be subset (only attempted)? 
-                                            // But unattempted questions might NOT be in attempt_data if logic excluded them?
-                                            // In `submitTest`, we pushed `attemptData` only inside the loop of answers? 
-                                            // If user didn't answer, is it in attempt_data? 
-                                            // Checking submitTest: `answers` loop -> push to attemptData.
-                                            // If user skipped, it's NOT in attempt_data!
-                                            // So if fullTest is missing, we ONLY show Attempted questions.
+                                        <div className="space-y-6">
+                                            {effectiveQuestions.map((q, idx) => {
+                                                let userAttempt;
+                                                if (q._reconstructed) {
+                                                    userAttempt = result.attempt_data[idx];
+                                                } else {
+                                                    userAttempt = result.attempt_data.find(a => a.questionText === q.text);
+                                                }
 
-                                            // If we are iterating effectiveQuestions (which is attempt_data mapped if fullTest missing),
-                                            // then `userAttempt` IS `a` (the source).
+                                                const isAttempted = !!userAttempt;
+                                                const isCorrect = userAttempt?.isCorrect;
+                                                const selectedOption = userAttempt?.selectedOption; // Value or Array (for MSQ)
 
-                                            let userAttempt;
-                                            if (q._reconstructed) {
-                                                userAttempt = result.attempt_data[idx];
-                                            } else {
-                                                userAttempt = result.attempt_data.find(a => a.questionText === q.text);
-                                            }
+                                                // Helper to check if an option is selected by user
+                                                const isOptionSelected = (optVal) => {
+                                                    if (!isAttempted) return false;
+                                                    if (Array.isArray(selectedOption)) return selectedOption.includes(optVal);
+                                                    return selectedOption === optVal;
+                                                };
 
-                                            const isAttempted = !!userAttempt;
-                                            const isCorrect = userAttempt?.isCorrect;
-                                            const selectedOption = userAttempt?.selectedOption;
+                                                // Helper to check if option is correct
+                                                const isOptionCorrect = (optVal) => {
+                                                    if (!fullTest) return false; // Cannot know if fullTest missing
+                                                    if (q.type === 'msq' && Array.isArray(q.correctOptions)) return q.correctOptions.includes(optVal);
+                                                    return q.correctOption === optVal;
+                                                };
 
-                                            let statusClass = 'border-gray-200 bg-white';
-                                            if (isAttempted) {
-                                                statusClass = isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50';
-                                            }
-
-                                            return (
-                                                <div key={idx} className={`rounded-xl border shadow-sm overflow-hidden ${statusClass}`}>
-                                                    <div className="p-4 flex gap-4">
-                                                        <div className="flex-shrink-0">
-                                                            <span className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 font-bold text-gray-600 text-sm">
-                                                                {idx + 1}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex-grow">
-                                                            <div className="flex justify-between items-start mb-2">
-                                                                <div className="font-medium text-gray-900">
-                                                                    <MathText text={q.text} />
-                                                                </div>
-                                                                <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${isAttempted ? (isCorrect ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800') : 'bg-gray-100 text-gray-500'}`}>
+                                                return (
+                                                    <div key={idx} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                                        {/* Q Header */}
+                                                        <div className={`px-4 py-3 border-b flex justify-between items-center ${isAttempted ? (isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200') : 'bg-gray-50 border-gray-200'}`}>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-bold text-gray-700">Question {idx + 1}</span>
+                                                                <span className={`text-xs px-2 py-0.5 rounded border uppercase font-bold ${isAttempted ? (isCorrect ? 'bg-green-200 text-green-800 border-green-300' : 'bg-red-200 text-red-800 border-red-300') : 'bg-yellow-100 text-yellow-800 border-yellow-200'}`}>
                                                                     {isAttempted ? (isCorrect ? 'Correct' : 'Incorrect') : 'Skipped'}
                                                                 </span>
                                                             </div>
+                                                            <div className="text-sm font-bold text-gray-500">
+                                                                {isCorrect ? `+${q.marks}` : (isAttempted ? `-${q.negativeMarks}` : '0')} Marks
+                                                            </div>
+                                                        </div>
 
-                                                            {q.image && <img src={q.image} alt="Q" className="h-32 mb-3 object-contain rounded border bg-white" />}
-
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-3">
-                                                                <div className={`p-2 rounded ${isAttempted ? (isCorrect ? 'bg-green-100 text-green-900' : 'bg-red-100 text-red-900') : 'bg-gray-100 text-gray-500'}`}>
-                                                                    <span className="font-bold mr-2">Your Answer:</span>
-                                                                    <MathText text={isAttempted ? selectedOption : 'Not Attempted'} />
+                                                        <div className="p-6">
+                                                            {/* Question Text & Image */}
+                                                            <div className="mb-6">
+                                                                <div className="text-lg text-gray-900 mb-3 font-medium">
+                                                                    <MathText text={q.text} />
                                                                 </div>
-                                                                {fullTest && (
-                                                                    <div className="p-2 rounded bg-blue-50 text-blue-900 border border-blue-100">
-                                                                        <span className="font-bold mr-2">Correct Answer:</span>
-                                                                        {q.type === 'integer' ? (
-                                                                            q.integerAnswer
-                                                                        ) : q.type === 'msq' ? (
-                                                                            // Multiple Select - show all correct options
-                                                                            Array.isArray(q.correctOptions) ? q.correctOptions.join(', ') : (q.correctOptions || 'N/A')
-                                                                        ) : (
-                                                                            // Single Select MCQ
-                                                                            <>
-                                                                                <MathText text={q.correctOption} />
-                                                                                {/* Show option text if available */}
-                                                                                {q.options && typeof q.correctOption === 'string' && q.correctOption.length === 1 && (
-                                                                                    <span className="ml-1 text-gray-600">
-                                                                                        (<MathText text={q.options[q.correctOption.charCodeAt(0) - 65] || ''} />)
-                                                                                    </span>
-                                                                                )}
-                                                                            </>
-                                                                        )}
+                                                                {q.image && (
+                                                                    <div className="mb-4">
+                                                                        <img
+                                                                            src={q.image}
+                                                                            alt={`Question ${idx + 1}`}
+                                                                            className="max-h-64 rounded border bg-gray-50 object-contain cursor-zoom-in hover:opacity-95 transition-opacity"
+                                                                            onClick={() => setPreviewImage(q.image)}
+                                                                        />
                                                                     </div>
                                                                 )}
                                                             </div>
 
-                                                            {fullTest && (
-                                                                <div className="mt-3 pt-3 border-t border-gray-200/50">
-                                                                    <details className="group">
-                                                                        <summary className="flex items-center text-sm font-bold text-blue-600 cursor-pointer hover:underline outline-none">
-                                                                            View Solution
-                                                                        </summary>
-                                                                        <div className="mt-3 text-sm text-gray-700 bg-blue-50/50 p-3 rounded">
-                                                                            {q.solution ? (
-                                                                                <div className="whitespace-pre-wrap mb-2">
-                                                                                    <MathText text={q.solution} />
+                                                            {/* Options Display */}
+                                                            {fullTest && q.options && q.options.length > 0 && (
+                                                                <div className="space-y-2 mb-6">
+                                                                    {q.options.map((opt, optIdx) => {
+                                                                        const effectiveOpt = opt || `Option ${optIdx + 1}`;
+                                                                        const selected = isOptionSelected(effectiveOpt);
+                                                                        const correct = isOptionCorrect(effectiveOpt);
+
+                                                                        // Determine Style
+                                                                        let optionClass = "border-gray-200 hover:bg-gray-50";
+                                                                        let icon = null;
+
+                                                                        if (correct) {
+                                                                            optionClass = "bg-green-50 border-green-500 ring-1 ring-green-500";
+                                                                            icon = <span className="text-green-600 font-bold">✓ Correct Answer</span>;
+                                                                        } else if (selected) {
+                                                                            optionClass = "bg-red-50 border-red-500 ring-1 ring-red-500";
+                                                                            icon = <span className="text-red-500 font-bold">✗ Your Answer</span>;
+                                                                        } else {
+                                                                            optionClass = "bg-white border-gray-200";
+                                                                        }
+
+                                                                        // Special case: If selected AND correct (handled by first 'if' mostly, but we want to confirm user selection too)
+                                                                        if (selected && correct) {
+                                                                            icon = <span className="text-green-700 font-bold">✓ Your Answer (Correct)</span>;
+                                                                        }
+
+                                                                        return (
+                                                                            <div key={optIdx} className={`p-3 rounded-lg border flex items-start gap-3 transition-all ${optionClass}`}>
+                                                                                <div className="pt-1">
+                                                                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center font-bold text-xs ${selected || correct ? 'border-transparent text-white' : 'border-gray-300 text-gray-500'} ${correct ? 'bg-green-500' : (selected ? 'bg-red-500' : 'bg-white')}`}>
+                                                                                        {String.fromCharCode(65 + optIdx)}
+                                                                                    </div>
                                                                                 </div>
-                                                                            ) : <p className="italic text-gray-400">No text explanation.</p>}
-                                                                            {q.solutionImage && <img src={q.solutionImage} alt="Solution" className="max-h-48 rounded border shadow-sm mt-2" />}
+                                                                                <div className="flex-1">
+                                                                                    <div className={`text-base ${correct || selected ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
+                                                                                        <MathText text={opt || `Option ${String.fromCharCode(65 + optIdx)}`} />
+                                                                                    </div>
+                                                                                    {/* Option Image */}
+                                                                                    {q.optionImages && q.optionImages[optIdx] && (
+                                                                                        <img
+                                                                                            src={q.optionImages[optIdx]}
+                                                                                            alt={`Option ${optIdx}`}
+                                                                                            className="mt-2 h-20 object-contain rounded border bg-white cursor-zoom-in hover:opacity-95 transition-opacity"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                setPreviewImage(q.optionImages[optIdx]);
+                                                                                            }}
+                                                                                        />
+                                                                                    )}
+                                                                                </div>
+                                                                                {icon && <div className="text-sm self-center shrink-0">{icon}</div>}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
+
+                                                            {/* Integer Answer Display */}
+                                                            {fullTest && q.type === 'integer' && (
+                                                                <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+                                                                    <div className="grid grid-cols-2 gap-4">
+                                                                        <div>
+                                                                            <span className="text-sm text-gray-500 block">Your Answer</span>
+                                                                            <span className={`font-mono text-xl font-bold ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                                                                                {isAttempted ? selectedOption : '-'}
+                                                                            </span>
                                                                         </div>
-                                                                    </details>
+                                                                        <div>
+                                                                            <span className="text-sm text-gray-500 block">Correct Answer</span>
+                                                                            <span className="font-mono text-xl font-bold text-green-600">{q.integerAnswer}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Solution Section */}
+                                                            {fullTest && (
+                                                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                                                    <h4 className="text-blue-900 font-bold mb-2 flex items-center gap-2">
+                                                                        <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded flex items-center justify-center text-xs">💡</span>
+                                                                        Solution
+                                                                    </h4>
+                                                                    <div className="bg-blue-50/50 rounded-lg p-4 text-gray-800 text-sm leading-relaxed">
+                                                                        {q.solution ? (
+                                                                            <div className="mb-3 whitespace-pre-wrap"><MathText text={q.solution} /></div>
+                                                                        ) : <p className="text-gray-400 italic mb-2">No text explanation provided.</p>}
+
+                                                                        {q.solutionImage && (
+                                                                            <div>
+                                                                                <p className="text-xs font-bold text-gray-500 mb-1">Solution Image:</p>
+                                                                                <img
+                                                                                    src={q.solutionImage}
+                                                                                    alt="Solution"
+                                                                                    className="max-h-64 rounded border bg-white shadow-sm cursor-zoom-in hover:opacity-95 transition-opacity"
+                                                                                    onClick={() => setPreviewImage(q.solutionImage)}
+                                                                                />
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             )}
                                                         </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
                             )}

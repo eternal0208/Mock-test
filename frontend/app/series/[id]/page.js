@@ -1,16 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+
+import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { API_BASE_URL } from '@/lib/config';
 import { ArrowLeft, BookOpen, Clock, BarChart, Lock, Unlock, PlayCircle } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
-export default function SeriesDetails({ params }) {
+export default function SeriesDetails() {
     // Unwrap params using React.use() if needed in future Next.js versions, but currently props params work in client components via async or hooks.
     // However, in Next 13/14+ Client components, params is passed as prop.
-    const { id } = params;
+    const { id } = useParams();
     const { user } = useAuth();
     const router = useRouter();
 

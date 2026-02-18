@@ -8,6 +8,8 @@ export const metadata: Metadata = {
     description: 'Boost your JEE Mains percentile with Apex Mock Tests. Practice shift-wise papers, integer-type questions, and get detailed analytics for speed and accuracy.',
 };
 
+import SyllabusDownload from '@/components/Exam/SyllabusDownload';
+
 export default function JeeMainsPage() {
     return (
         <ExamLandingPage
@@ -23,6 +25,11 @@ export default function JeeMainsPage() {
             themeColor="blue"
         >
             <TestList category="JEE Main" />
+
+            {/* Syllabus Section */}
+            <div className="mt-12 mb-12 flex justify-center">
+                <SyllabusDownload category="JEE Main" />
+            </div>
 
             {/* SEO Content Section */}
             <div className="mt-20 prose prose-lg max-w-none text-slate-700">

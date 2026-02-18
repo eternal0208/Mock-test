@@ -339,35 +339,40 @@ const ExamInterface = ({ test, onSubmit }) => {
                                 <div className="mt-8">
                                     {currentType === 'mcq' && (
                                         <div className="grid gap-3">
-                                            {currentQ.options.map((opt, idx) => (
-                                                <label key={idx} className={`flex items-start cursor-pointer group p-3 rounded-lg border transition-all ${answers[currentQ._id] === opt ? 'bg-blue-50 border-blue-400 shadow-sm' : 'hover:bg-gray-50 border-transparent'}`}>
-                                                    <div className="relative flex items-center pt-1">
-                                                        <input type="radio" name={`q-${currentQ._id}`} className="sr-only" checked={answers[currentQ._id] === opt} onChange={() => handleAnswerChange(opt)} />
-                                                        <div className={`w-5 h-5 rounded-full border-2 mr-4 flex items-center justify-center transition-colors ${answers[currentQ._id] === opt ? 'border-blue-600 bg-blue-600' : 'border-gray-400 group-hover:border-blue-400'}`}>
-                                                            {answers[currentQ._id] === opt && <div className="w-2 h-2 bg-white rounded-full" />}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        {opt && (
-                                                            <div className={`text-lg ${answers[currentQ._id] === opt ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
-                                                                <MathText text={opt} />
+                                            {currentQ.options.map((opt, idx) => {
+                                                const effectiveOpt = opt || `Option ${idx + 1}`;
+                                                return (
+                                                    <label key={idx} className={`flex items-start cursor-pointer group p-3 rounded-lg border transition-all ${answers[currentQ._id] === effectiveOpt ? 'bg-blue-50 border-blue-400 shadow-sm' : 'hover:bg-gray-50 border-transparent'}`}>
+                                                        <div className="relative flex items-center pt-1">
+                                                            <input type="radio" name={`q-${currentQ._id}`} className="sr-only" checked={answers[currentQ._id] === effectiveOpt} onChange={() => handleAnswerChange(effectiveOpt)} />
+                                                            <div className={`w-5 h-5 rounded-full border-2 mr-4 flex items-center justify-center transition-colors ${answers[currentQ._id] === effectiveOpt ? 'border-blue-600 bg-blue-600' : 'border-gray-400 group-hover:border-blue-400'}`}>
+                                                                {answers[currentQ._id] === effectiveOpt && <div className="w-2 h-2 bg-white rounded-full" />}
                                                             </div>
-                                                        )}
-                                                        {currentQ.optionImages && currentQ.optionImages[idx] && <img src={currentQ.optionImages[idx]} alt={`Opt ${idx}`} className="mt-2 h-24 object-contain border rounded" />}
-                                                    </div>
-                                                </label>
-                                            ))}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            {opt && (
+                                                                <div className={`text-lg ${answers[currentQ._id] === effectiveOpt ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
+                                                                    <MathText text={opt} />
+                                                                </div>
+                                                            )}
+                                                            {!opt && <div className="text-gray-400 text-sm font-medium mb-1">Option {String.fromCharCode(65 + idx)}</div>}
+                                                            {currentQ.optionImages && currentQ.optionImages[idx] && <img src={currentQ.optionImages[idx]} alt={`Opt ${idx}`} className="mt-2 h-24 object-contain border rounded" />}
+                                                        </div>
+                                                    </label>
+                                                );
+                                            })}
                                         </div>
                                     )}
 
                                     {currentType === 'msq' && (
                                         <div className="grid gap-3">
                                             {currentQ.options.map((opt, idx) => {
-                                                const isSelected = (answers[currentQ._id] || []).includes(opt);
+                                                const effectiveOpt = opt || `Option ${idx + 1}`;
+                                                const isSelected = (answers[currentQ._id] || []).includes(effectiveOpt);
                                                 return (
                                                     <label key={idx} className={`flex items-start cursor-pointer group p-3 rounded-lg border transition-all ${isSelected ? 'bg-blue-50 border-blue-400 shadow-sm' : 'hover:bg-gray-50 border-transparent'}`}>
                                                         <div className="relative flex items-center pt-1">
-                                                            <input type="checkbox" className="sr-only" checked={isSelected} onChange={() => handleMSQChange(opt)} />
+                                                            <input type="checkbox" className="sr-only" checked={isSelected} onChange={() => handleMSQChange(effectiveOpt)} />
                                                             <div className={`w-5 h-5 rounded border-2 mr-4 flex items-center justify-center transition-colors ${isSelected ? 'border-blue-600 bg-blue-600' : 'border-gray-400 group-hover:border-blue-400'}`}>
                                                                 {isSelected && <div className="text-white font-bold text-xs">✓</div>}
                                                             </div>
@@ -378,6 +383,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                                     <MathText text={opt} />
                                                                 </div>
                                                             )}
+                                                            {!opt && <div className="text-gray-400 text-sm font-medium mb-1">Option {String.fromCharCode(65 + idx)}</div>}
                                                             {currentQ.optionImages && currentQ.optionImages[idx] && <img src={currentQ.optionImages[idx]} alt={`Opt ${idx}`} className="mt-2 h-24 object-contain border rounded" />}
                                                         </div>
                                                     </label>

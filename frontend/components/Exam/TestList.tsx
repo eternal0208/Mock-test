@@ -35,9 +35,9 @@ const TestList = ({ category }: TestListProps) => {
                 const data: Test[] = await res.json();
 
                 // Filter by category if provided
-                const filtered = category
+                const filtered = Array.isArray(data) && category
                     ? data.filter(t => t.category === category)
-                    : data;
+                    : Array.isArray(data) ? data : [];
 
                 setTests(filtered);
             } catch (error) {

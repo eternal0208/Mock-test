@@ -7,8 +7,8 @@ import MathText from '@/components/ui/MathText';
 import { API_BASE_URL } from '@/lib/config';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+// import { storage } from '@/lib/firebase';
+// import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const AnalyticsModal = ({ testId, onClose }) => {
     const [stats, setStats] = useState(null);
@@ -346,6 +346,22 @@ const CreateSeriesForm = ({ onSuccess }) => {
         }));
     };
 
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (file.size > 200 * 1024) { // 200KB limit
+            alert("Image too large! Max 200KB allowed.");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setFormData(prev => ({ ...prev, image: reader.result }));
+        };
+        reader.readAsDataURL(file);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -399,8 +415,24 @@ const CreateSeriesForm = ({ onSuccess }) => {
                     </select>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Cover Image URL</label>
-                    <input type="text" name="image" value={formData.image} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded p-2" placeholder="http://..." />
+                    <label className="block text-sm font-medium text-gray-700">Cover Image</label>
+                    <div className="mt-1 flex items-center gap-4">
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-full file:border-0
+                                file:text-sm file:font-semibold
+                                file:bg-indigo-50 file:text-indigo-700
+                                hover:file:bg-indigo-100"
+                        />
+                        {formData.image && (
+                            <img src={formData.image} alt="Preview" className="h-10 w-10 rounded object-cover border" />
+                        )}
+                    </div>
+                    {/* Hidden input to keep state sync if needed or just use state directly */}
                 </div>
             </div>
             <div>
@@ -454,13 +486,14 @@ export default function AdminDashboard() {
 
     // Syllabus State
     const [syllabusData, setSyllabusData] = useState({
-        'JEE Main': 'Official Syllabus for JEE Main...',
-        'JEE Advanced': 'Official Syllabus for JEE Advanced...',
-        'NEET': 'Official Syllabus for NEET...',
-        'Board Exam': 'Official Syllabus for Boards...'
+        'JEE Main': '',
+        'JEE Advanced': '',
+        'NEET': '',
+        'CAT': '',
+        'Board Exam': ''
     });
     const [selectedSyllabusCategory, setSelectedSyllabusCategory] = useState('JEE Main');
-    const [syllabusText, setSyllabusText] = useState('');
+    const [syllabusLink, setSyllabusLink] = useState('');
     const [savingSyllabus, setSavingSyllabus] = useState(false);
 
     // Missing State Definitions
@@ -485,20 +518,57 @@ export default function AdminDashboard() {
         }
     }, [activeTab, user]);
 
-    // Fetch Syllabus on mount (mocked for now, implies backend endpoint needed)
+    // Fetch Syllabus on mount
     useEffect(() => {
-        // Mock fetch or real fetch if endpoint existed
-        setSyllabusText(syllabusData[selectedSyllabusCategory] || '');
-    }, [selectedSyllabusCategory]);
+        const fetchSyllabus = async () => {
+            try {
+                const token = await user?.getIdToken();
+                const res = await fetch(`${API_BASE_URL}/api/admin/syllabus`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setSyllabusData(prev => ({ ...prev, ...data }));
+                }
+            } catch (error) {
+                console.error("Error fetching syllabus:", error);
+            }
+        };
+        if (user && activeTab === 'content') fetchSyllabus();
+    }, [user, activeTab]);
+
+    // Update local input when category changes or data loads
+    useEffect(() => {
+        setSyllabusLink(syllabusData[selectedSyllabusCategory] || '');
+    }, [selectedSyllabusCategory, syllabusData]);
 
     const handleSaveSyllabus = async () => {
         setSavingSyllabus(true);
-        // Simulate API call
-        setTimeout(() => {
-            setSyllabusData(prev => ({ ...prev, [selectedSyllabusCategory]: syllabusText }));
-            alert('Syllabus Updated Successfully!');
+        try {
+            const token = await user?.getIdToken();
+            const payload = { [selectedSyllabusCategory]: syllabusLink };
+
+            const res = await fetch(`${API_BASE_URL}/api/admin/syllabus`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                setSyllabusData(prev => ({ ...prev, [selectedSyllabusCategory]: syllabusLink }));
+                alert('Syllabus Link Updated Successfully!');
+            } else {
+                alert('Failed to update syllabus link');
+            }
+        } catch (error) {
+            console.error("Save Error:", error);
+            alert("Error saving syllabus link");
+        } finally {
             setSavingSyllabus(false);
-        }, 1000);
+        }
     };
 
     const fetchTests = async () => {
@@ -613,6 +683,33 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleBlockUser = async (userId, currentStatus) => {
+        const NewStatus = currentStatus === 'blocked' ? 'active' : 'blocked';
+        if (!confirm(`Are you sure you want to ${NewStatus.toUpperCase()} this user?`)) return;
+
+        try {
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/admin/students/${userId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status: NewStatus })
+            });
+
+            if (res.ok) {
+                setUsersList(prev => prev.map(u => u.id === userId ? { ...u, status: NewStatus } : u));
+                alert(`User status updated to ${NewStatus}`);
+            } else {
+                alert("Failed to update user status");
+            }
+        } catch (error) {
+            console.error("Block User Error", error);
+            alert("Error updating status");
+        }
+    };
+
     // Test Metadata State
     const [testDetails, setTestDetails] = useState({
         title: '',
@@ -655,6 +752,7 @@ export default function AdminDashboard() {
     });
 
     const [uploadingImage, setUploadingImage] = useState(false);
+    const [fileInputKey, setFileInputKey] = useState(Date.now()); // Key to force re-render file inputs
 
     const handleTestChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -692,33 +790,43 @@ export default function AdminDashboard() {
 
     const insertMath = (field, latex) => {
         const currentValue = currentQuestion[field] || '';
-        // different logic if it's an array like options? 
-        // For now, let's assume this helper is for text fields (text, solution)
-        // A better way would be to pass a ref, but simple append works for MVP
+        // Appends to the end. For cursor position insertion, we'd need a ref to the textarea.
+        // For now, this is sufficient for the user's request.
         setCurrentQuestion({ ...currentQuestion, [field]: currentValue + ' ' + latex });
     };
 
-    const uploadImage = async (file, type, index = null) => {
+    const uploadImage = (file, type, index = null) => {
         if (!file) return;
+
+        // Size validation (limit to 200KB to avoid hitting Firestore 1MB document limit)
+        if (file.size > 200 * 1024) {
+            alert("File too large! Please upload a smaller image (max 200KB) to prevent database errors.");
+            return;
+        }
+
         setUploadingImage(true);
-        try {
-            const storageRef = ref(storage, `images/${Date.now()}_${file.name}`);
-            await uploadBytes(storageRef, file);
-            const url = await getDownloadURL(storageRef);
+        const reader = new FileReader();
+
+        reader.onloadend = () => {
+            const base64String = reader.result;
 
             if (type === 'question') {
-                setCurrentQuestion(prev => ({ ...prev, image: url }));
+                setCurrentQuestion(prev => ({ ...prev, image: base64String }));
             } else if (type === 'solution') {
-                setCurrentQuestion(prev => ({ ...prev, solutionImage: url }));
+                setCurrentQuestion(prev => ({ ...prev, solutionImage: base64String }));
             } else if (type === 'option' && index !== null) {
-                handleOptionImageChange(index, url);
+                handleOptionImageChange(index, base64String);
             }
-        } catch (error) {
-            console.error("Upload failed", error);
-            alert("Image upload failed!");
-        } finally {
             setUploadingImage(false);
-        }
+        };
+
+        reader.onerror = () => {
+            console.error("Error reading file");
+            alert("Failed to read file");
+            setUploadingImage(false);
+        };
+
+        reader.readAsDataURL(file);
     };
 
     const handleUpdateStatus = async (userId, currentStatus) => {
@@ -785,6 +893,7 @@ export default function AdminDashboard() {
             text: '', image: '', options: ['', '', '', ''], optionImages: ['', '', '', ''],
             correctOption: '', correctOptions: [], integerAnswer: '',
         });
+        setFileInputKey(Date.now()); // Reset file inputs
     };
 
     const removeQuestion = (index) => {
@@ -976,6 +1085,7 @@ export default function AdminDashboard() {
                     <button onClick={() => setActiveTab('series')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'series' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Series</button>
                     <button onClick={() => setActiveTab('users')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'users' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Students</button>
                     <button onClick={() => setActiveTab('revenue')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'revenue' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Revenue</button>
+                    <button onClick={() => setActiveTab('content')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'content' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Content</button>
                     <button onClick={() => setActiveTab('create')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'create' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>+ Create</button>
                     <button onClick={() => window.location.href = '/'} className="px-3 py-2 sm:px-4 rounded-md bg-red-100 text-red-700 hover:bg-red-200 font-bold flex items-center gap-1 text-sm whitespace-nowrap"><LogOut size={16} /> Logout</button>
                 </div>
@@ -1341,6 +1451,74 @@ export default function AdminDashboard() {
                 </div>
             )}
 
+            {/* Content Tab */}
+            {activeTab === 'content' && (
+                <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+                    <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                        <BookOpen className="text-indigo-600" /> Syllabus Management
+                    </h3>
+
+                    <div className="max-w-3xl">
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Select Exam Category</label>
+                            <div className="flex flex-wrap gap-2">
+                                {Object.keys(syllabusData).map(cat => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => setSelectedSyllabusCategory(cat)}
+                                        className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${selectedSyllabusCategory === cat
+                                            ? 'bg-indigo-600 text-white border-indigo-600'
+                                            : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Syllabus PDF Link for <span className="text-indigo-600 font-bold">{selectedSyllabusCategory}</span>
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={syllabusLink}
+                                    onChange={(e) => setSyllabusLink(e.target.value)}
+                                    placeholder="Paste Google Drive or PDF link here..."
+                                    className="flex-1 border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                />
+                                <button
+                                    onClick={handleSaveSyllabus}
+                                    disabled={savingSyllabus}
+                                    className="px-6 py-3 bg-green-600 text-white font-bold rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {savingSyllabus ? 'Saving...' : <><Save size={18} /> Save Link</>}
+                                </button>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                                Paste the shareable link of the PDF (e.g., Google Drive link with "Anyone with the link" access).
+                            </p>
+                        </div>
+
+                        {syllabusLink && (
+                            <div className="p-4 bg-gray-50 rounded border border-gray-200">
+                                <p className="text-sm font-bold text-gray-700 mb-2">Preview Action:</p>
+                                <a
+                                    href={syllabusLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-indigo-600 underline font-medium flex items-center gap-1"
+                                >
+                                    <Download size={16} /> Download / View Syllabus
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Create Tab */}
             {activeTab === 'create' && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1538,7 +1716,6 @@ export default function AdminDashboard() {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500">Subject</label>
                                     <select
                                         name="subject"
                                         value={['Physics', 'Chemistry', 'Maths', 'Biology', 'English', 'Reasoning', 'General Knowledge'].includes(currentQuestion.subject) ? currentQuestion.subject : 'custom'}
@@ -1564,10 +1741,10 @@ export default function AdminDashboard() {
                                     {!['Physics', 'Chemistry', 'Maths', 'Biology', 'English', 'Reasoning', 'General Knowledge'].includes(currentQuestion.subject) && (
                                         <input
                                             type="text"
-                                            value={currentQuestion.subject}
+                                            value={currentQuestion.subject || ''}
                                             onChange={(e) => setCurrentQuestion({ ...currentQuestion, subject: e.target.value })}
                                             className="w-full border p-2 rounded bg-blue-50 border-blue-200 text-sm"
-                                            placeholder="Type Subject..."
+                                            placeholder="Type Custom Subject Name..."
                                         />
                                     )}
                                 </div>
@@ -1615,7 +1792,7 @@ export default function AdminDashboard() {
 
                                 <div className="mt-2">
                                     <label className="block text-xs font-bold text-gray-500 mb-1">Upload Question Image</label>
-                                    <input type="file" onChange={(e) => uploadImage(e.target.files[0], 'question')} className="text-sm text-gray-500" />
+                                    <input key={fileInputKey} type="file" onChange={(e) => uploadImage(e.target.files[0], 'question')} className="text-sm text-gray-500" />
                                     {uploadingImage && <span className="text-xs text-blue-500">Uploading...</span>}
                                     {currentQuestion.image && <img src={currentQuestion.image} alt="Q Preview" className="h-20 mt-2 object-contain border" />}
                                 </div>
@@ -1630,7 +1807,7 @@ export default function AdminDashboard() {
                                             <div className="flex items-center gap-2">
                                                 <span className="font-mono">{String.fromCharCode(65 + idx)}</span>
                                                 <input type="text" value={opt} onChange={(e) => handleOptionChange(idx, e.target.value)} className="flex-1 border p-1 rounded" placeholder={`Option Text`} />
-                                                <input type="file" onChange={(e) => uploadImage(e.target.files[0], 'option', idx)} className="text-xs w-24" />
+                                                <input key={`${fileInputKey}-opt-${idx}`} type="file" onChange={(e) => uploadImage(e.target.files[0], 'option', idx)} className="text-xs w-24" />
                                             </div>
                                             {currentQuestion.optionImages[idx] && <img src={currentQuestion.optionImages[idx]} alt="Opt Img" className="h-10 w-10 object-contain ml-6" />}
                                         </div>
@@ -1695,6 +1872,7 @@ export default function AdminDashboard() {
                                 <div>
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Solution Image (Optional)</label>
                                     <input
+                                        key={`${fileInputKey}-sol`}
                                         type="file"
                                         onChange={(e) => uploadImage(e.target.files[0], 'solution')}
                                         className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"

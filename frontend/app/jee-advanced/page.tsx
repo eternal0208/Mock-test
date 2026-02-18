@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Metadata } from 'next';
 import ExamLandingPage from '@/components/ExamLandingPage';
 import TestList from '@/components/Exam/TestList';
+import SyllabusDownload from '@/components/Exam/SyllabusDownload';
 
 export const metadata: Metadata = {
     title: 'Apex Mock Test for JEE Advanced | IIT JEE Test Series',
@@ -23,6 +24,11 @@ export default function JeeAdvancedPage() {
             themeColor="rose"
         >
             <TestList category="JEE Advanced" />
+
+            {/* Syllabus Section */}
+            <div className="mt-12 mb-12 flex justify-center">
+                <SyllabusDownload category="JEE Advanced" />
+            </div>
 
             {/* SEO Content Section */}
             <div className="mt-20 prose prose-lg max-w-none text-slate-700">

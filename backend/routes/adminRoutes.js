@@ -72,6 +72,31 @@ router.delete('/tests/:id', async (req, res) => {
 });
 
 
+// --- Syllabus Management ---
+
+// GET /api/admin/syllabus - Get Syllabus Links
+router.get('/syllabus', async (req, res) => {
+    try {
+        const doc = await db.collection('settings').doc('syllabus').get();
+        if (!doc.exists) {
+            return res.json({});
+        }
+        res.json(doc.data());
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /api/admin/syllabus - Update Syllabus Links
+router.post('/syllabus', async (req, res) => {
+    try {
+        const data = req.body; // { 'JEE Main': 'url', ... }
+        await db.collection('settings').doc('syllabus').set(data, { merge: true });
+        res.json({ success: true, message: 'Syllabus links updated' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // --- Analytics & User Management ---
 

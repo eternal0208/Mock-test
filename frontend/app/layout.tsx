@@ -18,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script src="/js/three.r134.min.js" />
         <script src="/js/vanta.halo.min.js" />
+        <script src="https://checkout.razorpay.com/v1/checkout.js" />
       </head>
       <body className={inter.className}>
         <AuthProvider>

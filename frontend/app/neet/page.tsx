@@ -8,6 +8,8 @@ export const metadata: Metadata = {
     description: 'Join the best NEET Mock Test Series by Apex Mock. Practice NCERT-based questions, biology diagrams, and physics numericals. Get detailed performance analysis.',
 };
 
+import SyllabusDownload from '@/components/Exam/SyllabusDownload';
+
 export default function NeetPage() {
     return (
         <ExamLandingPage
@@ -23,6 +25,11 @@ export default function NeetPage() {
             themeColor="teal"
         >
             <TestList category="NEET" />
+
+            {/* Syllabus Section */}
+            <div className="mt-12 mb-12 flex justify-center">
+                <SyllabusDownload category="NEET" />
+            </div>
 
             {/* SEO Content Section */}
             <div className="mt-20 prose prose-lg max-w-none text-slate-700">

@@ -246,7 +246,7 @@ export default function LandingPage() {
               >
                 Apex Mock Test
                 <br />
-                <span className="text-indigo-600">Don't Just Compete. Dominate.</span>
+                <span className="text-indigo-600">Don't Just Compete, Dominate.</span>
               </motion.h1>
 
               <motion.p
@@ -255,8 +255,8 @@ export default function LandingPage() {
                 transition={{ duration: 0.7, delay: 0.3, ease: [0.23, 1, 0.32, 1] }}
                 className="text-base md:text-xl text-slate-700 font-medium max-w-2xl mx-auto px-4"
               >
-                India's most advanced testing platform designed for high-performance candidates.
-                Experience real exam simulation with AI-driven analytics.
+                An innovative mock test platform proudly built by me to support aspirants across India in cracking JEE, NEET, and CAT.
+                Train with real exam-like tests and data-backed performance analysis.
               </motion.p>
             </div>
 

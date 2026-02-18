@@ -199,6 +199,19 @@ exports.verifyPayment = async (req, res) => {
 
         await purchaseRef.set(purchaseData);
 
+        // EXTRA: Save to global 'orders' collection for Admin Revenue Tracking
+        await db.collection('orders').add({
+            userId,
+            seriesId: testId,
+            testTitle: testData.title || '',
+            amount: payment.amount / 100,
+            currency: payment.currency,
+            status: 'paid',
+            razorpayOrderId: razorpay_order_id,
+            paymentId: razorpay_payment_id,
+            createdAt: new Date().toISOString()
+        });
+
         console.log(`✅ Payment verified and user ${userId} enrolled in test ${testId}`);
 
         res.status(200).json({
@@ -264,5 +277,35 @@ exports.checkAccess = async (req, res) => {
     } catch (error) {
         console.error('Check Access Error:', error);
         res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+// @desc    Get My Orders
+// @route   GET /api/purchases/my-orders
+// @access  Private
+exports.getMyOrders = async (req, res) => {
+    const userId = req.user.uid; // Assumes middleware sets req.user
+
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    try {
+        const ordersRef = db.collection('orders');
+        const snapshot = await ordersRef.where('userId', '==', userId).orderBy('createdAt', 'desc').get();
+
+        if (snapshot.empty) {
+            return res.status(200).json([]);
+        }
+
+        const orders = [];
+        snapshot.forEach(doc => {
+            orders.push({ id: doc.id, ...doc.data() });
+        });
+
+        res.status(200).json(orders);
+    } catch (error) {
+        console.error('Get Orders Error:', error);
+        res.status(500).json({ message: 'Failed to fetch orders', error: error.message });
     }
 };

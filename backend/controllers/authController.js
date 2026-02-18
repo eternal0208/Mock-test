@@ -146,3 +146,69 @@ exports.setupAdmin = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+// @desc    Update User Profile (Name & Photo)
+// @route   PUT /api/auth/profile
+// @access  Private
+exports.updateProfile = async (req, res) => {
+    const userId = req.user.uid;
+    const { name, photoURL } = req.body;
+
+    if (!userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    try {
+        const userRef = db.collection('users').doc(userId);
+        const doc = await userRef.get();
+
+        if (!doc.exists) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const userData = doc.data();
+        const updates = {};
+
+        // 1. Photo Update (Always allowed)
+        if (photoURL !== undefined) {
+            updates.photoURL = photoURL;
+        }
+
+        // 2. Name Update (With Cooldown)
+        if (name && name !== userData.name) {
+            const now = new Date();
+            const lastUpdated = userData.lastNameUpdated ? new Date(userData.lastNameUpdated) : null;
+
+            // Cooldown: 7 days = 7 * 24 * 60 * 60 * 1000 ms
+            const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+
+            if (lastUpdated && (now - lastUpdated) < COOLDOWN_MS) {
+                const daysLeft = Math.ceil((COOLDOWN_MS - (now - lastUpdated)) / (24 * 60 * 60 * 1000));
+                return res.status(400).json({
+                    message: `You can update your name again in ${daysLeft} days.`
+                });
+            }
+
+            updates.name = name;
+            updates.lastNameUpdated = now.toISOString();
+        }
+
+        if (Object.keys(updates).length > 0) {
+            updates.updatedAt = new Date().toISOString();
+            await userRef.update(updates);
+
+            // Fetch updated data to return
+            const updatedDoc = await userRef.get();
+            return res.status(200).json({
+                success: true,
+                message: 'Profile updated successfully',
+                user: { _id: updatedDoc.id, ...updatedDoc.data() }
+            });
+        }
+
+        return res.status(200).json({ message: 'No changes made' });
+
+    } catch (error) {
+        console.error("Update Profile Error:", error);
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
