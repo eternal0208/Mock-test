@@ -21,7 +21,9 @@ app.use(cors({
         'http://localhost:3002',
         'http://127.0.0.1:3002',
         /\.vercel\.app$/, // Allow any Vercel deployment
-        process.env.FRONTEND_URL // Explicit production URL
+        process.env.FRONTEND_URL, // Explicit production URL
+        'https://www.apexmocktest.com',
+        'https://apexmocktest.com'
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
