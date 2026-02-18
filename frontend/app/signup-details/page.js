@@ -6,6 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { API_BASE_URL } from '@/lib/config';
 import { User, BookOpen, Heart, Phone, Loader2, CheckCircle, Mail, MapPin, Camera, Upload } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 
 export default function SignupDetailsPage() {
     const [name, setName] = useState('');
@@ -86,20 +87,29 @@ export default function SignupDetailsPage() {
         return () => unsubscribe();
     }, [router]);
 
-    const handlePhotoChange = (e) => {
+    const handlePhotoChange = async (e) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
 
-            // Validate file size (max 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                setError('Image size should be less than 5MB');
-                return;
-            }
+            // Client-side compression
+            try {
+                const options = {
+                    maxSizeMB: 0.5, // Compress to ~500KB
+                    maxWidthOrHeight: 800, // Resize to max 800px (sufficient for profile)
+                    useWebWorker: true,
+                    fileType: 'image/jpeg' // Convert HEIC/PNG to JPEG
+                };
 
-            setPhotoFile(file);
-            // Create preview URL
-            setPhotoURL(URL.createObjectURL(file));
-            setShowAvatars(false); // Hide avatar selection if manual upload
+                // Show some loading state if needed, or just process
+                const compressedFile = await imageCompression(file, options);
+
+                setPhotoFile(compressedFile);
+                setPhotoURL(URL.createObjectURL(compressedFile));
+                setShowAvatars(false); // Hide avatar selection if manual upload
+            } catch (error) {
+                console.error("Image compression error:", error);
+                setError("Failed to process image. Please try another one.");
+            }
         }
     };
 
