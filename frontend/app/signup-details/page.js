@@ -94,7 +94,7 @@ export default function SignupDetailsPage() {
             // Client-side compression
             try {
                 const options = {
-                    maxSizeMB: 0.5, // Compress to ~500KB
+                    maxSizeMB: 0.3, // Compress to ~300KB for better mobile upload
                     maxWidthOrHeight: 800, // Resize to max 800px (sufficient for profile)
                     useWebWorker: true,
                     fileType: 'image/jpeg' // Convert HEIC/PNG to JPEG
@@ -153,56 +153,85 @@ export default function SignupDetailsPage() {
             return;
         }
 
+        // Client-side compression settings for mobile optimization
         try {
             let finalPhotoURL = photoURL;
 
-            // Upload photo if a new file is selected
+            // 1. Image Upload Logic
             if (photoFile) {
                 setUploadingPhoto(true);
-                const storageRef = ref(storage, `profile_photos/${user.uid}`);
-                await uploadBytes(storageRef, photoFile);
-                finalPhotoURL = await getDownloadURL(storageRef);
-                setUploadingPhoto(false);
+                console.log('Starting photo upload...');
+
+                try {
+                    const fileExtension = photoFile.name.split('.').pop();
+                    const fileName = `profile_${user.uid}_${Date.now()}.${fileExtension}`;
+                    const storageRef = ref(storage, `profile_photos/${user.uid}/${fileName}`);
+
+                    await uploadBytes(storageRef, photoFile);
+                    console.log('Photo uploaded to Firebase Storage');
+
+                    finalPhotoURL = await getDownloadURL(storageRef);
+                    console.log('Photo URL retrieved:', finalPhotoURL);
+                } catch (uploadError) {
+                    console.error('Firebase Storage Error:', uploadError);
+                    throw new Error(`Image Upload Failed: ${uploadError.message}`);
+                } finally {
+                    setUploadingPhoto(false);
+                }
             }
 
-            // Get Token for Security
+            // 2. Backward Compatibility: Ensure older successful uploads are used if available
+            if (!finalPhotoURL && photoURL.startsWith('http')) {
+                finalPhotoURL = photoURL;
+            }
+
+            console.log('Sending data to backend...', { name, email, phoneNumber, finalPhotoURL });
+
+            // 3. Backend Sync Logic
             const token = await user.getIdToken();
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/auth/sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        name: name.trim(),
+                        email: email.trim().toLowerCase(),
+                        phone: phoneNumber.trim(),
+                        class: studentClass.trim(),
+                        category: category.trim(),
+                        state: state,
+                        city: city,
+                        photoURL: finalPhotoURL || '',
+                        firebaseUid: user.uid,
+                        authProvider: 'google',
+                        role: 'student'
+                    })
+                });
 
-            const res = await fetch(`${API_BASE_URL}/api/auth/sync`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    name: name.trim(),
-                    email: email.trim().toLowerCase(),
-                    phone: phoneNumber.trim(),
-                    class: studentClass.trim(),
-                    category: category.trim(),
-                    state: state,
-                    city: city,
-                    photoURL: finalPhotoURL,
-                    firebaseUid: user.uid,
-                    authProvider: 'google',
-                    role: 'student'
-                })
-            });
+                const data = await res.json();
 
-            const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.message || `Server Error: ${res.status}`);
+                }
 
-            if (!res.ok) {
-                throw new Error(data.message || 'Failed to save details');
+                console.log('✅ User profile created successfully');
+                window.location.href = '/dashboard';
+
+            } catch (apiError) {
+                console.error('Backend Sync Error:', apiError);
+                throw new Error(`Profile Save Failed: ${apiError.message}`);
             }
 
-            // Success - redirect to dashboard
-            console.log('✅ User profile created successfully');
-            // Force reload to update auth context or simply navigate
-            // Using window.location to ensure full refresh state
-            window.location.href = '/dashboard';
         } catch (error) {
-            console.error('Signup Error:', error);
-            setError(error.message || 'Failed to save details. Please try again.');
+            console.error('Signup Process Error:', error);
+            setError(error.message || 'An unexpected error occurred. Please check your internet connection.');
+            // Mobile debugging: show alert for visibility
+            if (window.innerWidth < 768) {
+                alert(`Error: ${error.message}`);
+            }
             setLoading(false);
             setUploadingPhoto(false);
         }
