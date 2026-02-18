@@ -75,7 +75,11 @@ export default function ExamLandingPage({ title, description, stats, features, t
     // URL Driven Auth Modal
     // Redirect to home page where LoginModal is embedded
     const openAuth = () => {
-        router.push('/');
+        if (user) {
+            router.push('/dashboard');
+        } else {
+            router.push('/?login=true');
+        }
     };
 
     return (

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Script from 'next/script';
 import { ArrowRight, BookOpen, Target, Award, Users, Star, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/config';
 import GoogleLoginModal from '@/components/GoogleLoginModal';
 import ExamGateway from '@/components/ExamGateway';
@@ -20,6 +20,13 @@ export default function LandingPage() {
   const [testSeries, setTestSeries] = useState<any[]>([]);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams?.get('login') === 'true') {
+      setIsLoginModalOpen(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     let effect: any = null;
@@ -148,7 +155,7 @@ export default function LandingPage() {
           <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-white/80 border-b border-gray-200 shadow-sm">
             <div className="max-w-7xl mx-auto px-6 py-0 flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <img src="/logo.ico" alt="Apex Mock Test" className="h-20 w-auto" />
+                <img src="/logo.png" alt="Apex Mock Test" className="h-20 w-auto" />
               </div>
               <div className="flex gap-2 md:gap-4">
                 {user ? (
@@ -284,7 +291,7 @@ export default function LandingPage() {
                 {/* Brand Section */}
                 <div>
                   <h3 className="mb-3 flex items-center gap-2">
-                    <img src="/logo.ico" alt="Apex Mock Test" className="h-20 w-auto" />
+                    <img src="/logo.png" alt="Apex Mock Test" className="h-20 w-auto" />
                   </h3>
                   <p className="text-sm text-slate-400 mb-2">
                     An initiative of SR Club
