@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function robots(): MetadataRoute.Robots {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://mock-test-website-7a18d.web.app';
+    const baseUrl = 'https://www.apexmocktest.com';
 
     return {
         rules: {
