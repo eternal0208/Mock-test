@@ -8,69 +8,10 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/config';
 import GoogleLoginModal from '@/components/GoogleLoginModal';
+import ExamGateway from '@/components/ExamGateway';
 
 // 3D Card Component
-function ExamCard({ title, description, icon: Icon, color, href }: { title: string, description: string, icon: any, color: string, href: string }) {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const rotateX = useTransform(y, [-100, 100], [10, -10]);
-  const rotateY = useTransform(x, [-100, 100], [-10, 10]);
 
-  // Detect if device supports touch (mobile)
-  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-
-  return (
-    <motion.div
-      style={{
-        x: isTouchDevice ? 0 : x,
-        y: isTouchDevice ? 0 : y,
-        rotateX: isTouchDevice ? 0 : rotateX,
-        rotateY: isTouchDevice ? 0 : rotateY,
-        z: 100,
-        touchAction: 'pan-y',
-        WebkitOverflowScrolling: 'touch'
-      }}
-      drag={!isTouchDevice} // Disable drag on touch devices
-      dragElastic={0.16}
-      dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }}
-      whileHover={!isTouchDevice ? { cursor: "grabbing", scale: 1.02 } : {}} // Only on desktop
-      whileTap={{ scale: 0.98 }}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-      className={`relative w-full h-96 rounded-2xl bg-gradient-to-br ${color} p-6 text-white shadow-xl transform-style-3d overflow-hidden group`}
-    >
-      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300" />
-      <div className="relative z-10 flex flex-col h-full justify-between transform-style-3d translate-z-20">
-        <div>
-          <motion.div
-            className="bg-white/20 w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-md mb-6 shadow-lg border border-white/30"
-            whileHover={{ scale: 1.1, rotate: 5 }}
-            transition={{ type: "spring", stiffness: 400, damping: 10 }}
-          >
-            <Icon size={32} />
-          </motion.div>
-          <h3 className="text-3xl font-extrabold mb-2 translate-z-10">{title}</h3>
-          <p className="text-white/90 text-sm font-medium leading-relaxed">{description}</p>
-        </div>
-
-        <Link href={href} className="w-full">
-          <motion.button
-            whileHover={{ scale: 1.05, y: -2 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            className="w-full py-4 bg-white text-gray-900 font-bold rounded-xl shadow-2xl hover:bg-gray-50 transition-all flex items-center justify-center gap-2 text-lg transform-style-flat"
-          >
-            Start {title} Check <ArrowRight size={20} />
-          </motion.button>
-        </Link>
-      </div>
-
-      {/* Decorative 3D elements */}
-      <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-    </motion.div>
-  );
-}
 
 export default function LandingPage() {
   const vantaRef = useRef(null);
@@ -260,64 +201,8 @@ export default function LandingPage() {
               </motion.p>
             </div>
 
-            {/* Exam Sections Grid - Include CAT */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-7xl w-full mx-auto perspective-1000 mb-20" style={{ touchAction: 'pan-y' }}>
-              <motion.div
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4, duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-              >
-                <ExamCard
-                  title="NEET"
-                  description="Comprehensive Biology, Physics, and Chemistry simulation for medical aspirants."
-                  icon={BookOpen}
-                  color="from-teal-500 to-emerald-600"
-                  href="/neet"
-                />
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-              >
-                <ExamCard
-                  title="JEE Mains"
-                  description="Master PCM with NTA-aligned mock tests. Speed and accuracy analysis."
-                  icon={Target}
-                  color="from-blue-600 to-indigo-700"
-                  href="/jee-mains"
-                />
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6, duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-              >
-                <ExamCard
-                  title="JEE Advanced"
-                  description="The ultimate challenge. Deep concept testing and advanced problem solving."
-                  icon={Award}
-                  color="from-rose-500 to-pink-600"
-                  href="/jee-advanced"
-                />
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7, duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-              >
-                <ExamCard
-                  title="CAT"
-                  description="Crack the Common Admission Test. Master DILR, VARC, and QA with our mocks."
-                  icon={BookOpen}
-                  color="from-purple-600 to-violet-700"
-                  href="/cat"
-                />
-              </motion.div>
-            </div>
+            {/* Exam Gateway (New Interactive Section) */}
+            <ExamGateway />
 
             {/* Premium Test Series Section */}
             {testSeries.length > 0 && (

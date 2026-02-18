@@ -3,7 +3,13 @@
 import { X, ZoomIn, ZoomOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
-export default function ImageViewer({ src, alt, onClose }) {
+interface ImageViewerProps {
+    src: string;
+    alt: string;
+    onClose: () => void;
+}
+
+export default function ImageViewer({ src, alt, onClose }: ImageViewerProps) {
     const [scale, setScale] = useState(1);
     const [dragging, setDragging] = useState(false);
     const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -16,19 +22,19 @@ export default function ImageViewer({ src, alt, onClose }) {
     }, [src]);
 
     // Handle Zoom
-    const handleZoomIn = (e) => {
+    const handleZoomIn = (e: React.MouseEvent) => {
         e.stopPropagation();
         setScale(prev => Math.min(prev + 0.5, 4));
     };
 
-    const handleZoomOut = (e) => {
+    const handleZoomOut = (e: React.MouseEvent) => {
         e.stopPropagation();
         setScale(prev => Math.max(prev - 0.5, 1));
     };
 
     // Close on Escape key
     useEffect(() => {
-        const handleKeyDown = (e) => {
+        const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();
         };
         window.addEventListener('keydown', handleKeyDown);

@@ -145,13 +145,7 @@ export default function ExamLandingPage({ title, description, stats, features, t
                         >
                             Start Free Mock Test
                         </motion.button>
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="px-8 py-4 bg-white text-slate-700 text-lg font-bold rounded-2xl shadow-md border border-slate-100 hover:bg-slate-50 transition"
-                        >
-                            View Syllabus
-                        </motion.button>
+
                     </div>
 
                     <div className="mt-12 grid grid-cols-3 gap-6 border-t border-slate-200 pt-8">
