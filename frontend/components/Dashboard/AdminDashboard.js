@@ -1,7 +1,7 @@
 'use client';
 // Admin Dashboard Updated: 2026-02-04
 import { useState, useEffect } from 'react';
-import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X, Download } from 'lucide-react';
+import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X, Download, Loader2 } from 'lucide-react';
 import SubjectToolbar from './SubjectToolbar';
 import MathText from '@/components/ui/MathText';
 import { API_BASE_URL } from '@/lib/config';
@@ -142,87 +142,286 @@ const AnalyticsModal = ({ testId, onClose }) => {
     );
 };
 
+import ExcelJS from 'exceljs';
+
+
 const BulkUploadModal = ({ onUpload, onClose }) => {
-    const [csvText, setCsvText] = useState('');
+    const [status, setStatus] = useState('idle'); // idle, parsing, uploading, done
+    const [progress, setProgress] = useState({ current: 0, total: 0 });
+    const [error, setError] = useState('');
 
-    const handleParse = () => {
-        if (!csvText.trim()) return alert("Please paste CSV data");
+    const downloadTemplate = async () => {
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Questions');
 
-        try {
-            const lines = csvText.trim().split('\n');
-            const questions = lines.map(line => {
-                const parts = line.split(',').map(p => p.trim());
-                if (parts.length < 6) return null; // Minimal: text + 4 options + correct
+        sheet.columns = [
+            { header: 'Question Type (mcq/integer)', key: 'type', width: 25 },
+            { header: 'Question Text', key: 'text', width: 40 },
+            { header: 'Question Image (Insert Here)', key: 'qImg', width: 30 },
+            { header: 'Option A', key: 'optA', width: 20 },
+            { header: 'Option A Image', key: 'imgA', width: 20 },
+            { header: 'Option B', key: 'optB', width: 20 },
+            { header: 'Option B Image', key: 'imgB', width: 20 },
+            { header: 'Option C', key: 'optC', width: 20 },
+            { header: 'Option C Image', key: 'imgC', width: 20 },
+            { header: 'Option D', key: 'optD', width: 20 },
+            { header: 'Option D Image', key: 'imgD', width: 20 },
+            { header: 'Correct Option', key: 'correct', width: 15 },
+            { header: 'Integer Answer', key: 'intAns', width: 15 },
+            { header: 'Marks', key: 'marks', width: 10 },
+            { header: 'Neg. Marks', key: 'neg', width: 10 },
+            { header: 'Subject', key: 'subj', width: 15 },
+            { header: 'Topic', key: 'topic', width: 15 },
+            { header: 'Solution', key: 'sol', width: 40 },
+            { header: 'Solution Image', key: 'solImg', width: 30 }
+        ];
 
-                const [text, a, b, c, d, correct, marks, negMarks, subject, topic] = parts;
+        // Add some instruction row
+        sheet.addRow(["mcq", "Example Question?", "", "Opt A", "", "Opt B", "", "Opt C", "", "Opt D", "", "A", "", 4, 1, "Physics", "Mechanics", "Explanation...", ""]);
 
-                return {
-                    text,
-                    type: 'mcq',
-                    options: [a, b, c, d],
-                    correctOption: correct,
-                    correctOptions: [],
-                    integerAnswer: '',
-                    marks: marks || 4,
-                    negativeMarks: negMarks || 1,
-                    subject: subject || 'Physics',
-                    topic: topic || '',
-                    image: null,
-                    optionImages: [null, null, null, null],
-                    solution: '',
-                    solutionImage: ''
-                };
-            }).filter(q => q !== null);
+        // Style the header
+        sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } }; // Indigo-600
 
-            if (questions.length === 0) throw new Error("No valid questions found");
-
-            onUpload(questions);
-            onClose();
-            alert(`Imported ${questions.length} questions!`);
-        } catch (err) {
-            alert("Error parsing CSV. Format: Question,A,B,C,D,CorrectOption,Marks,NegMarks,Subject,Topic");
-        }
-    };
-
-    const downloadTemplate = () => {
-        const header = "Question Text,Option A,Option B,Option C,Option D,Correct Option Text,Marks,Negative Marks,Subject,Topic\n";
-        const sample = "What is the unit of Force?,Newton,Joule,Watt,Pascal,Newton,4,1,Physics,Mechanics";
-        const blob = new Blob([header + sample], { type: 'text/csv' });
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'question_template.csv';
+        a.download = 'Smart_Question_Template.xlsx';
         a.click();
+    };
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setStatus('parsing');
+        setError('');
+
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(arrayBuffer);
+            const worksheet = workbook.getWorksheet(1); // First sheet
+
+            if (!worksheet) throw new Error("Excel file is empty or invalid.");
+
+            // 1. Map Images to Cells
+            const imageMap = {}; // "row:col" -> buffer
+
+            // ExcelJS images are stored in workbook.model.media
+            const images = worksheet.getImages();
+
+            images.forEach(img => {
+                // range.tl = { nativeRow, nativeCol } 0-indexed
+                const row = Math.floor(img.range.tl.nativeRow) + 1; // 1-based
+                const col = Math.floor(img.range.tl.nativeCol) + 1; // 1-based
+                const imageId = img.imageId;
+                const media = workbook.model.media.find(m => m.index === imageId);
+
+                if (media) {
+                    imageMap[`${row}:${col}`] = media.buffer;
+                }
+            });
+
+            const questions = [];
+            const rows = [];
+
+            worksheet.eachRow((row, rowNumber) => {
+                if (rowNumber === 1) return; // Skip header
+                rows.push({ row, rowNumber });
+            });
+
+            if (rows.length === 0) throw new Error("No data found in Excel.");
+
+            setStatus('uploading');
+            setProgress({ current: 0, total: rows.length });
+
+            // Process row by row
+            for (let i = 0; i < rows.length; i++) {
+                const { row, rowNumber } = rows[i];
+
+                // Helper to get cell value or image URL
+                const getCellData = async (colIndex, folder) => {
+                    // Check if image exists at this cell
+                    const imgBuffer = imageMap[`${rowNumber}:${colIndex}`];
+
+                    if (imgBuffer) {
+                        try {
+                            const fileName = `${Date.now()}_${rowNumber}_${colIndex}.png`;
+                            const storageRef = ref(storage, `bulk_upload/${folder}/${fileName}`);
+                            await uploadBytes(storageRef, imgBuffer);
+                            return await getDownloadURL(storageRef);
+                        } catch (err) {
+                            console.error(`Valid image found but upload failed at ${rowNumber}:${colIndex}`, err);
+                            return '';
+                        }
+                    }
+
+                    // Fallback to text
+                    const cell = row.getCell(colIndex);
+                    // Handle rich text
+                    if (cell.value && typeof cell.value === 'object') {
+                        if (cell.value.text) return cell.value.text;
+                        if (cell.value.richText) return cell.value.richText.map(r => r.text).join('');
+                        if (cell.value.result) return cell.value.result.toString();
+                    }
+                    return cell.value ? cell.value.toString() : '';
+                };
+
+                // Map Columns (1-based index)
+                // 1: Type, 2: Text, 3: Q-Img, 4: A, 5: A-Img ...
+
+                const type = (row.getCell(1).value || 'mcq').toString().toLowerCase().trim();
+                const text = await getCellData(2, 'questions'); // Text might be rich text
+                const qImg = await getCellData(3, 'questions'); // Image
+
+                const optA = await getCellData(4, 'options');
+                const imgA = await getCellData(5, 'options');
+
+                const optB = await getCellData(6, 'options');
+                const imgB = await getCellData(7, 'options');
+
+                const optC = await getCellData(8, 'options');
+                const imgC = await getCellData(9, 'options');
+
+                const optD = await getCellData(10, 'options');
+                const imgD = await getCellData(11, 'options');
+
+                const correctRaw = (row.getCell(12).value || '').toString().trim().toUpperCase();
+                const intAns = (row.getCell(13).value || '').toString().trim();
+
+                const marks = Number(row.getCell(14).value) || 4;
+                const neg = Number(row.getCell(15).value) || 1;
+                const subject = (row.getCell(16).value || 'Physics').toString();
+                const topic = (row.getCell(17).value || '').toString();
+
+                const sol = await getCellData(18, 'solutions');
+                const solImg = await getCellData(19, 'solutions');
+
+                // Determine correct option
+                let correctOption = '';
+                if (type === 'mcq') {
+                    const map = { 1: 'A', 2: 'B', 3: 'C', 4: 'D', 'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D' };
+                    if (map[correctRaw]) correctOption = map[correctRaw];
+                }
+
+                if (text || qImg) {
+                    questions.push({
+                        text,
+                        image: qImg,
+                        type: type === 'integer' ? 'integer' : 'mcq',
+                        options: [optA, optB, optC, optD],
+                        optionImages: [imgA, imgB, imgC, imgD],
+                        correctOption,
+                        integerAnswer: type === 'integer' ? (intAns || correctRaw) : '',
+                        correctOptions: [],
+                        marks,
+                        negativeMarks: neg,
+                        subject,
+                        topic,
+                        solution: sol,
+                        solutionImage: solImg || '',
+                        solutionImages: solImg ? [solImg] : []
+                    });
+                }
+
+                setProgress({ current: i + 1, total: rows.length });
+            }
+
+            setStatus('done');
+            onUpload(questions);
+            onClose();
+            alert(`Processed ${questions.length} questions. Images uploaded successfully!`);
+
+        } catch (err) {
+            console.error("Excel Processing Error:", err);
+            setError("Failed to process file. Ensure you are using the correct template.");
+            setStatus('idle');
+        }
     };
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold">Bulk Upload Questions</h3>
-                    <button onClick={onClose}><X size={24} /></button>
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                        <UploadCloud className="text-indigo-600" /> Smart Excel Upload
+                    </h3>
+                    {status === 'idle' && <button onClick={onClose}><X size={24} className="text-gray-400 hover:text-gray-600" /></button>}
                 </div>
-                <div className="mb-4">
-                    <p className="text-sm text-gray-600 mb-2">Paste your CSV content below. Format:</p>
-                    <code className="text-[10px] bg-gray-100 p-2 block rounded break-all">
-                        Question,OptionA,OptionB,OptionC,OptionD,CorrectOptionText,Marks,NegMarks,Subject,Topic
-                    </code>
-                </div>
-                <textarea
-                    className="w-full h-64 border rounded p-2 font-mono text-xs mb-4"
-                    placeholder="Example: What is 2+2?,3,4,5,6,4,4,1,Maths,Basic"
-                    value={csvText}
-                    onChange={(e) => setCsvText(e.target.value)}
-                />
-                <div className="flex justify-between">
-                    <button onClick={downloadTemplate} className="text-indigo-600 text-sm font-bold flex items-center gap-1">
-                        <Save size={16} /> Download CSV Template
-                    </button>
-                    <div className="space-x-2">
-                        <button onClick={onClose} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
-                        <button onClick={handleParse} className="px-6 py-2 bg-indigo-600 text-white rounded font-bold">Import Questions</button>
+
+                {status === 'idle' ? (
+                    <div className="space-y-6">
+                        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-lg p-5">
+                            <h4 className="font-bold text-indigo-800 mb-2">Step 1: Download Smart Template</h4>
+                            <p className="text-sm text-indigo-700 mb-4">
+                                You can now <strong>Paste Images</strong> directly into the Excel cells!
+                                No need for URLs. Just insert your diagrams into the "Image" columns.
+                            </p>
+                            <button
+                                onClick={downloadTemplate}
+                                className="bg-white border border-indigo-200 text-indigo-700 px-4 py-2 rounded-md text-sm font-bold shadow-sm hover:bg-indigo-50 flex items-center gap-2"
+                            >
+                                <Download size={16} /> Download Template
+                            </button>
+                        </div>
+
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:bg-gray-50 transition-colors group">
+                            <div className="flex flex-col items-center">
+                                <div className="p-4 bg-indigo-100 rounded-full mb-4 group-hover:scale-110 transition-transform">
+                                    <UploadCloud size={32} className="text-indigo-600" />
+                                </div>
+                                <label className="cursor-pointer">
+                                    <span className="bg-indigo-600 text-white px-6 py-2 rounded-md font-bold hover:bg-indigo-700 transition">
+                                        Select Excel File
+                                    </span>
+                                    <input
+                                        type="file"
+                                        accept=".xlsx"
+                                        className="hidden"
+                                        onChange={handleFileUpload}
+                                    />
+                                </label>
+                                <p className="text-xs text-gray-400 mt-2">Supports .xlsx with embedded images</p>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="py-12 flex flex-col items-center justify-center text-center">
+                        {status === 'parsing' && (
+                            <>
+                                <Loader2 className="animate-spin text-indigo-600 mb-4" size={48} />
+                                <h4 className="text-xl font-bold text-gray-800">Reading Excel File...</h4>
+                                <p className="text-gray-500">Extracting questions and images</p>
+                            </>
+                        )}
+                        {status === 'uploading' && (
+                            <>
+                                <div className="w-full max-w-sm bg-gray-200 rounded-full h-4 mb-4 overflow-hidden">
+                                    <div
+                                        className="bg-indigo-600 h-4 rounded-full transition-all duration-300"
+                                        style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                                    ></div>
+                                </div>
+                                <h4 className="text-xl font-bold text-gray-800">Uploading Images...</h4>
+                                <p className="text-gray-500">
+                                    Processing Question {progress.current} of {progress.total}
+                                </p>
+                                <p className="text-xs text-orange-500 mt-2 font-medium animate-pulse">
+                                    Please do not close this window.
+                                </p>
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {error && (
+                    <div className="mt-4 p-3 bg-red-50 text-red-600 text-sm rounded-md border border-red-200 flex items-center gap-2">
+                        <AlertCircle size={16} /> {error}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -1765,16 +1964,10 @@ export default function AdminDashboard() {
                             </div>
                             <div className="flex gap-2">
                                 <button
-                                    onClick={handleDownloadTemplate}
-                                    className="px-4 py-2 bg-green-50 text-green-700 rounded-lg border border-green-200 font-bold flex items-center gap-2 hover:bg-green-100 transition"
-                                >
-                                    <Save size={18} /> Download Template
-                                </button>
-                                <button
                                     onClick={() => setShowBulkUpload(true)}
                                     className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 font-bold flex items-center gap-2 hover:bg-indigo-100 transition"
                                 >
-                                    <UploadCloud size={20} /> Bulk Upload (CSV)
+                                    <UploadCloud size={20} /> Bulk Upload (Excel)
                                 </button>
                             </div>
                         </div>
