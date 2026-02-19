@@ -1341,7 +1341,7 @@ export default function AdminDashboard() {
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-0 border-b border-gray-200 gap-2">
                 <div className="flex items-center gap-3">
-                    <img src="/logo.ico" alt="Apex Mock" className="h-16 w-auto" />
+                    <img src="/logo.png" alt="Apex Mock" className="h-16 w-auto" />
                     <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Admin Controls</h2>
                 </div>
                 <div className="flex overflow-x-auto space-x-1 sm:space-x-2 pb-2 sm:pb-0">
