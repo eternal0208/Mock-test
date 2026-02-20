@@ -51,9 +51,9 @@ export const metadata = {
     creator: "@apexmocktest", // Replace if you have a handle
   },
   icons: {
-    icon: "/logo.png",
-    shortcut: "/logo.png",
-    apple: "/logo.png",
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
   },
   alternates: {
     canonical: "./",
