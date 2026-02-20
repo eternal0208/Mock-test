@@ -11,14 +11,21 @@ import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const AnalyticsModal = ({ testId, onClose }) => {
+    const { user } = useAuth();
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
         const fetchAnalytics = async () => {
+            if (!user) return;
             try {
-                const res = await fetch(`${API_BASE_URL}/api/tests/${testId}/analytics`);
+                const token = await user.getIdToken();
+                const res = await fetch(`${API_BASE_URL}/api/tests/${testId}/analytics`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 if (!res.ok) throw new Error('Failed to fetch analytics');
                 const data = await res.json();
                 setStats(data);
@@ -30,7 +37,7 @@ const AnalyticsModal = ({ testId, onClose }) => {
             }
         };
         fetchAnalytics();
-    }, [testId]);
+    }, [testId, user]);
 
     if (loading) return <div className="fixed inset-0 bg-black/50 flex items-center justify-center text-white z-50">Loading Analytics...</div>;
 
@@ -143,7 +150,6 @@ const AnalyticsModal = ({ testId, onClose }) => {
 };
 
 import ExcelJS from 'exceljs';
-
 
 const BulkUploadModal = ({ onUpload, onClose }) => {
     const [status, setStatus] = useState('idle'); // idle, parsing, uploading, done
@@ -524,16 +530,17 @@ const StudentReportModal = ({ student, onClose }) => {
     );
 };
 
-const CreateSeriesForm = ({ onSuccess }) => {
+const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
     const [formData, setFormData] = useState({
-        title: '',
-        description: '',
-        price: 0,
-        currency: 'INR',
-        category: 'JEE Main',
-        features: '', // Comma separated
-        image: '',
-        isActive: true
+        title: initialData?.title || '',
+        description: initialData?.description || '',
+        price: initialData?.price || 0,
+        currency: initialData?.currency || 'INR',
+        category: initialData?.category || 'JEE Main',
+        features: initialData?.features ? (Array.isArray(initialData.features) ? initialData.features.join(', ') : initialData.features) : '',
+        image: initialData?.image || '',
+        isActive: initialData?.isActive !== undefined ? initialData.isActive : true,
+        expiryDate: initialData?.expiryDate || ''
     });
     const [loading, setLoading] = useState(false);
 
@@ -570,18 +577,24 @@ const CreateSeriesForm = ({ onSuccess }) => {
                 features: formData.features.split(',').map(f => f.trim()).filter(f => f)
             };
 
-            const res = await fetch(`${API_BASE_URL}/api/admin/series`, {
-                method: 'POST',
+            const url = initialData
+                ? `${API_BASE_URL}/api/admin/series/${initialData.id || initialData._id}`
+                : `${API_BASE_URL}/api/admin/series`;
+
+            const method = initialData ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
             if (res.ok) {
-                alert('Series Created Successfully');
-                setFormData({ title: '', description: '', price: 0, currency: 'INR', category: 'JEE Main', features: '', image: '', isActive: true });
+                alert(initialData ? 'Series Updated Successfully' : 'Series Created Successfully');
+                setFormData({ title: '', description: '', price: 0, currency: 'INR', category: 'JEE Main', features: '', image: '', isActive: true, expiryDate: '' });
                 onSuccess();
             } else {
-                alert('Failed to create series');
+                alert(initialData ? 'Failed to update series' : 'Failed to create series');
             }
         } catch (error) {
             console.error(error);
@@ -651,7 +664,7 @@ const CreateSeriesForm = ({ onSuccess }) => {
                 <input type="date" name="expiryDate" value={formData.expiryDate || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded p-2" />
             </div>
             <button type="submit" disabled={loading} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700 disabled:opacity-50">
-                {loading ? 'Creating...' : 'Create Series'}
+                {loading ? (initialData ? 'Updating...' : 'Creating...') : (initialData ? 'Update Series' : 'Create Series')}
             </button>
         </form>
     );
@@ -704,6 +717,10 @@ export default function AdminDashboard() {
     const [revenueStats, setRevenueStats] = useState(null);
     const [loading, setLoading] = useState(false);
     const [viewingStudent, setViewingStudent] = useState(null); // Report Modal State
+    const [editingSeries, setEditingSeries] = useState(null); // Series Edit Modal State
+    const [editingTest, setEditingTest] = useState(null); // Test Edit Modal State
+    const [splittingTest, setSplittingTest] = useState(null); // Split Test Modal State
+    const [showMergeModal, setShowMergeModal] = useState(false); // Merge Tests Modal State
 
     const [showBulkUpload, setShowBulkUpload] = useState(false);
 
@@ -1426,7 +1443,31 @@ export default function AdminDashboard() {
                                                             >
                                                                 {test.isVisible !== false ? <Eye size={18} /> : <EyeOff size={18} />}
                                                             </button>
+                                                            <button onClick={() => setEditingTest(test)} className="text-blue-600 hover:text-blue-900 text-sm font-bold" title="Edit Test Details">
+                                                                <Edit2 size={18} />
+                                                            </button>
                                                             <button onClick={() => setShowAnalytics(test._id)} className="text-indigo-600 hover:text-indigo-900 text-sm font-bold">Stats</button>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    setLoading(true);
+                                                                    try {
+                                                                        const token = await user?.getIdToken();
+                                                                        const res = await fetch(`${API_BASE_URL}/api/tests/${test._id}`, {
+                                                                            headers: { 'Authorization': `Bearer ${token}` }
+                                                                        });
+                                                                        const fullTest = await res.json();
+                                                                        setSplittingTest(fullTest);
+                                                                    } catch (e) {
+                                                                        alert("Failed to load test for splitting");
+                                                                    } finally {
+                                                                        setLoading(false);
+                                                                    }
+                                                                }}
+                                                                className="text-orange-600 hover:text-orange-900 text-sm font-bold"
+                                                                title="Create Subject-wise Tests"
+                                                            >
+                                                                Split
+                                                            </button>
                                                             <button onClick={() => handleDeleteTest(test._id)} className="text-red-500 hover:text-red-700 text-sm font-bold">Delete</button>
                                                         </td>
                                                     </tr>
@@ -1511,8 +1552,21 @@ export default function AdminDashboard() {
                                                     <td className="px-6 py-4 text-sm">
                                                         <span className="bg-gray-100 px-2 py-1 rounded text-gray-700 font-bold">{series.testIds?.length || 0} Tests</span>
                                                     </td>
-                                                    <td className="px-6 py-4">
-                                                        <button onClick={() => setManagingSeries(series)} className="text-indigo-600 hover:text-indigo-900 font-bold text-sm bg-indigo-50 px-3 py-1 rounded hover:bg-indigo-100 transition">Manage Tests</button>
+                                                    <td className="px-6 py-4 space-x-2">
+                                                        <button
+                                                            onClick={() => setManagingSeries(series)}
+                                                            className="text-indigo-600 hover:text-indigo-900 font-bold text-sm bg-indigo-50 px-3 py-1 rounded hover:bg-indigo-100 transition"
+                                                            title="Manage Tests in Series"
+                                                        >
+                                                            <List size={18} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setEditingSeries(series)}
+                                                            className="text-blue-600 hover:text-blue-800"
+                                                            title="Edit Series"
+                                                        >
+                                                            <Edit2 size={18} />
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -2188,6 +2242,19 @@ export default function AdminDashboard() {
                     <div className="bg-white p-6 rounded-lg shadow h-full flex flex-col">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-semibold">Queue: {questions.length}</h3>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setShowMergeModal(true)}
+                                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-indigo-700 transition"
+                                >
+                                    <List size={20} />
+                                    Merge Tests
+                                </button>
+                                <button onClick={() => setShowBulkUpload(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2">
+                                    <List size={20} />
+                                    Bulk Upload
+                                </button>
+                            </div>
                             {questions.length > 0 && (
                                 <button onClick={handleExportQueue} className="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center gap-1">
                                     <Download size={14} /> Export CSV
@@ -2208,6 +2275,380 @@ export default function AdminDashboard() {
                         <button onClick={handleSubmitTest} disabled={loading || questions.length === 0} className="w-full bg-green-600 text-white py-3 rounded font-bold shadow hover:bg-green-700 disabled:opacity-50">
                             {loading ? 'Publishing...' : 'Publish Test'}
                         </button>
+                    </div>
+                </div>
+            )}
+            {/* Edit Series Modal */}
+            {editingSeries && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold">Edit Series: {editingSeries.title}</h3>
+                            <button onClick={() => setEditingSeries(null)}><X size={24} /></button>
+                        </div>
+                        <CreateSeriesForm
+                            initialData={editingSeries}
+                            onSuccess={() => {
+                                setEditingSeries(null);
+                                fetchSeries();
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Test Modal */}
+            {editingTest && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold">Edit Test: {editingTest.title}</h3>
+                            <button onClick={() => setEditingTest(null)}><X size={24} className="text-gray-500 hover:text-gray-800" /></button>
+                        </div>
+                        <form
+                            onSubmit={async (e) => {
+                                e.preventDefault();
+                                try {
+                                    const token = await user?.getIdToken();
+                                    const res = await fetch(`${API_BASE_URL}/api/tests/${editingTest._id}`, {
+                                        method: 'PUT',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${token}`
+                                        },
+                                        body: JSON.stringify(editingTest)
+                                    });
+                                    if (res.ok) {
+                                        alert('Test updated successfully!');
+                                        setEditingTest(null);
+                                        fetchTests();
+                                    } else {
+                                        alert('Failed to update test');
+                                    }
+                                } catch (error) {
+                                    console.error('Update test error:', error);
+                                    alert('Error updating test');
+                                }
+                            }}
+                            className="space-y-4"
+                        >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Test Title</label>
+                                    <input
+                                        type="text"
+                                        value={editingTest.title || ''}
+                                        onChange={(e) => setEditingTest({ ...editingTest, title: e.target.value })}
+                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Duration (Minutes)</label>
+                                    <input
+                                        type="number"
+                                        value={editingTest.duration_minutes || editingTest.duration || ''}
+                                        onChange={(e) => setEditingTest({ ...editingTest, duration: Number(e.target.value) })}
+                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Subject / Type</label>
+                                    <input
+                                        type="text"
+                                        value={editingTest.subject || ''}
+                                        onChange={(e) => setEditingTest({ ...editingTest, subject: e.target.value })}
+                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Category</label>
+                                    <select
+                                        value={editingTest.category || 'JEE Main'}
+                                        onChange={(e) => setEditingTest({ ...editingTest, category: e.target.value })}
+                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white"
+                                    >
+                                        <option value="JEE Main">JEE Main</option>
+                                        <option value="JEE Advanced">JEE Advanced</option>
+                                        <option value="NEET">NEET</option>
+                                        <option value="CAT">CAT</option>
+                                        <option value="Board Exam">Board Exam</option>
+                                        <option value="Others">Others</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Total Marks</label>
+                                    <input
+                                        type="number"
+                                        value={editingTest.total_marks || editingTest.totalMarks || ''}
+                                        onChange={(e) => setEditingTest({ ...editingTest, totalMarks: Number(e.target.value) })}
+                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Max Attempts</label>
+                                    <input
+                                        type="number"
+                                        value={editingTest.maxAttempts === null ? '' : editingTest.maxAttempts}
+                                        onChange={(e) => setEditingTest({ ...editingTest, maxAttempts: e.target.value })}
+                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                        placeholder="Leave empty for unlimited"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Result Visibility</label>
+                                    <select
+                                        value={editingTest.resultVisibility || 'immediate'}
+                                        onChange={(e) => setEditingTest({ ...editingTest, resultVisibility: e.target.value })}
+                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white"
+                                    >
+                                        <option value="immediate">Immediate (After Submit)</option>
+                                        <option value="scheduled">Scheduled Time</option>
+                                        <option value="afterTestEnds">After Test Ends</option>
+                                    </select>
+                                </div>
+                                {editingTest.resultVisibility === 'scheduled' && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Result Time</label>
+                                        <input
+                                            type="datetime-local"
+                                            value={editingTest.resultDeclarationTime ? new Date(new Date(editingTest.resultDeclarationTime).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
+                                            onChange={(e) => setEditingTest({ ...editingTest, resultDeclarationTime: new Date(e.target.value).toISOString() })}
+                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Instructions</label>
+                                <textarea
+                                    value={editingTest.instructions || ''}
+                                    onChange={(e) => setEditingTest({ ...editingTest, instructions: e.target.value })}
+                                    className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                    rows="4"
+                                ></textarea>
+                            </div>
+                            <div className="flex justify-end gap-3 pt-4 border-t">
+                                <button type="button" onClick={() => setEditingTest(null)} className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
+                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Split Test Modal */}
+            {splittingTest && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-2xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold text-gray-800">Split by Subject</h3>
+                            <button onClick={() => setSplittingTest(null)}><X size={24} className="text-gray-400 hover:text-gray-600" /></button>
+                        </div>
+
+                        <p className="text-sm text-gray-600 mb-6 font-medium">
+                            Detected subjects in <strong>{splittingTest.title}</strong>.
+                            Select which subjects to extract into new independent tests:
+                        </p>
+
+                        <div className="space-y-3 mb-6">
+                            {Array.from(new Set((splittingTest.questions || []).map(q => q.subject || 'Uncategorized'))).map(sub => (
+                                <div key={sub} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                    <div className="flex-1">
+                                        <span className="font-bold text-gray-700">{sub}</span>
+                                        <div className="text-[10px] text-gray-400 font-bold uppercase">
+                                            {splittingTest.questions.filter(q => (q.subject || 'Uncategorized') === sub).length} Questions
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={async () => {
+                                            setLoading(true);
+                                            try {
+                                                const token = await user?.getIdToken();
+                                                const res = await fetch(`${API_BASE_URL}/api/tests/${splittingTest._id}/split`, {
+                                                    method: 'POST',
+                                                    headers: {
+                                                        'Content-Type': 'application/json',
+                                                        'Authorization': `Bearer ${token}`
+                                                    },
+                                                    body: JSON.stringify({ subjectsToExtract: [sub] })
+                                                });
+                                                if (res.ok) {
+                                                    alert(`Created new test for ${sub}!`);
+                                                    fetchTests();
+                                                } else {
+                                                    alert('Failed to split test');
+                                                }
+                                            } catch (e) {
+                                                console.error(e);
+                                                alert('Error splitting test');
+                                            } finally {
+                                                setLoading(false);
+                                            }
+                                        }}
+                                        className="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-indigo-700 transition"
+                                    >
+                                        Extract
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex justify-between items-center pt-4 border-t">
+                            <button
+                                onClick={async () => {
+                                    if (!confirm("Extract all detected subjects into separate tests?")) return;
+                                    setLoading(true);
+                                    try {
+                                        const token = await user?.getIdToken();
+                                        const res = await fetch(`${API_BASE_URL}/api/tests/${splittingTest._id}/split`, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Authorization': `Bearer ${token}`
+                                            },
+                                            body: JSON.stringify({ subjectsToExtract: [] }) // Empty = All
+                                        });
+                                        if (res.ok) {
+                                            alert("Created subject-wise tests for all subjects!");
+                                            setSplittingTest(null);
+                                            fetchTests();
+                                        }
+                                    } catch (e) {
+                                        alert("Error splitting test");
+                                    } finally {
+                                        setLoading(false);
+                                    }
+                                }}
+                                className="text-xs text-indigo-600 font-bold hover:underline"
+                            >
+                                Extract All Subjects
+                            </button>
+                            <button onClick={() => setSplittingTest(null)} className="text-gray-500 text-sm font-bold">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Merge Tests Modal */}
+            {showMergeModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold text-gray-800">Merge Existing Tests</h3>
+                            <button onClick={() => setShowMergeModal(false)}><X size={24} className="text-gray-400 hover:text-gray-600" /></button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">New Test Title</label>
+                                    <input
+                                        type="text"
+                                        id="mergeTitle"
+                                        className="w-full border rounded-lg p-2 text-sm"
+                                        placeholder="e.g. Combined JEE Mock Test"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Duration (Min)</label>
+                                        <input
+                                            type="number"
+                                            id="mergeDuration"
+                                            className="w-full border rounded-lg p-2 text-sm"
+                                            defaultValue="180"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Category</label>
+                                        <select id="mergeCategory" className="w-full border rounded-lg p-2 text-sm bg-white">
+                                            <option value="JEE Main">JEE Main</option>
+                                            <option value="JEE Advanced">JEE Advanced</option>
+                                            <option value="NEET">NEET</option>
+                                            <option value="Others">Others</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Select Tests to Merge</label>
+                                <div className="border rounded-lg max-h-[200px] overflow-y-auto p-2 space-y-1 bg-gray-50">
+                                    {tests.map(t => (
+                                        <label key={t._id} className="flex items-center gap-3 p-2 hover:bg-white rounded border border-transparent hover:border-gray-200 cursor-pointer transition">
+                                            <input type="checkbox" name="mergeTestSelect" value={t._id} className="w-4 h-4 rounded text-indigo-600" />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-bold text-gray-800 truncate">{t.title}</div>
+                                                <div className="text-[10px] text-gray-400 font-bold uppercase">{t.category} • {t.questionCount || 0} Qs</div>
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
+                            <div className="flex gap-3">
+                                <div className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold mt-0.5">!</div>
+                                <p className="text-xs text-blue-800 leading-relaxed font-medium">
+                                    <strong>Grouping & Shuffling Logic:</strong> Questions from all selected tests will be combined.
+                                    Subject groups will be maintained, but questions <strong>within each subject</strong> will be shuffled.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-4 border-t">
+                            <button onClick={() => setShowMergeModal(false)} className="px-6 py-2 text-gray-500 font-bold hover:bg-gray-50 rounded-lg transition">Cancel</button>
+                            <button
+                                onClick={async () => {
+                                    const selectedIds = Array.from(document.querySelectorAll('input[name="mergeTestSelect"]:checked')).map(el => el.value);
+                                    const title = document.getElementById('mergeTitle').value;
+                                    const duration = document.getElementById('mergeDuration').value;
+                                    const category = document.getElementById('mergeCategory').value;
+
+                                    if (selectedIds.length < 1) return alert("Select at least one test");
+                                    if (!title) return alert("Please enter a title");
+
+                                    setLoading(true);
+                                    try {
+                                        const token = await user?.getIdToken();
+                                        const res = await fetch(`${API_BASE_URL}/api/tests/merge`, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Authorization': `Bearer ${token}`
+                                            },
+                                            body: JSON.stringify({
+                                                testIds: selectedIds,
+                                                title,
+                                                duration,
+                                                category
+                                            })
+                                        });
+
+                                        if (res.ok) {
+                                            alert("Tests merged successfully with subject-aware shuffling!");
+                                            setShowMergeModal(false);
+                                            fetchTests();
+                                        } else {
+                                            const error = await res.json();
+                                            alert(error.message || "Merge failed");
+                                        }
+                                    } catch (e) {
+                                        alert("Error merging tests");
+                                    } finally {
+                                        setLoading(false);
+                                    }
+                                }}
+                                className="bg-indigo-600 text-white px-8 py-2 rounded-lg font-bold hover:bg-indigo-700 shadow-md transition"
+                            >
+                                Merge & Shuffle
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

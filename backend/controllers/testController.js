@@ -71,6 +71,41 @@ exports.createTest = async (req, res) => {
     }
 };
 
+// @desc    Update a test (Header only, not questions)
+// @route   PUT /api/tests/:id
+// @access  Admin
+exports.updateTest = async (req, res) => {
+    try {
+        const testId = req.params.id;
+        const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, isVisible, maxAttempts, resultVisibility, resultDeclarationTime } = req.body;
+
+        const updateData = {};
+        if (title !== undefined) updateData.title = title;
+        if (duration !== undefined) updateData.duration_minutes = Number(duration);
+        if (totalMarks !== undefined) updateData.total_marks = Number(totalMarks);
+        if (subject !== undefined) updateData.subject = subject;
+        if (category !== undefined) updateData.category = category;
+        if (difficulty !== undefined) updateData.difficulty = difficulty;
+        if (isVisible !== undefined) updateData.isVisible = isVisible;
+        if (instructions !== undefined) updateData.instructions = instructions;
+        if (startTime !== undefined) updateData.startTime = startTime;
+        if (endTime !== undefined) updateData.endTime = endTime;
+        if (maxAttempts !== undefined) updateData.maxAttempts = maxAttempts === "" || maxAttempts === null ? null : Number(maxAttempts);
+        if (req.body.expiryDate !== undefined) updateData.expiryDate = req.body.expiryDate;
+        if (resultVisibility !== undefined) updateData.resultVisibility = resultVisibility;
+        if (resultDeclarationTime !== undefined) updateData.resultDeclarationTime = resultDeclarationTime;
+
+        updateData.updatedAt = new Date().toISOString();
+
+        await db.collection('tests').doc(testId).update(updateData);
+
+        res.status(200).json({ message: 'Test updated successfully', _id: testId });
+    } catch (error) {
+        console.error("Update Test Error:", error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
 // @desc    Add questions to a test
 // @route   POST /api/tests/:id/questions
 // @access  Admin
@@ -580,6 +615,194 @@ exports.toggleVisibility = async (req, res) => {
         res.status(200).json({ message: 'Visibility updated', isVisible });
     } catch (error) {
         console.error("Toggle Visibility Error:", error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+// @desc    Split Test by Subject (Clone questions into new tests)
+// @route   POST /api/tests/:id/split
+// @access  Admin
+exports.splitTestBySubject = async (req, res) => {
+    try {
+        const testId = req.params.id;
+        const testRef = db.collection('tests').doc(testId);
+        const testDoc = await testRef.get();
+
+        if (!testDoc.exists) return res.status(404).json({ message: 'Source test not found' });
+
+        const testData = testDoc.data();
+        const { subjectsToExtract } = req.body; // Array of subject names, if null/empty, extract all distinct subjects
+
+        // 1. Fetch all questions
+        const qsSnapshot = await testRef.collection('questions').get();
+        if (qsSnapshot.empty) return res.status(400).json({ message: 'No questions found in source test' });
+
+        const allQuestions = qsSnapshot.docs.map(d => d.data());
+
+        // 2. Group by subject
+        const grouped = {};
+        allQuestions.forEach(q => {
+            const sub = q.subject || 'Uncategorized';
+            if (!grouped[sub]) grouped[sub] = [];
+            grouped[sub].push(q);
+        });
+
+        const createdTests = [];
+
+        // 3. Process each group
+        const targetSubjects = subjectsToExtract && subjectsToExtract.length > 0
+            ? subjectsToExtract
+            : Object.keys(grouped);
+
+        for (const sub of targetSubjects) {
+            const questions = grouped[sub];
+            if (!questions || questions.length === 0) continue;
+
+            // Create New Test Header
+            const newTestHeader = {
+                title: `${sub} - ${testData.title}`,
+                duration_minutes: testData.duration_minutes || 0, // Suggestion: Maybe calculate based on q count? For now keep same.
+                total_marks: questions.reduce((acc, q) => acc + (Number(q.marks) || 0), 0),
+                subject: sub,
+                category: testData.category,
+                difficulty: testData.difficulty || 'Medium',
+                isVisible: false, // Default hidden for safety
+                instructions: testData.instructions || '',
+                maxAttempts: testData.maxAttempts || null,
+                resultVisibility: testData.resultVisibility || 'immediate',
+                createdBy: req.user?._id || 'admin',
+                createdAt: new Date().toISOString(),
+                questionCount: questions.length,
+                isSplitFrom: testId // Reference to original
+            };
+
+            const newTestRef = await db.collection('tests').add(newTestHeader);
+            const newTestId = newTestRef.id;
+
+            // Upload Questions
+            const batch = db.batch();
+            questions.forEach((q, index) => {
+                const qRef = db.collection('tests').doc(newTestId).collection('questions').doc();
+                batch.set(qRef, {
+                    ...q,
+                    order: index,
+                    _id: qRef.id
+                });
+            });
+            await batch.commit();
+
+            createdTests.push({ _id: newTestId, title: newTestHeader.title });
+        }
+
+        res.status(201).json({
+            message: `Successfully created ${createdTests.length} subject-wise tests.`,
+            createdTests
+        });
+
+    } catch (error) {
+        console.error("Split Test Error:", error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Merge Multiple Tests into One (with subject-aware shuffling)
+// @route   POST /api/tests/merge
+// @access  Admin
+exports.mergeTests = async (req, res) => {
+    try {
+        const { testIds, title, duration, category, difficulty, instructions } = req.body;
+
+        if (!testIds || !Array.isArray(testIds) || testIds.length === 0) {
+            return res.status(400).json({ message: 'Must provide at least one test to merge' });
+        }
+
+        const allQuestions = [];
+        const sourceTestsData = [];
+
+        // 1. Fetch questions from all source tests
+        for (const tid of testIds) {
+            const testRef = db.collection('tests').doc(tid);
+            const testDoc = await testRef.get();
+            if (testDoc.exists) {
+                sourceTestsData.push(testDoc.data());
+                const qsSnapshot = await testRef.collection('questions').get();
+                qsSnapshot.forEach(doc => {
+                    allQuestions.push({ ...doc.data(), sourceTestId: tid });
+                });
+            }
+        }
+
+        if (allQuestions.length === 0) {
+            return res.status(400).json({ message: 'No questions found in source tests' });
+        }
+
+        // 2. Group by subject
+        const groupedBySubject = {};
+        allQuestions.forEach(q => {
+            const sub = q.subject || 'Uncategorized';
+            if (!groupedBySubject[sub]) groupedBySubject[sub] = [];
+            groupedBySubject[sub].push(q);
+        });
+
+        // 3. Shuffle logic (Fisher-Yates) within each subject
+        const shuffle = (array) => {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        };
+
+        const finalQuestionList = [];
+        Object.keys(groupedBySubject).sort().forEach(sub => {
+            const shuffledGroup = shuffle([...groupedBySubject[sub]]);
+            shuffledGroup.forEach(q => finalQuestionList.push(q));
+        });
+
+        // 4. Create New Test Header
+        const newTestHeader = {
+            title: title || `Merged Test - ${new Date().toLocaleDateString()}`,
+            duration_minutes: Number(duration) || 180,
+            total_marks: finalQuestionList.reduce((acc, q) => acc + (Number(q.marks) || 0), 0),
+            subject: 'Multiple',
+            category: category || sourceTestsData[0]?.category || 'JEE Main',
+            difficulty: difficulty || 'Mixed',
+            isVisible: false,
+            instructions: instructions || 'Merged test with shuffled questions.',
+            createdBy: req.user?._id || 'admin',
+            createdAt: new Date().toISOString(),
+            questionCount: finalQuestionList.length,
+            isMerged: true,
+            sourceTestIds: testIds
+        };
+
+        const newTestRef = await db.collection('tests').add(newTestHeader);
+        const newTestId = newTestRef.id;
+
+        // 5. Upload Questions in Batches (Firestore limit is 500 per batch)
+        const batchSize = 400;
+        for (let i = 0; i < finalQuestionList.length; i += batchSize) {
+            const batch = db.batch();
+            const chunk = finalQuestionList.slice(i, i + batchSize);
+            chunk.forEach((q, idx) => {
+                const qRef = db.collection('tests').doc(newTestId).collection('questions').doc();
+                batch.set(qRef, {
+                    ...q,
+                    order: i + idx,
+                    _id: qRef.id,
+                    sourceTestId: undefined
+                });
+            });
+            await batch.commit();
+        }
+
+        res.status(201).json({
+            message: 'Tests merged successfully',
+            _id: newTestId,
+            ...newTestHeader
+        });
+
+    } catch (error) {
+        console.error("Merge Tests Error:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
