@@ -1,6 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import TestList from '@/components/Exam/TestList';
+import SeriesList from '@/components/Exam/SeriesList';
 import SyllabusDownload from '@/components/Exam/SyllabusDownload';
 import ExamLandingPage from '@/components/ExamLandingPage';
 
@@ -23,7 +24,23 @@ export default function CATPage() {
             ]}
             themeColor="purple"
         >
-            <TestList category="CAT" />
+            <div className="space-y-16">
+                <section>
+                    <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center italic font-serif">P</span>
+                        Premium Test Series
+                    </h2>
+                    <SeriesList category="CAT" />
+                </section>
+
+                <section>
+                    <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center italic font-serif">M</span>
+                        Individual Mock Tests
+                    </h2>
+                    <TestList category="CAT" />
+                </section>
+            </div>
 
             {/* Syllabus Section */}
             <div className="mt-12 mb-12 flex justify-center">

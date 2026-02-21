@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Metadata } from 'next';
 import ExamLandingPage from '@/components/ExamLandingPage';
 import TestList from '@/components/Exam/TestList';
+import SeriesList from '@/components/Exam/SeriesList';
 
 export const metadata: Metadata = {
     title: 'Apex Mock Test for NEET | Best NEET Test Series 2025',
@@ -24,7 +25,23 @@ export default function NeetPage() {
             ]}
             themeColor="teal"
         >
-            <TestList category="NEET" />
+            <div className="space-y-16">
+                <section>
+                    <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center italic font-serif">P</span>
+                        Premium Test Series
+                    </h2>
+                    <SeriesList category="NEET" />
+                </section>
+
+                <section>
+                    <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center italic font-serif">M</span>
+                        Individual Mock Tests
+                    </h2>
+                    <TestList category="NEET" />
+                </section>
+            </div>
 
             {/* Syllabus Section */}
             <div className="mt-12 mb-12 flex justify-center">

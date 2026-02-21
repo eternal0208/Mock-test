@@ -1,7 +1,9 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Clock, CheckCircle } from 'lucide-react';
+import { Clock, CheckCircle, PlayCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 interface Test {
     _id: string;
@@ -27,6 +29,8 @@ import LoadingScreen from '@/components/ui/LoadingScreen';
 const TestList = ({ category }: TestListProps) => {
     const [tests, setTests] = useState<Test[]>([]);
     const [loading, setLoading] = useState(true);
+    const { user } = useAuth();
+    const router = useRouter();
 
     useEffect(() => {
         const fetchTests = async () => {
@@ -36,10 +40,14 @@ const TestList = ({ category }: TestListProps) => {
                 const res = await fetch(`${API_BASE_URL}/api/tests`);
                 const data: Test[] = await res.json();
 
-                // Filter by category if provided
-                const filtered = Array.isArray(data) && category
-                    ? data.filter(t => t.category === category)
-                    : Array.isArray(data) ? data : [];
+                // Filter by category if provided and limit to 3 latest (Case-Insensitive)
+                const filtered = Array.isArray(data)
+                    ? data.filter(t =>
+                        category
+                            ? t.category?.toLowerCase() === category.toLowerCase()
+                            : true
+                    ).slice(0, 3)
+                    : [];
 
                 setTests(filtered);
             } catch (error) {
@@ -97,11 +105,18 @@ const TestList = ({ category }: TestListProps) => {
                     </div>
 
                     <div className="p-4 bg-gray-50 border-t border-gray-100">
-                        <Link href={`/test/${test._id}/instruction`}>
-                            <button className="w-full py-2 bg-white border border-indigo-600 text-indigo-600 font-semibold rounded-lg hover:bg-indigo-50 transition-colors">
-                                Attempt Now
-                            </button>
-                        </Link>
+                        <button
+                            onClick={() => {
+                                if (!user) {
+                                    router.push('/?login=true');
+                                } else {
+                                    router.push(`/test/${test._id}/instruction`);
+                                }
+                            }}
+                            className="w-full py-2 bg-white border border-indigo-600 text-indigo-600 font-semibold rounded-lg hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <PlayCircle size={18} /> Attempt Now
+                        </button>
                     </div>
                 </div>
             ))}

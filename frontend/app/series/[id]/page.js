@@ -86,30 +86,49 @@ export default function SeriesDetails() {
 
     return (
         <div className="min-h-screen bg-gray-50 p-6 md:p-12">
-            <button onClick={() => router.push('/dashboard')} className="flex items-center text-gray-600 mb-6 hover:text-indigo-600 font-bold transition">
-                <ArrowLeft size={20} className="mr-2" /> Back to Dashboard
+            <button onClick={() => router.push('/dashboard')} className="flex items-center text-gray-500 mb-6 hover:text-indigo-600 font-bold transition-all group">
+                <ArrowLeft size={20} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Back
             </button>
 
             {/* Header */}
-            <div className="bg-white rounded-2xl shadow-sm border p-8 mb-8 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full translate-x-1/3 -translate-y-1/3 blur-3xl"></div>
+            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-10 mb-8 relative overflow-hidden group">
+                {/* Decorative Background Blobs */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full translate-x-1/3 -translate-y-1/3 blur-3xl group-hover:scale-110 transition-transform duration-1000"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-50 rounded-full -translate-x-1/4 translate-y-1/4 blur-2xl opacity-60"></div>
+
                 <div className="relative z-10">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide mb-3 inline-block">{series.category} Series</span>
-                            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">{series.title}</h1>
-                            <p className="text-gray-500 max-w-2xl">{series.description || 'Comprehensive test series designed to boost your preparation.'}</p>
+                    <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+                        <div className="flex-1">
+                            <span className="bg-indigo-600 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest mb-4 inline-block shadow-lg shadow-indigo-100 italic">
+                                {series.category} Series
+                            </span>
+                            <h1 className="text-3xl md:text-5xl font-black text-gray-900 mb-3 leading-tight tracking-tighter">
+                                {series.title}
+                            </h1>
+                            <p className="text-gray-500 max-w-2xl text-sm md:text-base font-medium leading-relaxed">
+                                {series.description || 'Comprehensive test series designed to boost your preparation.'}
+                            </p>
                         </div>
-                        <div className="text-right">
-                            <div className="text-3xl font-bold text-gray-900">{series.price > 0 ? `₹${series.price}` : 'FREE'}</div>
+
+                        <div className="w-full md:w-auto bg-gray-50 md:bg-white p-4 md:p-0 rounded-2xl md:rounded-none border md:border-none border-gray-100 shadow-sm md:shadow-none flex flex-row md:flex-col justify-between items-center md:items-end gap-2">
+                            <div className="flex flex-col md:items-end">
+                                <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest leading-none mb-1">Price</span>
+                                <div className="text-3xl font-black text-gray-900 tracking-tighter">
+                                    {series.price > 0 ? `₹${series.price}` : 'FREE'}
+                                </div>
+                            </div>
+
                             {!isEnrolled && (
-                                <button onClick={handleUnlock} className="mt-4 bg-gray-900 text-white px-6 py-2 rounded-lg font-bold shadow hover:bg-black transition flex items-center gap-2">
-                                    <Lock size={16} /> Unlock Series
+                                <button
+                                    onClick={handleUnlock}
+                                    className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center gap-2 active:scale-95 text-sm"
+                                >
+                                    <Lock size={16} /> Unlock
                                 </button>
                             )}
                             {isEnrolled && (
-                                <div className="mt-4 bg-green-100 text-green-800 px-6 py-2 rounded-lg font-bold flex items-center gap-2 justify-end">
-                                    <Unlock size={16} /> Unlocked
+                                <div className="bg-emerald-50 text-emerald-600 px-6 py-2 rounded-xl font-black flex items-center gap-2 border border-emerald-100 text-sm italic">
+                                    <Unlock size={16} /> Active
                                 </div>
                             )}
                         </div>
@@ -129,29 +148,35 @@ export default function SeriesDetails() {
                         <div key={test._id} className={`bg-white p-5 rounded-xl border transition-all ${isEnrolled ? 'hover:shadow-md border-gray-200' : 'opacity-75 border-gray-100'}`}>
                             <div className="flex justify-between items-center">
                                 <div className="flex items-center gap-4">
-                                    <div className="h-10 w-10 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 font-bold border border-indigo-100">
+                                    <div className="h-12 w-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black border border-indigo-100 shadow-sm group-hover:scale-110 group-hover:rotate-3 transition-transform">
                                         {idx + 1}
                                     </div>
-                                    <div>
-                                        <h3 className="font-bold text-gray-900 text-lg">{test.title}</h3>
-                                        <div className="flex items-center gap-4 text-xs text-gray-500 mt-1">
-                                            <span className="flex items-center"><Clock size={12} className="mr-1" /> {test.duration_minutes} mins</span>
-                                            <span className="flex items-center"><BarChart size={12} className="mr-1" /> {test.total_marks} Marks</span>
-                                            <span className="uppercase font-semibold text-gray-400">{test.subject}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-black text-gray-900 text-lg group-hover:text-indigo-600 transition-colors truncate">
+                                            {test.title}
+                                        </h3>
+                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] md:text-xs text-gray-400 mt-1 font-bold uppercase tracking-wider">
+                                            <span className="flex items-center"><Clock size={12} className="mr-1 text-indigo-400" /> {test.duration_minutes}m</span>
+                                            <span className="flex items-center"><BarChart size={12} className="mr-1 text-indigo-400" /> {test.total_marks}pts</span>
+                                            <span className="text-indigo-300 font-serif italic lowercase">{test.subject}</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div>
+                                <div className="ml-4">
                                     {isEnrolled ? (
                                         <button
                                             onClick={() => router.push(`/exam/${test._id}`)}
-                                            className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold shadow-sm hover:bg-indigo-700 transition"
+                                            className="flex items-center justify-center h-10 w-10 md:w-auto md:px-5 md:py-2 bg-indigo-600 text-white rounded-xl font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-90"
+                                            title="Start Test"
                                         >
-                                            <PlayCircle size={18} /> Start
+                                            <PlayCircle size={20} className="md:mr-2" />
+                                            <span className="hidden md:inline">Start</span>
                                         </button>
                                     ) : (
-                                        <Lock className="text-gray-300" size={24} />
+                                        <div className="h-10 w-10 flex items-center justify-center bg-gray-50 rounded-xl border border-gray-100 text-gray-300">
+                                            <Lock size={18} />
+                                        </div>
                                     )}
                                 </div>
                             </div>

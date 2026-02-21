@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/config';
 import AnalyticsDashboard from './AnalyticsDashboard';
-import { Clock, BookOpen, BarChart, User, Mail, Calendar, ShieldCheck, TrendingUp, ChevronRight, Star, Target, Zap, Search, Filter } from 'lucide-react';
+import { Clock, BookOpen, BarChart, User, Mail, Calendar, ShieldCheck, TrendingUp, ChevronRight, Star, Target, Zap, Search, Filter, Menu, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import SeriesCard from '@/components/ui/SeriesCard';
 
 export default function StudentDashboard() {
     const { user } = useAuth();
@@ -545,38 +546,12 @@ export default function StudentDashboard() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {relevantSeries.slice(0, 3).map(s => (
-                            <div key={s.id} className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 group">
-                                <div className="h-40 bg-gray-900 relative overflow-hidden">
-                                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent z-10"></div>
-                                    {s.image ? (
-                                        <img src={s.image} alt={s.title} className="w-full h-full object-cover opacity-80 group-hover:scale-110 transition duration-700" />
-                                    ) : (
-                                        <div className="w-full h-full bg-gradient-to-br from-indigo-600 to-purple-700"></div>
-                                    )}
-                                    <div className="absolute bottom-4 left-4 z-20">
-                                        <span className="px-2 py-1 bg-white/20 backdrop-blur-md text-white rounded-lg text-[10px] font-bold uppercase tracking-wider border border-white/10 mb-2 inline-block">{s.category}</span>
-                                        <h3 className="text-white font-bold text-xl leading-tight shadow-black drop-shadow-md">{s.title}</h3>
-                                    </div>
-                                </div>
-                                <div className="p-6">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <div>
-                                            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Access</p>
-                                            <div className="flex items-center gap-1">
-                                                {s.price > 0 ? <span className="text-lg font-black text-gray-900">₹{s.price}</span> : <span className="text-lg font-black text-emerald-500">Free</span>}
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => window.location.href = `/series/${s.id}`}
-                                            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 shadow-lg ${s.price > 0
-                                                ? 'bg-gray-900 text-white hover:bg-black hover:shadow-gray-200'
-                                                : 'bg-emerald-500 text-white hover:bg-emerald-600 hover:shadow-emerald-200'}`}
-                                        >
-                                            {s.price > 0 ? 'Unlock' : 'Start'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            <SeriesCard
+                                key={s.id}
+                                series={s}
+                                onAction={() => window.location.href = `/series/${s.id}`}
+                                actionLabel={s.price > 0 ? 'Unlock' : 'Start'}
+                            />
                         ))}
                     </div>
                 </div>
@@ -629,14 +604,44 @@ export default function StudentDashboard() {
             <Sidebar />
 
             {/* Mobile Header (replaces sidebar on small screens) - can be optimized later */}
-            {/* Mobile Header (replaces sidebar on small screens) */}
-            <div className="md:hidden bg-white/90 backdrop-blur-md p-4 flex justify-between items-center shadow-lg sticky top-0 z-30 border-b border-gray-100">
-                <span className="font-black text-xl text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Apex</span>
-                <div className="flex gap-1 bg-gray-100 p-1 rounded-full">
-                    <button onClick={() => setActiveSection('dashboard')} className={`p-2 rounded-full transition-all ${activeSection === 'dashboard' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}><BarChart size={18} /></button>
-                    <button onClick={() => setActiveSection('tests')} className={`p-2 rounded-full transition-all ${activeSection === 'tests' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}><Search size={18} /></button>
-                    <button onClick={() => setActiveSection('analytics')} className={`p-2 rounded-full transition-all ${activeSection === 'analytics' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}><TrendingUp size={18} /></button>
-                    <button onClick={() => setActiveSection('profile')} className={`p-2 rounded-full transition-all ${activeSection === 'profile' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}><User size={18} /></button>
+            {/* Mobile Bottom Navigation (Tab Bar) */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-2xl border-t border-gray-100 p-2 flex justify-around items-center z-50 shadow-[0_-8px_30px_rgba(0,0,0,0.05)] rounded-t-[1.5rem]">
+                {[
+                    { id: 'dashboard', icon: <BarChart size={20} />, label: 'Home' },
+                    { id: 'tests', icon: <Search size={20} />, label: 'Library' },
+                    { id: 'analytics', icon: <TrendingUp size={20} />, label: 'Stats' },
+                    { id: 'profile', icon: <User size={20} />, label: 'Profile' },
+                ].map(item => (
+                    <button
+                        key={item.id}
+                        onClick={() => setActiveSection(item.id)}
+                        className={`flex flex-col items-center gap-1 p-2 rounded-2xl transition-all ${activeSection === item.id
+                                ? 'text-indigo-600 scale-110 font-bold'
+                                : 'text-gray-400'
+                            }`}
+                    >
+                        <div className={`p-1.5 rounded-xl transition-colors ${activeSection === item.id ? 'bg-indigo-50' : ''}`}>
+                            {item.icon}
+                        </div>
+                        <span className="text-[10px] uppercase tracking-tighter">{item.label}</span>
+                    </button>
+                ))}
+            </div>
+
+            {/* Mobile Header (Fixed Top) */}
+            <div className="md:hidden bg-white/90 backdrop-blur-md px-6 py-4 flex justify-between items-center sticky top-0 z-40 border-b border-gray-50/50 shadow-sm">
+                <div className="flex items-center gap-2">
+                    <img src="/logo.ico" alt="Apex" className="h-8 w-auto" />
+                    <span className="font-black text-xl tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">APEX</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="text-right">
+                        <p className="text-[10px] font-black text-gray-900 leading-none">{user.name?.split(' ')[0]}</p>
+                        <span className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest">{userField}</span>
+                    </div>
+                    <div className="w-8 h-8 bg-indigo-50 rounded-full border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">
+                        {user.name?.charAt(0)}
+                    </div>
                 </div>
             </div>
 

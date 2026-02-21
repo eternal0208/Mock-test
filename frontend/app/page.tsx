@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/config';
 import GoogleLoginModal from '@/components/GoogleLoginModal';
 import ExamGateway from '@/components/ExamGateway';
+import SeriesCard from '@/components/ui/SeriesCard';
 
 // 3D Card Component
 
@@ -223,60 +224,12 @@ export default function LandingPage() {
               <div className="w-full max-w-7xl mx-auto mb-20">
                 <h3 className="text-4xl font-black text-slate-900 mb-10 text-center">Premium <span className="text-indigo-600">Test Series</span></h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {/* @ts-ignore */}
                   {testSeries.map((series: any, idx) => (
-                    <motion.div
+                    <SeriesCard
                       key={series.id}
-                      initial={{ opacity: 0, y: 30 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: idx * 0.1 }}
-                      className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 flex flex-col hover:shadow-2xl transition-shadow"
-                    >
-                      <div className="h-48 bg-gray-200 relative">
-                        {series.image ? (
-                          <img src={series.image} alt={series.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-500">
-                            <Award size={64} />
-                          </div>
-                        )}
-                        <div className="absolute top-4 right-4 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold uppercase flex items-center gap-1 shadow-sm">
-                          <Star size={12} fill="currentColor" /> Premium
-                        </div>
-                      </div>
-                      <div className="p-6 flex-1 flex flex-col">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="text-xl font-bold text-gray-900">{series.title}</h4>
-                          <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-semibold">{series.category}</span>
-                        </div>
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-3">{series.description}</p>
-
-                        <ul className="mb-6 space-y-2">
-                          {series.features && series.features.map((feat: string, i: number) => (
-                            <li key={i} className="flex items-center text-sm text-gray-500">
-                              <CheckCircle size={14} className="text-green-500 mr-2 flex-shrink-0" />
-                              {feat}
-                            </li>
-                          ))}
-                        </ul>
-
-                        <div className="mt-auto flex items-center justify-between">
-                          <div>
-                            <span className="text-3xl font-bold text-gray-900">₹{series.price}</span>
-                          </div>
-                          <button
-                            onClick={() => handleEnrollment(series)}
-                            className={`px-6 py-2 font-bold rounded-lg transition shadow-lg ${series.price === 0 || series.isPaid === false
-                              ? 'bg-green-600 text-white hover:bg-green-700 shadow-green-200'
-                              : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200'
-                              }`}
-                          >
-                            {series.price === 0 || series.isPaid === false ? 'Enroll Now' : `Buy for ₹${series.price}`}
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
+                      series={series}
+                      onAction={handleEnrollment}
+                    />
                   ))}
                 </div>
               </div>

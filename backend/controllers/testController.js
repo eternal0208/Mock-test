@@ -212,9 +212,13 @@ exports.getAllTests = async (req, res) => {
                 return;
             }
 
-            // Student Filters
+            // Student/Guest Filters
             const testCategory = data.category;
-            if (!userCategory || !testCategory || userCategory.toLowerCase() !== testCategory.toLowerCase()) return;
+
+            // If user is logged in, filter by their category. 
+            // If guest, allow all visible tests (client will filter by category on landing page).
+            if (userCategory && testCategory && userCategory.toLowerCase() !== testCategory.toLowerCase()) return;
+
             if (data.isVisible === false) return;
 
             tests.push({
