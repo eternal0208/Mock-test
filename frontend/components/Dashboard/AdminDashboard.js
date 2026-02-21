@@ -532,6 +532,7 @@ const StudentReportModal = ({ student, onClose }) => {
 };
 
 const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
+    const { user } = useAuth();
     const [formData, setFormData] = useState({
         title: initialData?.title || '',
         description: initialData?.description || '',
@@ -573,6 +574,7 @@ const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
         e.preventDefault();
         setLoading(true);
         try {
+            const token = await user?.getIdToken();
             const payload = {
                 ...formData,
                 features: formData.features.split(',').map(f => f.trim()).filter(f => f)
@@ -586,7 +588,10 @@ const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
 
             const res = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify(payload)
             });
 
@@ -595,11 +600,12 @@ const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
                 setFormData({ title: '', description: '', price: 0, currency: 'INR', category: 'JEE Main', features: '', image: '', isActive: true, expiryDate: '' });
                 onSuccess();
             } else {
-                alert(initialData ? 'Failed to update series' : 'Failed to create series');
+                const errorData = await res.json().catch(() => ({}));
+                alert(errorData.error || (initialData ? 'Failed to update series' : 'Failed to create series'));
             }
         } catch (error) {
-            console.error(error);
-            alert('Error creating series');
+            console.error("Series Submit Error:", error);
+            alert('Error creating series: ' + error.message);
         } finally {
             setLoading(false);
         }

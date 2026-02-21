@@ -354,7 +354,15 @@ const ExamInterface = ({ test, onSubmit }) => {
                                         <MathText text={currentQ.text} />
                                     </div>
                                 )}
-                                {currentQ.image && <img src={currentQ.image} alt="Question" className="max-h-96 w-auto border rounded shadow-sm object-contain mb-4" />}
+                                {currentQ.image && (
+                                    <div className="w-full flex justify-center mb-6">
+                                        <img
+                                            src={currentQ.image}
+                                            alt="Question"
+                                            className="max-h-[500px] w-full md:w-auto border rounded-lg shadow-md object-contain"
+                                        />
+                                    </div>
+                                )}
 
                                 {/* ANSWER AREA */}
                                 <div className="mt-8">
@@ -377,7 +385,13 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                                 </div>
                                                             )}
                                                             {!opt && <div className="text-gray-400 text-sm font-medium mb-1">Option {String.fromCharCode(65 + idx)}</div>}
-                                                            {currentQ.optionImages && currentQ.optionImages[idx] && <img src={currentQ.optionImages[idx]} alt={`Opt ${idx}`} className="mt-2 h-24 object-contain border rounded" />}
+                                                            {currentQ.optionImages && currentQ.optionImages[idx] && (
+                                                                <img
+                                                                    src={currentQ.optionImages[idx]}
+                                                                    alt={`Opt ${idx}`}
+                                                                    className="mt-2 h-16 md:h-20 object-contain border rounded bg-white p-1"
+                                                                />
+                                                            )}
                                                         </div>
                                                     </label>
                                                 );
@@ -405,7 +419,13 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                                 </div>
                                                             )}
                                                             {!opt && <div className="text-gray-400 text-sm font-medium mb-1">Option {String.fromCharCode(65 + idx)}</div>}
-                                                            {currentQ.optionImages && currentQ.optionImages[idx] && <img src={currentQ.optionImages[idx]} alt={`Opt ${idx}`} className="mt-2 h-24 object-contain border rounded" />}
+                                                            {currentQ.optionImages && currentQ.optionImages[idx] && (
+                                                                <img
+                                                                    src={currentQ.optionImages[idx]}
+                                                                    alt={`Opt ${idx}`}
+                                                                    className="mt-2 h-16 md:h-20 object-contain border rounded bg-white p-1"
+                                                                />
+                                                            )}
                                                         </div>
                                                     </label>
                                                 );
