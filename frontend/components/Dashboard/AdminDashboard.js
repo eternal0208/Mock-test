@@ -46,9 +46,9 @@ const TestPreviewModal = ({ test, onClose }) => {
                                 {/* Question Content */}
                                 <div className="space-y-4">
                                     {q.text && <div className="text-gray-800 font-medium leading-relaxed mb-4">{q.text}</div>}
-                                    {q.questionImage && (
+                                    {q.image && (
                                         <div className="bg-gray-50 rounded-lg p-4 inline-block border border-dashed border-gray-200">
-                                            <img src={q.questionImage} alt="Question" className="max-h-[400px] object-contain rounded" />
+                                            <img src={q.image} alt="Question" className="max-h-[400px] object-contain rounded" />
                                         </div>
                                     )}
                                 </div>
@@ -64,8 +64,8 @@ const TestPreviewModal = ({ test, onClose }) => {
                                                         {opt}
                                                     </span>
                                                     <div className="flex-1 pt-1">
-                                                        {q.optionsImages?.[i] ? (
-                                                            <img src={q.optionsImages[i]} alt={`Option ${opt}`} className="max-h-24 object-contain rounded" />
+                                                        {q.optionImages?.[i] ? (
+                                                            <img src={q.optionImages[i]} alt={`Option ${opt}`} className="max-h-24 object-contain rounded" />
                                                         ) : (
                                                             <span className="text-gray-500 italic text-sm">No Image</span>
                                                         )}
@@ -78,14 +78,18 @@ const TestPreviewModal = ({ test, onClose }) => {
                                 </div>
 
                                 {/* Solution Section */}
-                                {(q.solutionText || q.solutionImage) && (
+                                {(q.solutionText || (q.solutionImages && q.solutionImages.length > 0) || q.solutionImage) && (
                                     <div className="mt-6 pt-6 border-t border-dashed border-gray-200">
                                         <div className="text-xs font-black text-indigo-500 uppercase tracking-widest mb-3">Solution / Explanation</div>
                                         <div className="bg-indigo-50/30 rounded-xl p-5 border border-indigo-100">
                                             {q.solutionText && <div className="text-gray-700 text-sm leading-relaxed mb-4">{q.solutionText}</div>}
+                                            {/* Support both array and single string for backward compatibility */}
                                             {q.solutionImage && (
-                                                <img src={q.solutionImage} alt="Solution" className="max-h-[300px] object-contain rounded shadow-sm border border-white" />
+                                                <img src={q.solutionImage} alt="Solution" className="max-h-[300px] object-contain rounded shadow-sm border border-white mb-2" />
                                             )}
+                                            {q.solutionImages && q.solutionImages.map((img, i) => (
+                                                <img key={i} src={img} alt={`Solution ${i + 1}`} className="max-h-[300px] object-contain rounded shadow-sm border border-white mb-2" />
+                                            ))}
                                         </div>
                                     </div>
                                 )}
