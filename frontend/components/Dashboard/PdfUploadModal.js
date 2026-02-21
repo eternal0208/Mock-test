@@ -302,8 +302,8 @@ const PdfUploadModal = ({ onUpload, onClose }) => {
 
         const questionToPush = {
             ...currentQuestionData,
-            text: currentQuestionData.text || 'Question extracted from PDF',
-            options: currentQuestionData.options.map((opt, i) => opt || `Option ${String.fromCharCode(65 + i)}`),
+            text: currentQuestionData.text || '',
+            options: currentQuestionData.options.map((opt, i) => opt || ''),
             solutionImages: currentQuestionData.solutionImages || []
         };
 
