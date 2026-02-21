@@ -389,7 +389,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                                 <img
                                                                     src={currentQ.optionImages[idx]}
                                                                     alt={`Opt ${idx}`}
-                                                                    className="mt-2 h-16 md:h-20 object-contain border rounded bg-white p-1"
+                                                                    className="mt-2 max-h-10 md:max-h-12 object-contain border rounded bg-white p-1"
                                                                 />
                                                             )}
                                                         </div>
@@ -423,7 +423,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                                 <img
                                                                     src={currentQ.optionImages[idx]}
                                                                     alt={`Opt ${idx}`}
-                                                                    className="mt-2 h-16 md:h-20 object-contain border rounded bg-white p-1"
+                                                                    className="mt-2 max-h-10 md:max-h-12 object-contain border rounded bg-white p-1"
                                                                 />
                                                             )}
                                                         </div>
