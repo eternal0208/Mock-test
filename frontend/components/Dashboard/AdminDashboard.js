@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import PdfUploadModal from './PdfUploadModal';
 
 const AnalyticsModal = ({ testId, onClose }) => {
     const { user } = useAuth();
@@ -723,6 +724,7 @@ export default function AdminDashboard() {
     const [showMergeModal, setShowMergeModal] = useState(false); // Merge Tests Modal State
 
     const [showBulkUpload, setShowBulkUpload] = useState(false);
+    const [showPdfModal, setShowPdfModal] = useState(false);
 
     // Initial Data Fetching
     useEffect(() => {
@@ -1190,16 +1192,21 @@ export default function AdminDashboard() {
 
         setLoading(true);
         try {
-            const calculatedTotalMarks = questions.reduce((acc, q) => acc + Number(q.marks), 0);
+            const calculatedTotalMarks = questions.reduce((acc, q) => {
+                const m = Number(q.marks);
+                return acc + (isNaN(m) ? 0 : m);
+            }, 0);
             const payload = {
                 ...testDetails,
-                chapters: testDetails.chapters.split(',').map(c => c.trim()).filter(c => c), // Process chapters
+                chapters: (testDetails.chapters || '').toString().split(',').map(c => c.trim()).filter(c => c), // Process chapters (safe)
                 totalMarks: calculatedTotalMarks,
                 questions
             };
 
+            const url = `${API_BASE_URL}/api/tests`;
+            console.log("🚀 Publishing to URL:", url);
             const token = await user?.getIdToken();
-            const res = await fetch(`${API_BASE_URL}/api/tests`, {
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1208,7 +1215,10 @@ export default function AdminDashboard() {
                 body: JSON.stringify(payload)
             });
 
-            if (!res.ok) throw new Error('Failed to create test');
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Failed to create test on server');
+            }
 
             alert('Test Created Successfully!');
             setActiveTab('manage');
@@ -1217,8 +1227,12 @@ export default function AdminDashboard() {
                 title: '', duration: 180, subject: 'Full Mock', category: 'JEE Main',
                 difficulty: 'medium', totalMarks: 0, isLive: false, startTime: '', endTime: '', instructions: '',
                 isVisible: true,
-                calculator: false
+                calculator: false,
+                chapters: ''
             });
+        } catch (error) {
+            console.error('Publish test error details:', error);
+            alert(`Publishing Error: ${error.message}`);
         } finally {
             setLoading(false);
         }
@@ -1306,6 +1320,7 @@ export default function AdminDashboard() {
             {showAnalytics && <AnalyticsModal testId={showAnalytics} onClose={() => setShowAnalytics(null)} />}
             {viewingStudent && <StudentReportModal student={viewingStudent} onClose={() => setViewingStudent(null)} />}
             {showBulkUpload && <BulkUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowBulkUpload(false)} />}
+            {showPdfModal && <PdfUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowPdfModal(false)} />}
 
             {/* Manage Series Modal */}
             {managingSeries && (
@@ -2022,6 +2037,12 @@ export default function AdminDashboard() {
                                     className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 font-bold flex items-center gap-2 hover:bg-indigo-100 transition"
                                 >
                                     <UploadCloud size={20} /> Bulk Upload (Excel)
+                                </button>
+                                <button
+                                    onClick={() => setShowPdfModal(true)}
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-md font-bold flex items-center gap-2 hover:bg-indigo-700 transition"
+                                >
+                                    <ImageIcon size={20} /> Create by PDF
                                 </button>
                             </div>
                         </div>
