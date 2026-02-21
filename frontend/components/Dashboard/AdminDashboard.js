@@ -1475,8 +1475,14 @@ export default function AdminDashboard() {
                                                                         });
                                                                         if (res.ok) {
                                                                             setTests(tests.map(t => t._id === test._id ? { ...t, isVisible: newStatus } : t));
+                                                                        } else {
+                                                                            const errData = await res.json().catch(() => ({}));
+                                                                            console.error("Visibility Error:", errData);
                                                                         }
-                                                                    } catch (e) { console.error(e); }
+                                                                    } catch (e) {
+                                                                        console.error("Visibility Toggle Error", e);
+                                                                        alert("Error: " + (e.message || "Could not toggle visibility"));
+                                                                    }
                                                                 }}
                                                                 className={`text-sm font-bold ${test.isVisible !== false ? 'text-green-600' : 'text-gray-400'}`}
                                                                 title={test.isVisible !== false ? "Visible to Students" : "Hidden from Students"}
@@ -2510,34 +2516,27 @@ export default function AdminDashboard() {
                                         </div>
                                     </div>
                                     <button
-                                        onClick={async () => {
-                                            setLoading(true);
-                                            try {
-                                                const token = await user?.getIdToken();
-                                                const res = await fetch(`${API_BASE_URL}/api/tests/${splittingTest._id}/split`, {
-                                                    method: 'POST',
-                                                    headers: {
-                                                        'Content-Type': 'application/json',
-                                                        'Authorization': `Bearer ${token}`
-                                                    },
-                                                    body: JSON.stringify({ subjectsToExtract: [sub] })
-                                                });
-                                                if (res.ok) {
-                                                    alert(`Created new test for ${sub}!`);
-                                                    fetchTests();
-                                                } else {
-                                                    alert('Failed to split test');
-                                                }
-                                            } catch (e) {
-                                                console.error(e);
-                                                alert('Error splitting test');
-                                            } finally {
-                                                setLoading(false);
-                                            }
+                                        onClick={() => {
+                                            const extractedQuestions = splittingTest.questions.filter(q => (q.subject || 'Uncategorized') === sub);
+                                            setQuestions(extractedQuestions);
+                                            setTestDetails({
+                                                ...testDetails,
+                                                title: `${splittingTest.title} - ${sub}`,
+                                                category: splittingTest.category,
+                                                subject: sub,
+                                                duration: splittingTest.duration,
+                                                difficulty: splittingTest.difficulty || 'medium',
+                                                instructions: splittingTest.instructions || '',
+                                                calculator: splittingTest.calculator || false,
+                                                totalMarks: extractedQuestions.reduce((acc, q) => acc + Number(q.marks), 0)
+                                            });
+                                            setActiveTab('create');
+                                            setSplittingTest(null);
+                                            window.scrollTo({ top: 0, behavior: 'smooth' });
                                         }}
                                         className="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-indigo-700 transition"
                                     >
-                                        Extract
+                                        Extract & Edit
                                     </button>
                                 </div>
                             ))}
@@ -2545,33 +2544,25 @@ export default function AdminDashboard() {
 
                         <div className="flex justify-between items-center pt-4 border-t">
                             <button
-                                onClick={async () => {
-                                    if (!confirm("Extract all detected subjects into separate tests?")) return;
-                                    setLoading(true);
-                                    try {
-                                        const token = await user?.getIdToken();
-                                        const res = await fetch(`${API_BASE_URL}/api/tests/${splittingTest._id}/split`, {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'Authorization': `Bearer ${token}`
-                                            },
-                                            body: JSON.stringify({ subjectsToExtract: [] }) // Empty = All
-                                        });
-                                        if (res.ok) {
-                                            alert("Created subject-wise tests for all subjects!");
-                                            setSplittingTest(null);
-                                            fetchTests();
-                                        }
-                                    } catch (e) {
-                                        alert("Error splitting test");
-                                    } finally {
-                                        setLoading(false);
-                                    }
+                                onClick={() => {
+                                    setQuestions(splittingTest.questions);
+                                    setTestDetails({
+                                        ...testDetails,
+                                        title: `${splittingTest.title} (Copy)`,
+                                        category: splittingTest.category,
+                                        duration: splittingTest.duration,
+                                        difficulty: splittingTest.difficulty || 'medium',
+                                        instructions: splittingTest.instructions || '',
+                                        calculator: splittingTest.calculator || false,
+                                        totalMarks: splittingTest.questions.reduce((acc, q) => acc + Number(q.marks), 0)
+                                    });
+                                    setActiveTab('create');
+                                    setSplittingTest(null);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
                                 }}
                                 className="text-xs text-indigo-600 font-bold hover:underline"
                             >
-                                Extract All Subjects
+                                Edit Full Test Instead
                             </button>
                             <button onClick={() => setSplittingTest(null)} className="text-gray-500 text-sm font-bold">Cancel</button>
                         </div>
@@ -2662,37 +2653,53 @@ export default function AdminDashboard() {
                                     setLoading(true);
                                     try {
                                         const token = await user?.getIdToken();
-                                        const res = await fetch(`${API_BASE_URL}/api/tests/merge`, {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'Authorization': `Bearer ${token}`
-                                            },
-                                            body: JSON.stringify({
-                                                testIds: selectedIds,
-                                                title,
-                                                duration,
-                                                category
-                                            })
+                                        const allFetchedQuestions = [];
+
+                                        // Fetch questions for all selected tests
+                                        for (const tid of selectedIds) {
+                                            const res = await fetch(`${API_BASE_URL}/api/tests/${tid}`, {
+                                                headers: { 'Authorization': `Bearer ${token}` }
+                                            });
+                                            if (res.ok) {
+                                                const testData = await res.json();
+                                                if (testData.questions) {
+                                                    allFetchedQuestions.push(...testData.questions);
+                                                }
+                                            } else {
+                                                const error = await res.json();
+                                                throw new Error(`Failed to fetch test ${tid}: ${error.message || res.statusText}`);
+                                            }
+                                        }
+
+                                        if (allFetchedQuestions.length === 0) {
+                                            alert("No questions found in selected tests.");
+                                            return;
+                                        }
+
+                                        // Group and Load into Create form
+                                        setQuestions(allFetchedQuestions);
+                                        setTestDetails({
+                                            ...testDetails,
+                                            title: title,
+                                            duration: Number(duration) || 180,
+                                            category: category,
+                                            totalMarks: allFetchedQuestions.reduce((acc, q) => acc + Number(q.marks), 0)
                                         });
 
-                                        if (res.ok) {
-                                            alert("Tests merged successfully with subject-aware shuffling!");
-                                            setShowMergeModal(false);
-                                            fetchTests();
-                                        } else {
-                                            const error = await res.json();
-                                            alert(error.message || "Merge failed");
-                                        }
+                                        setShowMergeModal(false);
+                                        setActiveTab('create');
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+
                                     } catch (e) {
-                                        alert("Error merging tests");
+                                        console.error("Merge logic error:", e);
+                                        alert("Error preparing merge: " + (e.message || "Unknown error"));
                                     } finally {
                                         setLoading(false);
                                     }
                                 }}
                                 className="bg-indigo-600 text-white px-8 py-2 rounded-lg font-bold hover:bg-indigo-700 shadow-md transition"
                             >
-                                Merge & Shuffle
+                                Merge & Customize
                             </button>
                         </div>
                     </div>
