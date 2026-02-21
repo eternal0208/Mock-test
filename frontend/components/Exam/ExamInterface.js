@@ -52,6 +52,7 @@ const ExamInterface = ({ test, onSubmit }) => {
     // Tools State
     const [showCalculator, setShowCalculator] = useState(false);
     const [zoomedImg, setZoomedImg] = useState(null);
+    const touchRef = useRef({ startX: 0, endX: 0 });
     // const { warnings } = useAntiCheating((msg) => alert(msg));
     const timerRef = useRef(null);
     const router = useRouter();
@@ -190,9 +191,18 @@ const ExamInterface = ({ test, onSubmit }) => {
             // Auto switch subject tab if subject changes
             const nextSubject = test.questions[currentQuestionIndex + 1].subject || 'General';
             if (nextSubject !== activeSubject) setActiveSubject(nextSubject);
-        } else {
-            // Last Question - Submit
-            handleSubmitTest(false);
+        }
+    };
+
+    const handlePrev = () => {
+        if (currentQuestionIndex > 0) {
+            const currentQ = test.questions[currentQuestionIndex];
+            if (isAnswered(currentQ._id)) updateStatus(currentQ._id, 'answered');
+            else updateStatus(currentQ._id, 'not_answered');
+
+            setCurrentQuestionIndex(prev => prev - 1);
+            const prevSubject = test.questions[currentQuestionIndex - 1].subject || 'General';
+            if (prevSubject !== activeSubject) setActiveSubject(prevSubject);
         }
     };
 
@@ -342,14 +352,15 @@ const ExamInterface = ({ test, onSubmit }) => {
             {/* Header */}
             <header className="bg-blue-700 text-white shadow sticky top-0 z-50">
                 <div className="h-16 flex justify-between items-center px-4">
-                    <h1 className="text-lg font-bold truncate max-w-md">{test.title}</h1>
+                    <h1 className="text-sm md:text-lg font-bold truncate max-w-[150px] md:max-w-md">{test.title}</h1>
                     <div className="flex items-center">
                         <div className="flex flex-col items-end mr-4">
-                            <span className="text-xs text-blue-200">Time Left:</span>
-                            <span className={`text-xl font-mono font-bold ${timeLeft < 300 ? 'text-red-300 animate-pulse' : ''}`}>
+                            <span className="text-[10px] text-blue-200">Time Left:</span>
+                            <span className={`text-sm md:text-xl font-mono font-bold ${timeLeft < 300 ? 'text-red-300 animate-pulse' : ''}`}>
                                 {Math.floor(timeLeft / 3600)}:{Math.floor((timeLeft % 3600) / 60) < 10 ? '0' : ''}{Math.floor((timeLeft % 3600) / 60)}:{timeLeft % 60 < 10 ? '0' : ''}{timeLeft % 60}
                             </span>
                         </div>
+                        <button onClick={() => handleSubmitTest(false)} className="md:hidden bg-green-500 text-white px-3 py-1 rounded text-xs font-bold">Submit</button>
                     </div>
                 </div>
 
@@ -382,16 +393,49 @@ const ExamInterface = ({ test, onSubmit }) => {
             </header>
 
             <div className="flex flex-1 overflow-hidden">
-                <main className="flex-1 flex flex-col h-full relative overflow-y-auto">
-                    <div className="bg-white border-b p-3 flex justify-between items-center sticky top-0 z-10 shadow-sm">
-                        <div className="font-bold text-lg text-blue-800 flex items-center gap-2">
-                            {currentQ.subject || 'General'}
-                            <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full border">{currentQ.topic || 'Topic'}</span>
-                            <span className="text-xs font-normal text-gray-500">({currentType.toUpperCase()})</span>
+                <main
+                    className="flex-1 flex flex-col h-full relative overflow-y-auto"
+                    onTouchStart={(e) => touchRef.current.startX = e.touches[0].clientX}
+                    onTouchEnd={(e) => {
+                        const endX = e.changedTouches[0].clientX;
+                        const diff = touchRef.current.startX - endX;
+                        if (Math.abs(diff) > 50) {
+                            if (diff > 0) handleNext();
+                            else handlePrev();
+                        }
+                    }}
+                >
+                    {/* Mobile Question Navigator */}
+                    <div className="md:hidden bg-blue-50 border-b overflow-x-auto no-scrollbar flex items-center p-2 gap-2 sticky top-0 z-20 shadow-sm scroll-smooth">
+                        {test.questions.map((q, idx) => {
+                            const status = questionStatus[q._id] || 'not_visited';
+                            let dotClass = 'bg-gray-200';
+                            if (status === 'answered') dotClass = 'bg-green-500';
+                            else if (status === 'not_answered') dotClass = 'bg-red-500';
+                            else if (status.includes('marked')) dotClass = 'bg-purple-600';
+
+                            return (
+                                <button
+                                    key={idx}
+                                    onClick={() => handlePaletteClick(idx)}
+                                    className={`flex-none w-10 h-10 rounded flex items-center justify-center font-bold text-xs transition-all relative ${currentQuestionIndex === idx ? 'bg-blue-600 text-white scale-110 shadow-md ring-2 ring-blue-300' : 'bg-white text-gray-700 border border-gray-200 shadow-sm'}`}
+                                >
+                                    {idx + 1}
+                                    <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-white ${dotClass}`}></span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div className="bg-white border-b p-3 flex justify-between items-center sticky top-0 md:relative z-10 shadow-sm">
+                        <div className="font-bold text-sm md:text-lg text-blue-800 flex items-center gap-2">
+                            <span className="truncate max-w-[100px]">{currentQ.subject || 'General'}</span>
+                            <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full border truncate max-w-[80px]">{currentQ.topic || 'Topic'}</span>
+                            <span className="text-[10px] font-normal text-gray-500">({currentType.toUpperCase()})</span>
                         </div>
-                        <div className="flex space-x-3 text-sm font-bold">
-                            <span className="text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">+{currentQ.marks}</span>
-                            <span className="text-red-500 bg-red-50 px-2 py-1 rounded border border-red-200">-{currentQ.negativeMarks}</span>
+                        <div className="flex space-x-2 text-xs font-bold">
+                            <span className="text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-200">+{currentQ.marks}</span>
+                            <span className="text-red-500 bg-red-50 px-2 py-0.5 rounded border border-red-200">-{currentQ.negativeMarks}</span>
                         </div>
                     </div>
 
@@ -428,7 +472,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                                 {answers[currentQ._id] === effectiveOpt && <div className="w-2 h-2 bg-white rounded-full" />}
                                                             </div>
                                                         </div>
-                                                        <div className="flex-1 cursor-zoom-in" onClick={() => currentQ.optionImages?.[idx] && setZoomedImg(currentQ.optionImages[idx])}>
+                                                        <div className="flex-1">
                                                             {opt && (
                                                                 <div className={`text-lg ${answers[currentQ._id] === effectiveOpt ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
                                                                     <MathText text={opt} />
@@ -439,7 +483,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                                 <img
                                                                     src={currentQ.optionImages[idx]}
                                                                     alt={`Opt ${idx}`}
-                                                                    className="mt-2 max-h-14 md:max-h-16 object-contain border rounded bg-white p-1 hover:border-blue-300 transition"
+                                                                    className="mt-2 max-h-14 md:max-h-16 object-contain border rounded bg-white p-1 transition"
                                                                 />
                                                             )}
                                                         </div>
@@ -462,7 +506,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                                 {isSelected && <div className="text-white font-bold text-xs">✓</div>}
                                                             </div>
                                                         </div>
-                                                        <div className="flex-1 cursor-zoom-in" onClick={() => currentQ.optionImages?.[idx] && setZoomedImg(currentQ.optionImages[idx])}>
+                                                        <div className="flex-1">
                                                             {opt && (
                                                                 <div className={`text-lg ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
                                                                     <MathText text={opt} />
@@ -473,7 +517,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                                 <img
                                                                     src={currentQ.optionImages[idx]}
                                                                     alt={`Opt ${idx}`}
-                                                                    className="mt-2 max-h-14 md:max-h-16 object-contain border rounded bg-white p-1 hover:border-blue-300 transition"
+                                                                    className="mt-2 max-h-14 md:max-h-16 object-contain border rounded bg-white p-1 transition"
                                                                 />
                                                             )}
                                                         </div>
@@ -493,14 +537,17 @@ const ExamInterface = ({ test, onSubmit }) => {
                         </div>
                     </div>
 
-                    <div className="bg-white border-t p-4 flex flex-wrap gap-2 justify-between items-center sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-                        <div className="flex gap-2">
-                            <button onClick={handleMarkForReview} className="px-4 py-2 bg-purple-100 text-purple-800 border border-purple-300 rounded hover:bg-purple-200 font-medium transition">Mark for Review & Next</button>
-                            <button onClick={handleClearResponse} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded hover:bg-gray-50 font-medium transition">Clear Response</button>
+                    <div className="bg-white border-t p-3 md:p-4 flex flex-wrap gap-2 justify-between items-center sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+                        <div className="flex gap-1 md:gap-2">
+                            <button onClick={handleMarkForReview} className="px-3 py-2 bg-purple-100 text-purple-800 border border-purple-300 rounded text-xs md:text-sm hover:bg-purple-200 font-medium transition">Review</button>
+                            <button onClick={handleClearResponse} className="px-3 py-2 bg-white text-gray-700 border border-gray-300 rounded text-xs md:text-sm hover:bg-gray-50 font-medium transition">Clear</button>
                         </div>
-                        <button onClick={handleNext} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded font-bold shadow-md transition transform hover:scale-105">
-                            {currentQuestionIndex === test.questions.length - 1 ? 'Save & Finish' : 'Save & Next'}
-                        </button>
+                        <div className="flex gap-2">
+                            <button onClick={handlePrev} disabled={currentQuestionIndex === 0} className="px-4 py-2 border border-blue-600 text-blue-600 rounded font-bold text-xs md:text-base hover:bg-blue-50 transition disabled:opacity-30">Prev</button>
+                            <button onClick={currentQuestionIndex === test.questions.length - 1 ? () => handleSubmitTest(false) : handleNext} className="bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-2 rounded font-bold shadow-md transition transform active:scale-95 text-xs md:text-base">
+                                {currentQuestionIndex === test.questions.length - 1 ? 'Finish' : 'Next'}
+                            </button>
+                        </div>
                     </div>
                 </main>
 
