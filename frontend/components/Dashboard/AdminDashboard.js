@@ -728,6 +728,8 @@ export default function AdminDashboard() {
     const [editingTest, setEditingTest] = useState(null); // Test Edit Modal State
     const [splittingTest, setSplittingTest] = useState(null); // Split Test Modal State
     const [showMergeModal, setShowMergeModal] = useState(false); // Merge Tests Modal State
+    const [studentSearch, setStudentSearch] = useState('');
+    const [studentFieldFilter, setStudentFieldFilter] = useState('All');
 
     const [showBulkUpload, setShowBulkUpload] = useState(false);
     const [showPdfModal, setShowPdfModal] = useState(false);
@@ -1649,10 +1651,35 @@ export default function AdminDashboard() {
             {/* Students Tab */}
             {activeTab === 'users' && (
                 <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <div className="p-6 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                        <h3 className="text-xl font-bold text-gray-800">Students Management ({usersList.length})</h3>
-                        <div className="text-sm text-gray-500">
-                            Showing all registered users
+                    <div className="p-6 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-800">Students Management ({usersList.length})</h3>
+                            <p className="text-xs text-gray-500">View and filter active students</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                            <div className="relative flex-1 md:w-64">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Search by name or email..."
+                                    className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={studentSearch}
+                                    onChange={(e) => setStudentSearch(e.target.value)}
+                                />
+                            </div>
+                            <select
+                                className="border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                                value={studentFieldFilter}
+                                onChange={(e) => setStudentFieldFilter(e.target.value)}
+                            >
+                                <option value="All">All Fields</option>
+                                <option value="JEE Main">JEE Main</option>
+                                <option value="JEE Advanced">JEE Advanced</option>
+                                <option value="NEET">NEET</option>
+                                <option value="NDA">NDA</option>
+                                <option value="CUET">CUET</option>
+                                <option value="Other">Other</option>
+                            </select>
                         </div>
                     </div>
                     <div className="overflow-x-auto">
@@ -1661,95 +1688,106 @@ export default function AdminDashboard() {
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">User</th>
                                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Contact</th>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Academics</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Field & Class</th>
                                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Location</th>
                                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
                                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {usersList.map((student) => (
-                                    <tr key={student.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="h-10 w-10 flex-shrink-0">
-                                                    {student.photoURL ? (
-                                                        <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={student.photoURL} alt="" />
-                                                    ) : (
-                                                        <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500 font-bold">
-                                                            {student.name?.charAt(0) || 'U'}
-                                                        </div>
-                                                    )}
+                                {usersList
+                                    .filter(student => {
+                                        const matchesSearch = (student.name?.toLowerCase() || '').includes(studentSearch.toLowerCase()) ||
+                                            (student.email?.toLowerCase() || '').includes(studentSearch.toLowerCase());
+                                        const studentField = student.interest || student.category || student.selectedField || 'Other';
+                                        const matchesField = studentFieldFilter === 'All' ||
+                                            studentField.toLowerCase() === studentFieldFilter.toLowerCase();
+                                        return matchesSearch && matchesField;
+                                    })
+                                    .map((student) => (
+                                        <tr key={student.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="h-10 w-10 flex-shrink-0">
+                                                        {student.photoURL ? (
+                                                            <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={student.photoURL} alt="" />
+                                                        ) : (
+                                                            <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500 font-bold">
+                                                                {student.name?.charAt(0) || 'U'}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="ml-4">
+                                                        <div className="text-sm font-medium text-gray-900">{student.name}</div>
+                                                        <div className="text-xs text-gray-500">{student.email}</div>
+                                                        <div className="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">{student.role}</div>
+                                                    </div>
                                                 </div>
-                                                <div className="ml-4">
-                                                    <div className="text-sm font-medium text-gray-900">{student.name}</div>
-                                                    <div className="text-xs text-gray-500">{student.email}</div>
-                                                    <div className="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">{student.role}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm text-gray-900">{student.phone || student.phoneNumber || 'N/A'}</div>
+                                                <div className="text-xs text-blue-500">{student.authProvider === 'google' ? 'Google Auth' : 'Phone Auth'}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm font-bold text-indigo-600">
+                                                    {student.interest || student.category || student.selectedField || <span className="text-gray-400 italic font-normal">Not Specified</span>}
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{student.phone || student.phoneNumber || 'N/A'}</div>
-                                            <div className="text-xs text-blue-500">{student.authProvider === 'google' ? 'Google Auth' : 'Phone Auth'}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{student.interest || 'N/A'}</div>
-                                            <div className="text-xs text-gray-500">{student.class || 'N/A'}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{student.city || 'N/A'}</div>
-                                            <div className="text-xs text-gray-500">{student.state || 'N/A'}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {student.status === 'blocked' ? (
-                                                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                                    Blocked
-                                                </span>
-                                            ) : (
-                                                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                    Active
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <div className="flex items-center space-x-3">
-                                                {/* Role Toggle */}
-                                                <button
-                                                    onClick={() => handleUpdateRole(student.id, student.role === 'admin' ? 'student' : 'admin')}
-                                                    className={`text-xs px-2 py-1 rounded border ${student.role === 'admin' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
-                                                >
-                                                    {student.role === 'admin' ? 'Demote' : 'Promote'}
-                                                </button>
+                                                <div className="text-xs text-gray-500">{student.class || 'No Class Info'}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm text-gray-900">{student.city || 'N/A'}</div>
+                                                <div className="text-xs text-gray-500">{student.state || 'N/A'}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {student.status === 'blocked' ? (
+                                                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                        Blocked
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                        Active
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <div className="flex items-center space-x-3">
+                                                    {/* Role Toggle */}
+                                                    <button
+                                                        onClick={() => handleUpdateRole(student.id, student.role === 'admin' ? 'student' : 'admin')}
+                                                        className={`text-xs px-2 py-1 rounded border ${student.role === 'admin' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
+                                                    >
+                                                        {student.role === 'admin' ? 'Demote' : 'Promote'}
+                                                    </button>
 
-                                                {/* Status Toggle (Block/Unblock) */}
-                                                <button
-                                                    onClick={() => handleUpdateStatus(student.id, student.status || 'active')}
-                                                    className={`text-xs px-2 py-1 rounded border font-bold ${student.status === 'blocked' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}
-                                                >
-                                                    {student.status === 'blocked' ? 'Unblock' : 'Block'}
-                                                </button>
+                                                    {/* Status Toggle (Block/Unblock) */}
+                                                    <button
+                                                        onClick={() => handleUpdateStatus(student.id, student.status || 'active')}
+                                                        className={`text-xs px-2 py-1 rounded border font-bold ${student.status === 'blocked' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}
+                                                    >
+                                                        {student.status === 'blocked' ? 'Unblock' : 'Block'}
+                                                    </button>
 
-                                                {/* View Report */}
-                                                <button
-                                                    onClick={() => setViewingStudent(student)}
-                                                    className="text-indigo-600 hover:text-indigo-900"
-                                                    title="View Performance"
-                                                >
-                                                    <BarChart2 size={18} />
-                                                </button>
+                                                    {/* View Report */}
+                                                    <button
+                                                        onClick={() => setViewingStudent(student)}
+                                                        className="text-indigo-600 hover:text-indigo-900"
+                                                        title="View Performance"
+                                                    >
+                                                        <BarChart2 size={18} />
+                                                    </button>
 
-                                                {/* Delete User */}
-                                                <button
-                                                    onClick={() => handleDeleteUser(student.id)}
-                                                    className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded"
-                                                    title="Delete User Permanently"
-                                                >
-                                                    <Trash size={18} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                    {/* Delete User */}
+                                                    <button
+                                                        onClick={() => handleDeleteUser(student.id)}
+                                                        className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded"
+                                                        title="Delete User Permanently"
+                                                    >
+                                                        <Trash size={18} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 {usersList.length === 0 && (
                                     <tr>
                                         <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
