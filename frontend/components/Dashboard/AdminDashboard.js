@@ -84,9 +84,11 @@ const TestPreviewModal = ({ test, onClose }) => {
                                             return (
                                                 <div key={opt} className={`relative p-4 rounded-xl border-2 transition-all ${isCorrect ? 'border-green-500 bg-green-50/50 ring-1 ring-green-500' : 'border-gray-100 bg-white'}`}>
                                                     <div className="flex items-start gap-4">
-                                                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black shrink-0 ${isCorrect ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
-                                                            {opt}
-                                                        </span>
+                                                        {(!q.optionImages?.[i] || q.options?.[i]) && (
+                                                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black shrink-0 ${isCorrect ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                                                                {opt}
+                                                            </span>
+                                                        )}
                                                         <div className="flex-1 pt-1 cursor-zoom-in" onClick={() => setZoomedImg(q.optionImages[i])}>
                                                             {q.optionImages?.[i] ? (
                                                                 <img src={q.optionImages[i]} alt={`Option ${opt}`} className="max-h-24 object-contain rounded" />
@@ -1286,12 +1288,14 @@ export default function AdminDashboard() {
 
     const addQuestion = () => {
         // ... VALIDATION Logic (Keeping it same as before) ...
-        if (currentQuestion.type === 'integer') {
-            if (!currentQuestion.integerAnswer) return alert('Provide Answer');
-        } else if (currentQuestion.type === 'msq') {
-            if (currentQuestion.correctOptions.length === 0) return alert('Select correct options');
-        } else {
-            if (!currentQuestion.correctOption) return alert('Select correct option');
+        if (currentQuestion.type === 'mcq' && !currentQuestion.correctOption) {
+            alert("Please mark the correct answer"); return;
+        }
+        if (currentQuestion.type === 'msq' && currentQuestion.correctOptions.length === 0) {
+            alert("Please mark at least one correct answer"); return;
+        }
+        if (currentQuestion.type === 'integer' && !currentQuestion.integerAnswer) {
+            alert('Provide Answer'); return;
         }
         if (!currentQuestion.text && !currentQuestion.image) return alert('Provide text or image');
 
@@ -2361,13 +2365,15 @@ export default function AdminDashboard() {
                                     {currentQuestion.options.map((opt, idx) => (
                                         <div key={idx} className="flex flex-col gap-1 border-b pb-2">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-mono">{String.fromCharCode(65 + idx)}</span>
+                                                {(!currentQuestion.optionImages[idx] || currentQuestion.options[idx]) && (
+                                                    <span className="font-mono">{String.fromCharCode(65 + idx)}</span>
+                                                )}
                                                 <input
                                                     type="text"
                                                     value={opt}
                                                     onChange={(e) => handleOptionChange(idx, e.target.value)}
                                                     className="flex-1 border p-1 rounded"
-                                                    placeholder={`Option Text`}
+                                                    placeholder="Text (Optional)"
                                                     onPaste={(e) => handlePaste(e, 'option', idx)}
                                                 />
                                                 <input key={`${fileInputKey}-opt-${idx}`} type="file" onChange={(e) => uploadImage(e.target.files[0], 'option', idx)} className="text-xs w-24" />
@@ -2380,13 +2386,13 @@ export default function AdminDashboard() {
 
                             {/* Answer Section */}
                             <div className="mb-6 p-4 bg-green-50 rounded">
-                                <label className="block text-sm font-bold text-green-800 mb-2">Correct Answer</label>
+                                <label className="block text-sm font-bold text-green-800 mb-2">Mark Correct Answer</label>
 
                                 {currentQuestion.type === 'mcq' && (
                                     <select name="correctOption" value={currentQuestion.correctOption} onChange={handleQuestionChange} className="block w-full border p-2 rounded bg-white">
-                                        <option value="">Select Correct Option</option>
+                                        <option value="">Select Correct Answer</option>
                                         {currentQuestion.options.map((opt, idx) => (
-                                            <option key={idx} value={opt || `Option ${idx + 1}`}>Option {String.fromCharCode(65 + idx)}</option>
+                                            <option key={idx} value={opt || `Option ${idx + 1}`}>{String.fromCharCode(65 + idx)}</option>
                                         ))}
                                     </select>
                                 )}

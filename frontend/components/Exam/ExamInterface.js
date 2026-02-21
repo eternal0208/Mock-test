@@ -6,7 +6,28 @@ import { useRouter } from 'next/navigation';
 import MathText from '@/components/ui/MathText';
 import Calculator from './Tools/Calculator';
 
-import { Calculator as CalcIcon, PenTool } from 'lucide-react';
+import { Calculator as CalcIcon, PenTool, X } from 'lucide-react';
+
+const ImageZoomModal = ({ imageUrl, onClose }) => {
+    if (!imageUrl) return null;
+    return (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[110] p-4 animate-in fade-in duration-200" onClick={onClose}>
+            <button className="absolute top-6 right-6 text-white hover:text-gray-300 transition-colors" onClick={onClose}>
+                <X size={32} />
+            </button>
+            <div className="max-w-full max-h-full overflow-auto flex items-center justify-center" onClick={e => e.stopPropagation()}>
+                <img
+                    src={imageUrl}
+                    alt="Zoom"
+                    className="max-w-[95vw] max-h-[90vh] object-contain shadow-2xl rounded"
+                />
+            </div>
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 bg-white/10 backdrop-blur rounded-full text-white/60 text-xs font-bold pointer-events-none">
+                Click anywhere to close
+            </div>
+        </div>
+    );
+};
 
 const ExamInterface = ({ test, onSubmit }) => {
     // MODES: 'instruction' | 'countdown' | 'test' | 'feedback'
@@ -30,6 +51,7 @@ const ExamInterface = ({ test, onSubmit }) => {
 
     // Tools State
     const [showCalculator, setShowCalculator] = useState(false);
+    const [zoomedImg, setZoomedImg] = useState(null);
     // const { warnings } = useAntiCheating((msg) => alert(msg));
     const timerRef = useRef(null);
     const router = useRouter();
@@ -91,6 +113,34 @@ const ExamInterface = ({ test, onSubmit }) => {
             return () => clearInterval(timerRef.current);
         }
     }, [timeLeft, mode]);
+
+    // Anti-Cheating Logic
+    useEffect(() => {
+        if (mode !== 'test') return;
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                console.log("Tab switched - Auto-submitting");
+                handleSubmitTest(true);
+            }
+        };
+
+        const handleBeforeUnload = (e) => {
+            console.log("Page refresh/back attempted - Auto-submitting");
+            handleSubmitTest(true);
+            // standard beforeunload behavior
+            e.preventDefault();
+            e.returnValue = '';
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [mode]);
 
     // --- Actions ---
 
@@ -355,11 +405,11 @@ const ExamInterface = ({ test, onSubmit }) => {
                                     </div>
                                 )}
                                 {currentQ.image && (
-                                    <div className="w-full flex justify-center mb-6">
+                                    <div className="w-full flex justify-center mb-6 cursor-zoom-in" onClick={() => setZoomedImg(currentQ.image)}>
                                         <img
                                             src={currentQ.image}
                                             alt="Question"
-                                            className="max-h-[500px] w-full md:w-auto border rounded-lg shadow-md object-contain"
+                                            className="max-h-[500px] w-full md:w-auto border rounded-lg shadow-md object-contain hover:brightness-95 transition"
                                         />
                                     </div>
                                 )}
@@ -378,18 +428,18 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                                 {answers[currentQ._id] === effectiveOpt && <div className="w-2 h-2 bg-white rounded-full" />}
                                                             </div>
                                                         </div>
-                                                        <div className="flex-1">
+                                                        <div className="flex-1 cursor-zoom-in" onClick={() => currentQ.optionImages?.[idx] && setZoomedImg(currentQ.optionImages[idx])}>
                                                             {opt && (
                                                                 <div className={`text-lg ${answers[currentQ._id] === effectiveOpt ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
                                                                     <MathText text={opt} />
                                                                 </div>
                                                             )}
-                                                            {!opt && <div className="text-gray-400 text-sm font-medium mb-1">Option {String.fromCharCode(65 + idx)}</div>}
+                                                            {(!opt || !currentQ.optionImages?.[idx]) && !opt && <div className="text-gray-400 text-sm font-medium mb-1">{String.fromCharCode(65 + idx)}</div>}
                                                             {currentQ.optionImages && currentQ.optionImages[idx] && (
                                                                 <img
                                                                     src={currentQ.optionImages[idx]}
                                                                     alt={`Opt ${idx}`}
-                                                                    className="mt-2 max-h-10 md:max-h-12 object-contain border rounded bg-white p-1"
+                                                                    className="mt-2 max-h-14 md:max-h-16 object-contain border rounded bg-white p-1 hover:border-blue-300 transition"
                                                                 />
                                                             )}
                                                         </div>
@@ -412,18 +462,18 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                                 {isSelected && <div className="text-white font-bold text-xs">✓</div>}
                                                             </div>
                                                         </div>
-                                                        <div className="flex-1">
+                                                        <div className="flex-1 cursor-zoom-in" onClick={() => currentQ.optionImages?.[idx] && setZoomedImg(currentQ.optionImages[idx])}>
                                                             {opt && (
                                                                 <div className={`text-lg ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
                                                                     <MathText text={opt} />
                                                                 </div>
                                                             )}
-                                                            {!opt && <div className="text-gray-400 text-sm font-medium mb-1">Option {String.fromCharCode(65 + idx)}</div>}
+                                                            {(!opt || !currentQ.optionImages?.[idx]) && !opt && <div className="text-gray-400 text-sm font-medium mb-1">{String.fromCharCode(65 + idx)}</div>}
                                                             {currentQ.optionImages && currentQ.optionImages[idx] && (
                                                                 <img
                                                                     src={currentQ.optionImages[idx]}
                                                                     alt={`Opt ${idx}`}
-                                                                    className="mt-2 max-h-10 md:max-h-12 object-contain border rounded bg-white p-1"
+                                                                    className="mt-2 max-h-14 md:max-h-16 object-contain border rounded bg-white p-1 hover:border-blue-300 transition"
                                                                 />
                                                             )}
                                                         </div>
@@ -500,7 +550,7 @@ const ExamInterface = ({ test, onSubmit }) => {
             </div>
             {/* Tool Modals */}
             {showCalculator && <Calculator onClose={() => setShowCalculator(false)} />}
-            {showCalculator && <Calculator onClose={() => setShowCalculator(false)} />}
+            {zoomedImg && <ImageZoomModal imageUrl={zoomedImg} onClose={() => setZoomedImg(null)} />}
         </div>
     );
 };

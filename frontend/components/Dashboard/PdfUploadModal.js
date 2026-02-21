@@ -291,10 +291,10 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
 
         // Validation for answers
         if (currentQuestionData.type === 'mcq' && !currentQuestionData.correctOption) {
-            alert("Please select the correct option"); return;
+            alert("Please mark the correct answer"); return;
         }
         if (currentQuestionData.type === 'msq' && currentQuestionData.correctOptions.length === 0) {
-            alert("Please select at least one correct option"); return;
+            alert("Please mark at least one correct answer"); return;
         }
         if (currentQuestionData.type === 'integer' && currentQuestionData.integerAnswer === '') {
             alert("Please enter the integer answer"); return;
@@ -364,7 +364,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                     </div>
                     <div className="flex items-center gap-4 text-[10px] text-gray-400 hidden xl:flex uppercase font-bold tracking-tighter">
                         <span className="bg-gray-700/50 px-2 py-1 rounded border border-gray-600"><b>Q</b>: Question</span>
-                        <span className="bg-gray-700/50 px-2 py-1 rounded border border-gray-600"><b>1-4</b>: Options</span>
+                        <span className="bg-gray-700/50 px-2 py-1 rounded border border-gray-600"><b>1-4</b>: A-D</span>
                         <span className="bg-gray-700/50 px-2 py-1 rounded border border-gray-600"><b>S</b>: Solution</span>
                         <span className="bg-gray-700/50 px-2 py-1 rounded border border-gray-600"><b>Enter</b>: Crop</span>
                     </div>
@@ -612,7 +612,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                         ) : (
                             <div>
                                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">
-                                    {currentQuestionData.type === 'msq' ? 'Select Correct Option(s)' : 'Select Correct Option'}
+                                    {currentQuestionData.type === 'msq' ? 'Mark Correct Answer(s)' : 'Mark Correct Answer'}
                                 </label>
                                 <div className="grid grid-cols-4 gap-2">
                                     {['A', 'B', 'C', 'D'].map(opt => {
