@@ -11,94 +11,119 @@ import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import PdfUploadModal from './PdfUploadModal';
 
+const ImageZoomModal = ({ imageUrl, onClose }) => {
+    if (!imageUrl) return null;
+    return (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200" onClick={onClose}>
+            <button className="absolute top-6 right-6 text-white hover:text-gray-300 transition-colors" onClick={onClose}>
+                <X size={32} />
+            </button>
+            <div className="max-w-full max-h-full overflow-auto flex items-center justify-center" onClick={e => e.stopPropagation()}>
+                <img
+                    src={imageUrl}
+                    alt="Zoom"
+                    className="max-w-[95vw] max-h-[90vh] object-contain shadow-2xl rounded"
+                />
+            </div>
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 bg-white/10 backdrop-blur rounded-full text-white/60 text-xs font-bold pointer-events-none">
+                Click anywhere to close
+            </div>
+        </div>
+    );
+};
+
 const TestPreviewModal = ({ test, onClose }) => {
+    const [zoomedImg, setZoomedImg] = useState(null);
     if (!test) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
-            <div className="bg-white rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                {/* Header */}
-                <div className="p-6 border-b bg-indigo-600 text-white flex justify-between items-center shrink-0">
-                    <div>
-                        <h2 className="text-2xl font-black">{test.title}</h2>
-                        <div className="flex gap-4 mt-1 text-sm font-bold opacity-90">
-                            <span className="bg-white/20 px-2 py-0.5 rounded uppercase tracking-wider">{test.category}</span>
-                            <span>{test.questions?.length || 0} Questions</span>
-                            <span>{test.duration} Minutes</span>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition">
-                        <X size={28} />
-                    </button>
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 bg-gray-50 space-y-8 pb-20">
-                    {test.questions?.map((q, idx) => (
-                        <div key={idx} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                            {/* Question Header */}
-                            <div className="bg-gray-100 px-6 py-3 flex justify-between items-center border-b">
-                                <span className="font-black text-indigo-600 uppercase tracking-tighter italic">Question {idx + 1}</span>
-                                <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded border uppercase">{q.subject || 'General'}</span>
+        <>
+            {zoomedImg && <ImageZoomModal imageUrl={zoomedImg} onClose={() => setZoomedImg(null)} />}
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
+                <div className="bg-white rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                    {/* Header */}
+                    <div className="p-6 border-b bg-indigo-600 text-white flex justify-between items-center shrink-0">
+                        <div>
+                            <h2 className="text-2xl font-black">{test.title}</h2>
+                            <div className="flex gap-4 mt-1 text-sm font-bold opacity-90">
+                                <span className="bg-white/20 px-2 py-0.5 rounded uppercase tracking-wider">{test.category}</span>
+                                <span>{test.questions?.length || 0} Questions</span>
+                                <span>{test.duration} Minutes</span>
                             </div>
+                        </div>
+                        <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition">
+                            <X size={28} />
+                        </button>
+                    </div>
 
-                            <div className="p-6 space-y-6">
-                                {/* Question Content */}
-                                <div className="space-y-4">
-                                    {q.text && <div className="text-gray-800 font-medium leading-relaxed mb-4">{q.text}</div>}
-                                    {q.image && (
-                                        <div className="bg-gray-50 rounded-lg p-4 inline-block border border-dashed border-gray-200">
-                                            <img src={q.image} alt="Question" className="max-h-[400px] object-contain rounded" />
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto p-6 bg-gray-50 space-y-8 pb-20">
+                        {test.questions?.map((q, idx) => (
+                            <div key={idx} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                                {/* Question Header */}
+                                <div className="bg-gray-100 px-6 py-3 flex justify-between items-center border-b">
+                                    <span className="font-black text-indigo-600 uppercase tracking-tighter italic">Question {idx + 1}</span>
+                                    <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded border uppercase">{q.subject || 'General'}</span>
+                                </div>
+
+                                <div className="p-6 space-y-6">
+                                    {/* Question Content */}
+                                    <div className="space-y-4">
+                                        {q.text && <div className="text-gray-800 font-medium leading-relaxed mb-4">{q.text}</div>}
+                                        {q.image && (
+                                            <div className="bg-gray-50 rounded-lg p-4 inline-block border border-dashed border-gray-200 cursor-zoom-in hover:bg-gray-100 transition shadow-inner" onClick={() => setZoomedImg(q.image)}>
+                                                <img src={q.image} alt="Question" className="max-h-[400px] object-contain rounded" />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Options */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {['A', 'B', 'C', 'D'].map((opt, i) => {
+                                            const isCorrect = q.correctOption === opt || q.correctAnswer === opt;
+                                            return (
+                                                <div key={opt} className={`relative p-4 rounded-xl border-2 transition-all ${isCorrect ? 'border-green-500 bg-green-50/50 ring-1 ring-green-500' : 'border-gray-100 bg-white'}`}>
+                                                    <div className="flex items-start gap-4">
+                                                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black shrink-0 ${isCorrect ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                                                            {opt}
+                                                        </span>
+                                                        <div className="flex-1 pt-1 cursor-zoom-in" onClick={() => setZoomedImg(q.optionImages[i])}>
+                                                            {q.optionImages?.[i] ? (
+                                                                <img src={q.optionImages[i]} alt={`Option ${opt}`} className="max-h-24 object-contain rounded" />
+                                                            ) : (
+                                                                <span className="text-gray-500 italic text-sm">No Image</span>
+                                                            )}
+                                                        </div>
+                                                        {isCorrect && <CheckCircle className="text-green-500 absolute top-3 right-3" size={20} />}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Solution Section */}
+                                    {(q.solutionText || (q.solutionImages && q.solutionImages.length > 0) || q.solutionImage) && (
+                                        <div className="mt-6 pt-6 border-t border-dashed border-gray-200">
+                                            <div className="text-xs font-black text-indigo-500 uppercase tracking-widest mb-3">Solution / Explanation</div>
+                                            <div className="bg-indigo-50/30 rounded-xl p-5 border border-indigo-100">
+                                                {q.solutionText && <div className="text-gray-700 text-sm leading-relaxed mb-4">{q.solutionText}</div>}
+                                                {/* Support both array and single string for backward compatibility */}
+                                                {q.solutionImage && (
+                                                    <img src={q.solutionImage} alt="Solution" className="max-h-[300px] object-contain rounded shadow-sm border border-white mb-2 cursor-zoom-in" onClick={() => setZoomedImg(q.solutionImage)} />
+                                                )}
+                                                {q.solutionImages && q.solutionImages.map((img, i) => (
+                                                    <img key={i} src={img} alt={`Solution ${i + 1}`} className="max-h-[300px] object-contain rounded shadow-sm border border-white mb-2 cursor-zoom-in" onClick={() => setZoomedImg(img)} />
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-
-                                {/* Options */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {['A', 'B', 'C', 'D'].map((opt, i) => {
-                                        const isCorrect = q.correctOption === opt || q.correctAnswer === opt;
-                                        return (
-                                            <div key={opt} className={`relative p-4 rounded-xl border-2 transition-all ${isCorrect ? 'border-green-500 bg-green-50/50 ring-1 ring-green-500' : 'border-gray-100 bg-white'}`}>
-                                                <div className="flex items-start gap-4">
-                                                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black shrink-0 ${isCorrect ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
-                                                        {opt}
-                                                    </span>
-                                                    <div className="flex-1 pt-1">
-                                                        {q.optionImages?.[i] ? (
-                                                            <img src={q.optionImages[i]} alt={`Option ${opt}`} className="max-h-24 object-contain rounded" />
-                                                        ) : (
-                                                            <span className="text-gray-500 italic text-sm">No Image</span>
-                                                        )}
-                                                    </div>
-                                                    {isCorrect && <CheckCircle className="text-green-500 absolute top-3 right-3" size={20} />}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                {/* Solution Section */}
-                                {(q.solutionText || (q.solutionImages && q.solutionImages.length > 0) || q.solutionImage) && (
-                                    <div className="mt-6 pt-6 border-t border-dashed border-gray-200">
-                                        <div className="text-xs font-black text-indigo-500 uppercase tracking-widest mb-3">Solution / Explanation</div>
-                                        <div className="bg-indigo-50/30 rounded-xl p-5 border border-indigo-100">
-                                            {q.solutionText && <div className="text-gray-700 text-sm leading-relaxed mb-4">{q.solutionText}</div>}
-                                            {/* Support both array and single string for backward compatibility */}
-                                            {q.solutionImage && (
-                                                <img src={q.solutionImage} alt="Solution" className="max-h-[300px] object-contain rounded shadow-sm border border-white mb-2" />
-                                            )}
-                                            {q.solutionImages && q.solutionImages.map((img, i) => (
-                                                <img key={i} src={img} alt={`Solution ${i + 1}`} className="max-h-[300px] object-contain rounded shadow-sm border border-white mb-2" />
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 };
 
@@ -822,6 +847,7 @@ export default function AdminDashboard() {
     const [studentSearch, setStudentSearch] = useState('');
     const [studentFieldFilter, setStudentFieldFilter] = useState('All');
     const [previewingTest, setPreviewingTest] = useState(null); // Test Preview Modal State
+    const [zoomedImg, setZoomedImg] = useState(null); // Global image zoom state
 
     const [showBulkUpload, setShowBulkUpload] = useState(false);
     const [showPdfModal, setShowPdfModal] = useState(false);
@@ -1423,7 +1449,7 @@ export default function AdminDashboard() {
             {showAnalytics && <AnalyticsModal testId={showAnalytics} onClose={() => setShowAnalytics(null)} />}
             {viewingStudent && <StudentReportModal student={viewingStudent} onClose={() => setViewingStudent(null)} />}
             {showBulkUpload && <BulkUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowBulkUpload(false)} />}
-            {showPdfModal && <PdfUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowPdfModal(false)} />}
+            {showPdfModal && <PdfUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowPdfModal(false)} onZoom={(url) => setZoomedImg(url)} />}
 
             {/* Manage Series Modal */}
             {managingSeries && (
@@ -2470,8 +2496,18 @@ export default function AdminDashboard() {
                                 <div key={idx} className="border p-2 rounded bg-gray-50 relative">
                                     <div className="absolute top-1 right-1 cursor-pointer text-red-500" onClick={() => removeQuestion(idx)}><Trash size={14} /></div>
                                     <div className="text-xs font-bold text-blue-600 mb-1">{q.type.toUpperCase()} | {q.subject} {q.topic && `| ${q.topic}`}</div>
-                                    <div className="text-sm truncate">
-                                        <MathText text={q.text} />
+                                    <div className="flex gap-4 items-start">
+                                        <div className="text-sm flex-1">
+                                            <MathText text={q.text} />
+                                        </div>
+                                        {q.image && (
+                                            <img
+                                                src={q.image}
+                                                alt="Thumb"
+                                                className="w-12 h-12 rounded object-contain border bg-white cursor-zoom-in hover:border-blue-400"
+                                                onClick={() => setZoomedImg(q.image)}
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -2643,6 +2679,9 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             )}
+
+            {/* Global Image Zoom Modal */}
+            {zoomedImg && <ImageZoomModal imageUrl={zoomedImg} onClose={() => setZoomedImg(null)} />}
 
             {/* Split Test Modal */}
             {previewingTest && <TestPreviewModal test={previewingTest} onClose={() => setPreviewingTest(null)} />}

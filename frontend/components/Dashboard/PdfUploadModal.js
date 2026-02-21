@@ -9,7 +9,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 // Initialize PDF.js worker - Use unpkg as a more reliable version-specific CDN
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
-const PdfUploadModal = ({ onUpload, onClose }) => {
+const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
     const [file, setFile] = useState(null);
     const [pdf, setPdf] = useState(null);
     const [numPages, setNumPages] = useState(0);
@@ -544,14 +544,14 @@ const PdfUploadModal = ({ onUpload, onClose }) => {
                     {/* Slot Selectors */}
                     <div className="space-y-2">
                         {[
-                            { id: 'question', label: 'Question', key: 'Q', img: currentQuestionData.image },
+                            { id: 'question', label: 'Q', key: 'Q', img: currentQuestionData.image },
                             ...(currentQuestionData.type === 'integer' ? [] : [
-                                { id: 'optA', label: 'Option A', key: '1', img: currentQuestionData.optionImages[0] },
-                                { id: 'optB', label: 'Option B', key: '2', img: currentQuestionData.optionImages[1] },
-                                { id: 'optC', label: 'Option C', key: '3', img: currentQuestionData.optionImages[2] },
-                                { id: 'optD', label: 'Option D', key: '4', img: currentQuestionData.optionImages[3] },
+                                { id: 'optA', label: 'A', key: '1', img: currentQuestionData.optionImages[0] },
+                                { id: 'optB', label: 'B', key: '2', img: currentQuestionData.optionImages[1] },
+                                { id: 'optC', label: 'C', key: '3', img: currentQuestionData.optionImages[2] },
+                                { id: 'optD', label: 'D', key: '4', img: currentQuestionData.optionImages[3] },
                             ]),
-                            { id: 'solution', label: 'Solution', key: 'S', img: currentQuestionData.solutionImages?.[0] }
+                            { id: 'solution', label: 'S', key: 'S', img: currentQuestionData.solutionImages?.[0] }
                         ].map(slot => (
                             <div
                                 key={slot.id}
@@ -567,16 +567,26 @@ const PdfUploadModal = ({ onUpload, onClose }) => {
                                 </div>
                                 {slot.img ? (
                                     <div className="relative group/img overflow-hidden">
-                                        <img src={slot.img} alt={slot.id} className="h-10 w-full object-contain rounded border bg-white" />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity rounded">
-                                            <button
-                                                onClick={(e) => handleDeleteImage(slot.id, slot.img, e)}
-                                                className="bg-red-500 text-white p-1 rounded hover:bg-red-600 shadow-lg"
-                                                title="Delete this image"
-                                            >
-                                                <X size={12} />
-                                            </button>
+                                        <img
+                                            src={slot.img}
+                                            alt={slot.id}
+                                            className="h-10 w-full object-contain rounded border bg-white cursor-zoom-in hover:brightness-95 transition"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (onZoom) onZoom(slot.img);
+                                                else window.open(slot.img, '_blank');
+                                            }}
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity rounded pointer-events-none">
+                                            <span className="text-[8px] text-white font-bold uppercase tracking-tighter">Zoom</span>
                                         </div>
+                                        <button
+                                            onClick={(e) => handleDeleteImage(slot.id, slot.img, e)}
+                                            className="absolute top-0.5 right-0.5 bg-red-500 text-white p-0.5 rounded opacity-0 group-hover/img:opacity-100 hover:bg-red-600 transition-opacity z-10"
+                                            title="Delete"
+                                        >
+                                            <X size={10} />
+                                        </button>
                                     </div>
                                 ) : (
                                     <div className="h-6 flex items-center justify-center text-[9px] text-gray-400 border border-dashed rounded italic bg-white/50">
