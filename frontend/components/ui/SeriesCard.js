@@ -3,7 +3,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Star, Award, CheckCircle, ArrowRight } from 'lucide-react';
 
-const SeriesCard = ({ series, onAction, actionLabel = null }) => {
+/**
+ * @param {{ series: any, onAction: Function, actionLabel?: string }} props
+ */
+const SeriesCard = ({ series, onAction, actionLabel = undefined }) => {
     const isFree = series.price === 0 || series.isPaid === false;
 
     return (

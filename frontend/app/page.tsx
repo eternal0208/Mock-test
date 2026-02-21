@@ -225,6 +225,7 @@ export default function LandingPage() {
                 <h3 className="text-4xl font-black text-slate-900 mb-10 text-center">Premium <span className="text-indigo-600">Test Series</span></h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   {testSeries.map((series: any, idx) => (
+                    // @ts-ignore
                     <SeriesCard
                       key={series.id}
                       series={series}
