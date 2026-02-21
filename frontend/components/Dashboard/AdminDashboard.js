@@ -1676,8 +1676,8 @@ export default function AdminDashboard() {
                                 <option value="JEE Main">JEE Main</option>
                                 <option value="JEE Advanced">JEE Advanced</option>
                                 <option value="NEET">NEET</option>
-                                <option value="NDA">NDA</option>
-                                <option value="CUET">CUET</option>
+                                <option value="CAT">CAT</option>
+                                <option value="Board">Board</option>
                                 <option value="Other">Other</option>
                             </select>
                         </div>
