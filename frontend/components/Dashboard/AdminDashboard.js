@@ -735,7 +735,10 @@ export default function AdminDashboard() {
     // Initial Data Fetching
     useEffect(() => {
         if (user) {
-            if (activeTab === 'manage') fetchTests();
+            if (activeTab === 'manage') {
+                fetchTests();
+                fetchSeries(); // Fetch series to show names in manage tab
+            }
             if (activeTab === 'users') fetchStudents();
             if (activeTab === 'series') fetchSeries();
             if (activeTab === 'revenue') fetchRevenue();
@@ -1430,6 +1433,7 @@ export default function AdminDashboard() {
                                             <thead className="bg-gray-100">
                                                 <tr>
                                                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Title</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Series</th>
                                                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Category</th>
                                                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Expiry</th>
                                                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
@@ -1439,6 +1443,18 @@ export default function AdminDashboard() {
                                                 {testList.map((test) => (
                                                     <tr key={test._id} className="hover:bg-gray-50">
                                                         <td className="px-6 py-4 font-medium text-gray-900">{test.title}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            {(() => {
+                                                                const series = seriesList.find(s => s.testIds?.includes(test._id));
+                                                                return series ? (
+                                                                    <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold border border-indigo-200">
+                                                                        {series.title}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-xs text-gray-400 italic font-medium">No Series</span>
+                                                                );
+                                                            })()}
+                                                        </td>
                                                         <td className="px-6 py-4"><span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">{test.category}</span></td>
                                                         <td className="px-6 py-4 text-sm text-gray-500">
                                                             {test.expiryDate ? new Date(test.expiryDate).toLocaleDateString() : <span className="text-green-600">No Expiry</span>}
@@ -1447,14 +1463,17 @@ export default function AdminDashboard() {
                                                             <button
                                                                 onClick={async () => {
                                                                     try {
+                                                                        const token = await user?.getIdToken();
                                                                         const newStatus = !test.isVisible;
-                                                                        const res = await fetch(`http://localhost:5001/api/tests/${test._id}/visibility`, {
+                                                                        const res = await fetch(`${API_BASE_URL}/api/tests/${test._id}/visibility`, {
                                                                             method: 'PUT',
-                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                            headers: {
+                                                                                'Content-Type': 'application/json',
+                                                                                'Authorization': `Bearer ${token}`
+                                                                            },
                                                                             body: JSON.stringify({ isVisible: newStatus })
                                                                         });
                                                                         if (res.ok) {
-                                                                            const updated = await res.json();
                                                                             setTests(tests.map(t => t._id === test._id ? { ...t, isVisible: newStatus } : t));
                                                                         }
                                                                     } catch (e) { console.error(e); }
