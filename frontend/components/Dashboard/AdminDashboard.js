@@ -11,6 +11,93 @@ import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import PdfUploadModal from './PdfUploadModal';
 
+const TestPreviewModal = ({ test, onClose }) => {
+    if (!test) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
+            <div className="bg-white rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                {/* Header */}
+                <div className="p-6 border-b bg-indigo-600 text-white flex justify-between items-center shrink-0">
+                    <div>
+                        <h2 className="text-2xl font-black">{test.title}</h2>
+                        <div className="flex gap-4 mt-1 text-sm font-bold opacity-90">
+                            <span className="bg-white/20 px-2 py-0.5 rounded uppercase tracking-wider">{test.category}</span>
+                            <span>{test.questions?.length || 0} Questions</span>
+                            <span>{test.duration} Minutes</span>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition">
+                        <X size={28} />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-6 bg-gray-50 space-y-8 pb-20">
+                    {test.questions?.map((q, idx) => (
+                        <div key={idx} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            {/* Question Header */}
+                            <div className="bg-gray-100 px-6 py-3 flex justify-between items-center border-b">
+                                <span className="font-black text-indigo-600 uppercase tracking-tighter italic">Question {idx + 1}</span>
+                                <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded border uppercase">{q.subject || 'General'}</span>
+                            </div>
+
+                            <div className="p-6 space-y-6">
+                                {/* Question Content */}
+                                <div className="space-y-4">
+                                    {q.text && <div className="text-gray-800 font-medium leading-relaxed mb-4">{q.text}</div>}
+                                    {q.questionImage && (
+                                        <div className="bg-gray-50 rounded-lg p-4 inline-block border border-dashed border-gray-200">
+                                            <img src={q.questionImage} alt="Question" className="max-h-[400px] object-contain rounded" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Options */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {['A', 'B', 'C', 'D'].map((opt, i) => {
+                                        const isCorrect = q.correctOption === opt || q.correctAnswer === opt;
+                                        return (
+                                            <div key={opt} className={`relative p-4 rounded-xl border-2 transition-all ${isCorrect ? 'border-green-500 bg-green-50/50 ring-1 ring-green-500' : 'border-gray-100 bg-white'}`}>
+                                                <div className="flex items-start gap-4">
+                                                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black shrink-0 ${isCorrect ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                                                        {opt}
+                                                    </span>
+                                                    <div className="flex-1 pt-1">
+                                                        {q.optionsImages?.[i] ? (
+                                                            <img src={q.optionsImages[i]} alt={`Option ${opt}`} className="max-h-24 object-contain rounded" />
+                                                        ) : (
+                                                            <span className="text-gray-500 italic text-sm">No Image</span>
+                                                        )}
+                                                    </div>
+                                                    {isCorrect && <CheckCircle className="text-green-500 absolute top-3 right-3" size={20} />}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Solution Section */}
+                                {(q.solutionText || q.solutionImage) && (
+                                    <div className="mt-6 pt-6 border-t border-dashed border-gray-200">
+                                        <div className="text-xs font-black text-indigo-500 uppercase tracking-widest mb-3">Solution / Explanation</div>
+                                        <div className="bg-indigo-50/30 rounded-xl p-5 border border-indigo-100">
+                                            {q.solutionText && <div className="text-gray-700 text-sm leading-relaxed mb-4">{q.solutionText}</div>}
+                                            {q.solutionImage && (
+                                                <img src={q.solutionImage} alt="Solution" className="max-h-[300px] object-contain rounded shadow-sm border border-white" />
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const AnalyticsModal = ({ testId, onClose }) => {
     const { user } = useAuth();
     const [stats, setStats] = useState(null);
@@ -730,6 +817,7 @@ export default function AdminDashboard() {
     const [showMergeModal, setShowMergeModal] = useState(false); // Merge Tests Modal State
     const [studentSearch, setStudentSearch] = useState('');
     const [studentFieldFilter, setStudentFieldFilter] = useState('All');
+    const [previewingTest, setPreviewingTest] = useState(null); // Test Preview Modal State
 
     const [showBulkUpload, setShowBulkUpload] = useState(false);
     const [showPdfModal, setShowPdfModal] = useState(false);
@@ -1490,6 +1578,28 @@ export default function AdminDashboard() {
                                                                 title={test.isVisible !== false ? "Visible to Students" : "Hidden from Students"}
                                                             >
                                                                 {test.isVisible !== false ? <Eye size={18} /> : <EyeOff size={18} />}
+                                                            </button>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    setLoading(true);
+                                                                    try {
+                                                                        const token = await user?.getIdToken();
+                                                                        const res = await fetch(`${API_BASE_URL}/api/tests/${test._id}`, {
+                                                                            headers: { 'Authorization': `Bearer ${token}` }
+                                                                        });
+                                                                        const data = await res.json();
+                                                                        setPreviewingTest(data);
+                                                                    } catch (e) {
+                                                                        console.error(e);
+                                                                        alert("Failed to load test preview");
+                                                                    } finally {
+                                                                        setLoading(false);
+                                                                    }
+                                                                }}
+                                                                className="text-indigo-600 hover:text-indigo-900 text-sm font-bold"
+                                                                title="Preview Full Test"
+                                                            >
+                                                                <Search size={18} />
                                                             </button>
                                                             <button onClick={() => setEditingTest(test)} className="text-blue-600 hover:text-blue-900 text-sm font-bold" title="Edit Test Details">
                                                                 <Edit2 size={18} />
@@ -2531,6 +2641,7 @@ export default function AdminDashboard() {
             )}
 
             {/* Split Test Modal */}
+            {previewingTest && <TestPreviewModal test={previewingTest} onClose={() => setPreviewingTest(null)} />}
             {splittingTest && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
                     <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-2xl">
