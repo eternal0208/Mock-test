@@ -18,7 +18,7 @@ router.delete('/:id', require('../controllers/testController').deleteTest);
 
 router.get('/:id/analytics', protect, require('../controllers/testController').getTestAnalytics);
 router.put('/:id/visibility', require('../controllers/testController').toggleVisibility);
-router.post('/:id/split', protect, require('../controllers/testController').splitTestBySubject);
-router.post('/merge', protect, require('../controllers/testController').mergeTests);
+// router.post('/:id/split', protect, require('../controllers/testController').splitTestBySubject);
+// router.post('/merge', protect, require('../controllers/testController').mergeTests);
 
 module.exports = router;

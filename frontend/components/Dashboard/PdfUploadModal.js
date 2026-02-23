@@ -658,7 +658,14 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                     )}
                     <button
                         onClick={handleAddToQueue}
-                        disabled={isPdfLoading || isCapturing || !currentQuestionData.image || !currentQuestionData.correctOption}
+                        disabled={
+                            isPdfLoading ||
+                            isCapturing ||
+                            !currentQuestionData.image ||
+                            (currentQuestionData.type === 'mcq' && !currentQuestionData.correctOption) ||
+                            (currentQuestionData.type === 'msq' && currentQuestionData.correctOptions.length === 0) ||
+                            (currentQuestionData.type === 'integer' && currentQuestionData.integerAnswer === '')
+                        }
                         className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50 transition-all transform active:scale-95 flex items-center justify-center gap-2"
                     >
                         Save & Next Question
