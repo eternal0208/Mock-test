@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import StudentDashboard from '@/components/Dashboard/StudentDashboard';
 import AdminDashboard from '@/components/Dashboard/AdminDashboard';
+import DashboardLoader from '@/components/ui/DashboardLoader';
 
 export default function Dashboard() {
     const { user, loading, logout } = useAuth();
@@ -24,7 +25,7 @@ export default function Dashboard() {
         }
     }, [user, loading, router]);
 
-    if (loading) return <div className="p-8 text-center text-black">Loading...</div>;
+    if (loading) return <DashboardLoader />;
     if (!user) return null;
 
     return (

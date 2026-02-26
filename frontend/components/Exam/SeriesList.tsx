@@ -19,7 +19,12 @@ const SeriesList = ({ category }: SeriesListProps) => {
     useEffect(() => {
         const fetchSeries = async () => {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/tests/series`);
+                const headers: any = {};
+                if (user) {
+                    const token = await user.getIdToken();
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                const res = await fetch(`${API_BASE_URL}/api/tests/series`, { headers });
                 const data = await res.json();
 
                 if (Array.isArray(data)) {
@@ -37,7 +42,7 @@ const SeriesList = ({ category }: SeriesListProps) => {
         };
 
         fetchSeries();
-    }, [category]);
+    }, [category, user]);
 
     const handleAction = async (s: any) => {
         if (!user) {

@@ -9,6 +9,7 @@ router.put('/:id/questions', addQuestions);
 
 // Public/Protected split: Ideally these should be protected to know the user's field
 router.get('/series', optionalProtect, require('../controllers/testController').getAllSeries);
+router.get('/series/:id', protect, require('../controllers/testController').getSeriesById);
 router.get('/', optionalProtect, getAllTests);
 router.get('/:id', protect, getTestById);
 

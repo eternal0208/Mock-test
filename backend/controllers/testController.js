@@ -264,6 +264,41 @@ exports.getTestById = async (req, res) => {
         if (!hasAttempted) {
             if (!categoryMatch) return res.status(403).json({ message: 'Access Denied: Category mismatch.' });
             if (!isVisible) return res.status(403).json({ message: 'Test is not currently available.' });
+
+            // FRAUD PROTECTION: Check if test belongs to a PAID series
+            // If yes, user MUST have a valid purchase record
+            if (userId) {
+                try {
+                    // Find any series containing this test
+                    const seriesSnapshot = await db.collection('testSeries')
+                        .where('testIds', 'array-contains', req.params.id)
+                        .limit(1)
+                        .get();
+
+                    if (!seriesSnapshot.empty) {
+                        const seriesDoc = seriesSnapshot.docs[0];
+                        const seriesData = seriesDoc.data();
+
+                        // If series is PAID, verify purchase
+                        if (seriesData.price > 0 && seriesData.isPaid !== false) {
+                            const purchaseRef = db.collection('purchases').doc(userId).collection('tests').doc(seriesDoc.id);
+                            const purchaseDoc = await purchaseRef.get();
+
+                            if (!purchaseDoc.exists || purchaseDoc.data().status !== 'enrolled') {
+                                console.warn(`🚫 [FRAUD] User ${userId} tried to access paid test ${req.params.id} without purchase`);
+                                return res.status(403).json({
+                                    message: 'Purchase required. This test belongs to a paid series.',
+                                    requiresPurchase: true,
+                                    seriesId: seriesDoc.id
+                                });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error checking paid series access:', e);
+                    // Don't block on error — fail open for check, but log it
+                }
+            }
         }
 
         // If User has attempted, we SHOW correctOption.
@@ -677,6 +712,54 @@ exports.getAllSeries = async (req, res) => {
         res.status(200).json(series);
     } catch (error) {
         console.error("Fetch Series Error:", error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Get Single Series by ID with its Tests
+// @route   GET /api/tests/series/:id
+// @access  Authenticated
+exports.getSeriesById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const doc = await db.collection('testSeries').doc(id).get();
+
+        if (!doc.exists) {
+            return res.status(404).json({ message: 'Series not found' });
+        }
+
+        const seriesData = { id: doc.id, ...doc.data() };
+
+        // Fetch associated tests if testIds exist
+        let tests = [];
+        if (seriesData.testIds && seriesData.testIds.length > 0) {
+            // Firestore 'in' queries support max 30 items per batch
+            const batchSize = 30;
+            for (let i = 0; i < seriesData.testIds.length; i += batchSize) {
+                const batch = seriesData.testIds.slice(i, i + batchSize);
+                const testsSnapshot = await db.collection('tests')
+                    .where('__name__', 'in', batch)
+                    .get();
+
+                testsSnapshot.forEach(tDoc => {
+                    const tData = tDoc.data();
+                    tests.push({
+                        _id: tDoc.id,
+                        title: tData.title,
+                        duration_minutes: tData.duration_minutes,
+                        total_marks: tData.total_marks,
+                        subject: tData.subject,
+                        category: tData.category || 'General',
+                        difficulty: tData.difficulty,
+                        questionCount: tData.questions?.length || 0
+                    });
+                });
+            }
+        }
+
+        res.status(200).json({ series: seriesData, tests });
+    } catch (error) {
+        console.error("Fetch Series By ID Error:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 };

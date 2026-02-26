@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import Script from "next/script";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -99,9 +100,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        <script src="/js/three.r134.min.js" />
-        <script src="/js/vanta.halo.min.js" />
-        <script src="https://checkout.razorpay.com/v1/checkout.js" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -115,6 +113,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           {children}
         </AuthProvider>
+        <Script src="/js/three.r134.min.js" strategy="lazyOnload" />
+        <Script src="/js/vanta.halo.min.js" strategy="lazyOnload" />
+        <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       </body>
     </html>
   );

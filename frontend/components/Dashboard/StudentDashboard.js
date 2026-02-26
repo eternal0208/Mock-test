@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/config';
 import AnalyticsDashboard from './AnalyticsDashboard';
-import { Clock, BookOpen, BarChart, User, Mail, Calendar, ShieldCheck, TrendingUp, ChevronRight, Star, Target, Zap, Search, Filter, Menu, X } from 'lucide-react';
+import { Clock, BookOpen, BarChart, User, Mail, Calendar, ShieldCheck, TrendingUp, ChevronRight, Star, Target, Zap, Search, Filter, Menu, X, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import SeriesCard from '@/components/ui/SeriesCard';
 
@@ -189,6 +189,9 @@ export default function StudentDashboard() {
     // 2. Filter out tests that belong to a SERIES (they should only show in Series section)
     const seriesTestIds = new Set(series.flatMap(s => s.testIds || []));
 
+    // Build set of enrolled series IDs from purchase orders
+    const enrolledSeriesIds = new Set(orders.map(o => o.seriesId).filter(Boolean));
+
     const relevantTests = tests.filter(test => {
         // Exclude if part of a series
         if (seriesTestIds.has(test._id)) return false;
@@ -203,6 +206,9 @@ export default function StudentDashboard() {
         if (!userField || !s.category) return false;
         return s.category.toLowerCase() === userField.toLowerCase();
     });
+
+    // Enrolled series (from any category)
+    const enrolledSeries = series.filter(s => enrolledSeriesIds.has(s.id));
 
     const handleStartTest = (testId) => {
         window.location.href = `/exam/${testId}`;
@@ -257,7 +263,7 @@ export default function StudentDashboard() {
     const Sidebar = () => (
         <div className="w-full md:w-72 bg-white/90 backdrop-blur-xl border-r border-gray-100 flex-shrink-0 flex flex-col h-full fixed md:relative z-20 hidden md:flex shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
             <div className="p-8">
-                <img src="/logo.ico" alt="Apex Mock" className="h-32 w-auto mb-2" />
+                <img src="/logo.png" alt="Apex Mock" className="h-32 w-auto mb-2" />
                 <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 rounded-full border border-indigo-100">
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
                     <p className="text-[10px] text-indigo-700 font-bold uppercase tracking-wider">{userField || 'Student'}</p>
@@ -533,6 +539,35 @@ export default function StudentDashboard() {
                 </div>
             </div>
 
+            {/* My Enrolled Courses */}
+            {enrolledSeries.length > 0 && (
+                <div>
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-xl font-bold flex items-center gap-2 text-gray-900">
+                            <CheckCircle className="text-emerald-500" size={20} />
+                            My Enrolled Courses
+                        </h2>
+                        <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">Permanent Access</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {enrolledSeries.map(s => (
+                            <div key={s.id} className="relative">
+                                <div className="absolute top-3 right-3 z-10 bg-emerald-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg shadow-emerald-200">
+                                    <CheckCircle size={12} /> Enrolled
+                                </div>
+                                <SeriesCard
+                                    key={s.id}
+                                    series={s}
+                                    onAction={() => window.location.href = `/series/${s.id}`}
+                                    actionLabel="Continue →"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Recommended Series */}
             {relevantSeries.length > 0 && (
                 <div>
@@ -545,7 +580,7 @@ export default function StudentDashboard() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {relevantSeries.slice(0, 3).map(s => (
+                        {relevantSeries.filter(s => !enrolledSeriesIds.has(s.id)).slice(0, 3).map(s => (
                             <SeriesCard
                                 key={s.id}
                                 series={s}
@@ -616,8 +651,8 @@ export default function StudentDashboard() {
                         key={item.id}
                         onClick={() => setActiveSection(item.id)}
                         className={`flex flex-col items-center gap-1 p-2 rounded-2xl transition-all ${activeSection === item.id
-                                ? 'text-indigo-600 scale-110 font-bold'
-                                : 'text-gray-400'
+                            ? 'text-indigo-600 scale-110 font-bold'
+                            : 'text-gray-400'
                             }`}
                     >
                         <div className={`p-1.5 rounded-xl transition-colors ${activeSection === item.id ? 'bg-indigo-50' : ''}`}>
@@ -631,7 +666,7 @@ export default function StudentDashboard() {
             {/* Mobile Header (Fixed Top) */}
             <div className="md:hidden bg-white/90 backdrop-blur-md px-6 py-4 flex justify-between items-center sticky top-0 z-40 border-b border-gray-50/50 shadow-sm">
                 <div className="flex items-center gap-2">
-                    <img src="/logo.ico" alt="Apex" className="h-8 w-auto" />
+                    <img src="/logo.png" alt="Apex" className="h-8 w-auto" />
                     <span className="font-black text-xl tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">APEX</span>
                 </div>
                 <div className="flex items-center gap-3">

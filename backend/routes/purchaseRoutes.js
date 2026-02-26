@@ -4,8 +4,10 @@ const {
     enrollFreeTest,
     createPaidOrder,
     verifyPayment,
-    checkAccess
+    checkAccess,
+    getMyOrders
 } = require('../controllers/purchaseController');
+const { protect } = require('../middleware/authMiddleware');
 
 // @route   POST /api/purchases/enroll-free
 // @desc    Instantly enroll user in free test series
@@ -26,5 +28,10 @@ router.post('/verify-payment', verifyPayment);
 // @desc    Check if user has access to a test series
 // @access  Private
 router.get('/check-access/:testId', checkAccess);
+
+// @route   GET /api/purchases/my-orders
+// @desc    Get all orders for authenticated user
+// @access  Private
+router.get('/my-orders', protect, getMyOrders);
 
 module.exports = router;

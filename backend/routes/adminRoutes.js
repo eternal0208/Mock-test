@@ -205,28 +205,73 @@ router.get('/student/:id/performance', async (req, res) => {
     }
 });
 
-// GET /api/admin/revenue - Calculate Total Revenue
+// GET /api/admin/revenue - Calculate Total Revenue with Order Details
 router.get('/revenue', async (req, res) => {
     try {
         const snapshot = await db.collection('orders').where('status', '==', 'paid').get();
-        const orders = snapshot.docs.map(doc => doc.data());
+        const rawOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Sort by createdAt in JS to avoid needing a Firestore composite index
+        rawOrders.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
-        const totalRevenue = orders.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+        const totalRevenue = rawOrders.reduce((acc, curr) => acc + (curr.amount || 0), 0);
         const revenueBySeries = {};
 
-        orders.forEach(order => {
-            if (!revenueBySeries[order.seriesId]) {
-                revenueBySeries[order.seriesId] = 0;
+        // Build enriched orders with user name and series title
+        const orders = [];
+        for (const order of rawOrders) {
+            let userName = 'Unknown';
+            let itemName = order.testTitle || 'Unknown Item';
+
+            // Fetch user name
+            try {
+                if (order.userId) {
+                    const userDoc = await db.collection('users').doc(order.userId).get();
+                    if (userDoc.exists) userName = userDoc.data().name || userDoc.data().email || 'Unknown';
+                }
+            } catch (e) { }
+
+            // Fetch series title if not already stored
+            if (!itemName || itemName === 'Unknown Item') {
+                try {
+                    if (order.seriesId) {
+                        const seriesDoc = await db.collection('testSeries').doc(order.seriesId).get();
+                        if (seriesDoc.exists) itemName = seriesDoc.data().title;
+                    }
+                } catch (e) { }
             }
-            revenueBySeries[order.seriesId] += order.amount;
-        });
+
+            // Revenue by series
+            if (order.seriesId) {
+                if (!revenueBySeries[order.seriesId]) {
+                    revenueBySeries[order.seriesId] = { title: itemName, total: 0, count: 0 };
+                }
+                revenueBySeries[order.seriesId].total += order.amount || 0;
+                revenueBySeries[order.seriesId].count += 1;
+            }
+
+            orders.push({
+                id: order.id,
+                userId: order.userId,
+                seriesId: order.seriesId,
+                userName,
+                itemName,
+                amount: order.amount,
+                currency: order.currency || 'INR',
+                status: order.status,
+                paymentId: order.paymentId,
+                razorpayOrderId: order.razorpayOrderId,
+                createdAt: order.createdAt
+            });
+        }
 
         res.json({
             totalRevenue,
-            totalOrders: orders.length,
-            revenueBySeries
+            totalOrders: rawOrders.length,
+            revenueBySeries,
+            orders
         });
     } catch (error) {
+        console.error('Revenue Fetch Error:', error);
         res.status(500).json({ error: error.message });
     }
 });

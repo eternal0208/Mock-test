@@ -101,7 +101,7 @@ exports.createPaidOrder = async (req, res) => {
         const options = {
             amount: testData.price * 100, // Convert to paise
             currency: testData.currency || 'INR',
-            receipt: `test_${testId}_${userId}_${Date.now()}`,
+            receipt: `rcpt_${testId.slice(0, 8)}_${Date.now()}`,
             notes: {
                 testId,
                 userId,
@@ -292,7 +292,7 @@ exports.getMyOrders = async (req, res) => {
 
     try {
         const ordersRef = db.collection('orders');
-        const snapshot = await ordersRef.where('userId', '==', userId).orderBy('createdAt', 'desc').get();
+        const snapshot = await ordersRef.where('userId', '==', userId).get();
 
         if (snapshot.empty) {
             return res.status(200).json([]);
@@ -302,6 +302,9 @@ exports.getMyOrders = async (req, res) => {
         snapshot.forEach(doc => {
             orders.push({ id: doc.id, ...doc.data() });
         });
+
+        // Sort by createdAt in JS to avoid needing a Firestore composite index
+        orders.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
         res.status(200).json(orders);
     } catch (error) {

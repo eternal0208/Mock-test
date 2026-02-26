@@ -35,9 +35,12 @@ const TestList = ({ category }: TestListProps) => {
     useEffect(() => {
         const fetchTests = async () => {
             try {
-                // In a real app, you might want a specific query for by category
-                // For now, fetching all and filtering client side or assume API supports ?category=
-                const res = await fetch(`${API_BASE_URL}/api/tests`);
+                const headers: any = {};
+                if (user) {
+                    const token = await user.getIdToken();
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                const res = await fetch(`${API_BASE_URL}/api/tests`, { headers });
                 const data: Test[] = await res.json();
 
                 // Filter by category if provided and limit to 3 latest (Case-Insensitive)
@@ -51,14 +54,14 @@ const TestList = ({ category }: TestListProps) => {
 
                 setTests(filtered);
             } catch (error) {
-                console.error("Failed to fetch tests", error);
+                console.error("Failed to fetch data", error);
             } finally {
                 setLoading(false);
             }
         };
 
         fetchTests();
-    }, [category]);
+    }, [category, user]);
 
     if (loading) return <LoadingScreen fullScreen={false} text={`Loading ${category || 'Experience'} Mock Tests...`} />;
 
