@@ -801,7 +801,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                                 e.stopPropagation();
                                                 setSelection(null);
                                             }}
-                                            className="bg-white/10 backdrop-blur border border-white/20 text-white px-4 py-2 rounded-full text-xs font-black shadow-xl flex items-center gap-1.5 whitespace-nowrap hover:bg-white/20 active:scale-95 transition-all"
+                                            className="bg-red-500 text-white px-4 py-2 rounded-full text-xs font-black shadow-xl ring-2 ring-black/20 flex items-center gap-1.5 whitespace-nowrap hover:bg-red-600 active:scale-95 transition-all"
                                         >
                                             <X size={13} /> Clear
                                         </button>
