@@ -50,6 +50,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
     const [capturedHighlights, setCapturedHighlights] = useState([]);
     const [globalHighlights, setGlobalHighlights] = useState([]); // Persistent guides across all questions in this session
     const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+    const [isResizeMode, setIsResizeMode] = useState(false);
 
     const canvasRef = useRef(null);
     const containerRef = useRef(null);
@@ -62,6 +63,11 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
             const key = e.key.toLowerCase();
+            if ((e.ctrlKey || e.metaKey) && key === 'r') {
+                e.preventDefault();
+                setIsResizeMode(prev => !prev);
+                return;
+            }
             if (key === 'q') setActiveSlot('question');
             if (key === '1') setActiveSlot('optA');
             if (key === '2') setActiveSlot('optB');
@@ -539,6 +545,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                             { key: '1–4', label: 'Options' },
                             { key: 'S', label: 'Solution' },
                             { key: '↵', label: 'Crop' },
+                            { key: '^R', label: 'Resize' },
                             { key: 'Esc', label: 'Clear' },
                         ].map(({ key, label }) => (
                             <span key={key} className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-md px-2 py-1 text-gray-400">
@@ -721,21 +728,26 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                         height: selection.height
                                     }}
                                 >
-                                    {/* Resizing Handles (Invisible Hitboxes) */}
-                                    <div className="absolute top-0 left-0 w-5 h-5 bg-transparent -mt-2.5 -ml-2.5 cursor-nwse-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'nw')} />
-                                    <div className="absolute top-0 right-0 w-5 h-5 bg-transparent -mt-2.5 -mr-2.5 cursor-nesw-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'ne')} />
-                                    <div className="absolute bottom-0 left-0 w-5 h-5 bg-transparent -mb-2.5 -ml-2.5 cursor-nesw-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'sw')} />
-                                    <div className="absolute bottom-0 right-0 w-5 h-5 bg-transparent -mb-2.5 -mr-2.5 cursor-nwse-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'se')} />
-                                    <div className="absolute top-0 left-1/2 w-5 h-5 bg-transparent -mt-2.5 -translate-x-1/2 cursor-ns-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'n')} />
-                                    <div className="absolute bottom-0 left-1/2 w-5 h-5 bg-transparent -mb-2.5 -translate-x-1/2 cursor-ns-resize z-50" onMouseDown={(e) => handleResizeStart(e, 's')} />
-                                    <div className="absolute top-1/2 left-0 w-5 h-5 bg-transparent -ml-2.5 -translate-y-1/2 cursor-ew-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'w')} />
-                                    <div className="absolute top-1/2 right-0 w-5 h-5 bg-transparent -mr-2.5 -translate-y-1/2 cursor-ew-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'e')} />
+                                    {/* Conditionally Rendered Resizing Handles */}
+                                    {isResizeMode && (
+                                        <>
+                                            {/* Resizing Handles (Invisible Hitboxes) */}
+                                            <div className="absolute top-0 left-0 w-5 h-5 bg-transparent -mt-2.5 -ml-2.5 cursor-nwse-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'nw')} />
+                                            <div className="absolute top-0 right-0 w-5 h-5 bg-transparent -mt-2.5 -mr-2.5 cursor-nesw-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'ne')} />
+                                            <div className="absolute bottom-0 left-0 w-5 h-5 bg-transparent -mb-2.5 -ml-2.5 cursor-nesw-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'sw')} />
+                                            <div className="absolute bottom-0 right-0 w-5 h-5 bg-transparent -mb-2.5 -mr-2.5 cursor-nwse-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'se')} />
+                                            <div className="absolute top-0 left-1/2 w-5 h-5 bg-transparent -mt-2.5 -translate-x-1/2 cursor-ns-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'n')} />
+                                            <div className="absolute bottom-0 left-1/2 w-5 h-5 bg-transparent -mb-2.5 -translate-x-1/2 cursor-ns-resize z-50" onMouseDown={(e) => handleResizeStart(e, 's')} />
+                                            <div className="absolute top-1/2 left-0 w-5 h-5 bg-transparent -ml-2.5 -translate-y-1/2 cursor-ew-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'w')} />
+                                            <div className="absolute top-1/2 right-0 w-5 h-5 bg-transparent -mr-2.5 -translate-y-1/2 cursor-ew-resize z-50" onMouseDown={(e) => handleResizeStart(e, 'e')} />
 
-                                    {/* Corner dot handles (visual) */}
-                                    <div className="absolute top-0 left-0 w-2.5 h-2.5 bg-emerald-400 rounded-full -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-                                    <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-emerald-400 rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-                                    <div className="absolute bottom-0 left-0 w-2.5 h-2.5 bg-emerald-400 rounded-full -translate-x-1/2 translate-y-1/2 pointer-events-none" />
-                                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 rounded-full translate-x-1/2 translate-y-1/2 pointer-events-none" />
+                                            {/* Corner dot handles (visual, to indicate resize mode is active) */}
+                                            <div className="absolute top-0 left-0 w-2 h-2 bg-indigo-400 border border-white rounded-full -translate-x-1/2 -translate-y-1/2 pointer-events-none shadow-sm" />
+                                            <div className="absolute top-0 right-0 w-2 h-2 bg-indigo-400 border border-white rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none shadow-sm" />
+                                            <div className="absolute bottom-0 left-0 w-2 h-2 bg-indigo-400 border border-white rounded-full -translate-x-1/2 translate-y-1/2 pointer-events-none shadow-sm" />
+                                            <div className="absolute bottom-0 right-0 w-2 h-2 bg-indigo-400 border border-white rounded-full translate-x-1/2 translate-y-1/2 pointer-events-none shadow-sm" />
+                                        </>
+                                    )}
 
                                     {/* Action popup */}
                                     <div
