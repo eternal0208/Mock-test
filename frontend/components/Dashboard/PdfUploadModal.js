@@ -217,18 +217,20 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
         const allSnappableBoxes = [...globalHighlights, ...capturedHighlights];
 
         // Apply magnetic snapping against previously captured options on this page
-        allSnappableBoxes.forEach(h => {
-            if (h.page !== currentPage) return;
-            // Snap to left edges
-            if (Math.abs(x - h.x) < SNAP_THRESHOLD) snapX = h.x;
-            // Snap to right edges
-            if (Math.abs(x - (h.x + h.width)) < SNAP_THRESHOLD) snapX = h.x + h.width;
+        if (!isDragging) {
+            allSnappableBoxes.forEach(h => {
+                if (h.page !== currentPage) return;
+                // Snap to left edges
+                if (Math.abs(x - h.x) < SNAP_THRESHOLD) snapX = h.x;
+                // Snap to right edges
+                if (Math.abs(x - (h.x + h.width)) < SNAP_THRESHOLD) snapX = h.x + h.width;
 
-            // Snap to top edges
-            if (Math.abs(y - h.y) < SNAP_THRESHOLD) snapY = h.y;
-            // Snap to bottom edges
-            if (Math.abs(y - (h.y + h.height)) < SNAP_THRESHOLD) snapY = h.y + h.height;
-        });
+                // Snap to top edges
+                if (Math.abs(y - h.y) < SNAP_THRESHOLD) snapY = h.y;
+                // Snap to bottom edges
+                if (Math.abs(y - (h.y + h.height)) < SNAP_THRESHOLD) snapY = h.y + h.height;
+            });
+        }
 
         // Set the active box mapping for the visual smart guide lines
         const snappedBox = allSnappableBoxes.find(h =>
