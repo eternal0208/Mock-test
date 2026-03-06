@@ -531,6 +531,11 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                         >
                             <ChevronRight size={16} />
                         </button>
+
+                        <div className="ml-4 bg-indigo-500/20 border border-indigo-500/30 rounded-lg px-3 py-1.5 flex items-center gap-2 transition-all cursor-default">
+                            <span className="text-[10px] uppercase font-black tracking-widest text-indigo-400">Total Uploaded:</span>
+                            <span className="text-sm font-black text-white">{uploadedCount}</span>
+                        </div>
                     </div>
 
                     {/* Center: Keyboard shortcut chips */}
