@@ -322,10 +322,20 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
             const newData = { ...prev };
             if (slotId === 'question') newData.image = null;
             else if (slotId.startsWith('opt')) newData.optionImages[['optA', 'optB', 'optC', 'optD'].indexOf(slotId)] = null;
-            else newData.solutionImages = [];
+            else if (slotId === 'solution') {
+                if (Array.isArray(newData.solutionImages)) {
+                    newData.solutionImages = newData.solutionImages.filter(img => img !== imageUrl);
+                }
+            }
             return newData;
         });
-        setCapturedHighlights(prev => prev.filter(h => h.slot !== slotId));
+        setCapturedHighlights(prev => prev.filter(h => h.slot !== slotId || (h.slot === 'solution' && Math.abs(h.y - e.clientY) > 50))); // Rough heuristic for highlight matching based on position isn't perfect, so it's better to just clear it if we match slotId UNLESS it's a solution, in which case we only clear all solution highlights if the user wants. We'll simplify and just clear the specific highlight if possible, or all solution highlights if we can't map them. Actually, since capturedHighlights don't store the URL, we'll just remove all solution highlights when ANY solution image is deleted to be safe, or we can just leave the highlights and let the user clear them manually. Let's just remove the specific highlight by matching the index if possible, but since we don't pass index to handleDeleteImage, let's just leave the highlights alone for solutions, or clear them all.
+        // For simplicity, if it's a solution, clear all solution highlights to avoid orphaned boxes.
+        if (slotId !== 'solution') {
+            setCapturedHighlights(prev => prev.filter(h => h.slot !== slotId));
+        } else {
+            setCapturedHighlights(prev => prev.filter(h => h.slot !== 'solution'));
+        }
     };
 
     const captureSelection = async () => {
@@ -1004,31 +1014,45 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                 </div>
                             )}
 
-                            {/* Solution Slot - Full width */}
-                            {[{ id: 'solution', label: 'Solution', key: 'S', img: currentQuestionData.solutionImages?.[0] }].map(slot => (
-                                <div
-                                    key={slot.id}
-                                    onClick={() => setActiveSlot(slot.id)}
-                                    className={`cursor-pointer border rounded-xl p-2.5 transition-all ${activeSlot === slot.id ? 'ring-2 ring-violet-500 bg-violet-50 border-violet-300' : 'hover:border-violet-200 hover:bg-gray-50 border-gray-200'}`}
-                                >
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-[9px] w-5 h-5 flex items-center justify-center rounded-md font-black transition-colors ${activeSlot === slot.id ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-500'}`}>{slot.key}</span>
-                                            <span className={`text-xs font-bold uppercase tracking-wide ${activeSlot === slot.id ? 'text-violet-700' : 'text-gray-600'}`}>{slot.label}</span>
-                                            <span className="text-[8px] text-gray-400 italic font-normal">(optional)</span>
-                                        </div>
-                                        {slot.img ? <CheckCircle size={14} className="text-emerald-500" /> : <div className="w-3 h-3 rounded-full border-2 border-gray-300" />}
+                            {/* Solution Slot - Full width, Supports Multiple Images */}
+                            <div
+                                onClick={() => setActiveSlot('solution')}
+                                className={`cursor-pointer border rounded-xl p-2.5 transition-all ${activeSlot === 'solution' ? 'ring-2 ring-violet-500 bg-violet-50 border-violet-300' : 'hover:border-violet-200 hover:bg-gray-50 border-gray-200'}`}
+                            >
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-[9px] w-5 h-5 flex items-center justify-center rounded-md font-black transition-colors ${activeSlot === 'solution' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-500'}`}>S</span>
+                                        <span className={`text-xs font-bold uppercase tracking-wide ${activeSlot === 'solution' ? 'text-violet-700' : 'text-gray-600'}`}>Solution</span>
+                                        <span className="text-[8px] text-gray-400 italic font-normal">(optional, multiple allowed)</span>
                                     </div>
-                                    {slot.img ? (
-                                        <div className="relative group/img overflow-hidden rounded-lg">
-                                            <img src={slot.img} alt={slot.id} className="h-12 w-full object-contain border bg-white cursor-zoom-in hover:brightness-95 transition rounded-lg" onClick={(e) => { e.stopPropagation(); if (onZoom) onZoom(slot.img); else window.open(slot.img, '_blank'); }} />
-                                            <button onClick={(e) => handleDeleteImage(slot.id, slot.img, e)} className="absolute top-1 right-1 bg-red-500 text-white p-0.5 rounded opacity-0 group-hover/img:opacity-100 hover:bg-red-600 transition z-10"><X size={10} /></button>
+                                    {currentQuestionData.solutionImages?.length > 0 ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[10px] font-bold text-violet-600">{currentQuestionData.solutionImages.length} saved</span>
+                                            <CheckCircle size={14} className="text-emerald-500" />
                                         </div>
                                     ) : (
-                                        <div className="h-7 flex items-center justify-center text-[9px] text-gray-400 border border-dashed border-gray-200 rounded-lg italic bg-gray-50">Draw on PDF to capture</div>
+                                        <div className="w-3 h-3 rounded-full border-2 border-gray-300" />
                                     )}
                                 </div>
-                            ))}
+
+                                {/* Render all captured solution images */}
+                                {currentQuestionData.solutionImages?.length > 0 && (
+                                    <div className="flex flex-col gap-2 mb-2">
+                                        {currentQuestionData.solutionImages.map((img, idx) => (
+                                            <div key={idx} className="relative group/img overflow-hidden rounded-lg">
+                                                <img src={img} alt={`Solution ${idx + 1}`} className="h-12 w-full object-contain border bg-white cursor-zoom-in hover:brightness-95 transition rounded-lg" onClick={(e) => { e.stopPropagation(); if (onZoom) onZoom(img); else window.open(img, '_blank'); }} />
+                                                <button onClick={(e) => handleDeleteImage('solution', img, e)} className="absolute top-1 right-1 bg-red-500 text-white p-0.5 rounded opacity-0 group-hover/img:opacity-100 hover:bg-red-600 transition z-10"><X size={10} /></button>
+                                                <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[8px] px-1.5 py-0.5 rounded pointer-events-none font-bold">Image {idx + 1}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Always show the capture prompt so they can add more */}
+                                <div className={`h-7 flex items-center justify-center text-[9px] text-gray-400 border border-dashed border-gray-200 rounded-lg italic ${currentQuestionData.solutionImages?.length > 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                    Draw on PDF to capture {currentQuestionData.solutionImages?.length > 0 ? 'another ' : ''}image
+                                </div>
+                            </div>
                         </div>
                     </div>
 
