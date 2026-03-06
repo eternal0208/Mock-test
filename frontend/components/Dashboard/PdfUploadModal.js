@@ -217,39 +217,18 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
         const allSnappableBoxes = [...globalHighlights, ...capturedHighlights];
 
         // Apply magnetic snapping against previously captured options on this page
-        if (!isDragging) {
-            allSnappableBoxes.forEach(h => {
-                if (h.page !== currentPage) return;
-                // Snap to left edges
-                if (Math.abs(x - h.x) < SNAP_THRESHOLD) snapX = h.x;
-                // Snap to right edges
-                if (Math.abs(x - (h.x + h.width)) < SNAP_THRESHOLD) snapX = h.x + h.width;
+        allSnappableBoxes.forEach(h => {
+            if (h.page !== currentPage) return;
+            // Snap to left edges
+            if (Math.abs(x - h.x) < SNAP_THRESHOLD) snapX = h.x;
+            // Snap to right edges
+            if (Math.abs(x - (h.x + h.width)) < SNAP_THRESHOLD) snapX = h.x + h.width;
 
-                // Snap to top edges
-                if (Math.abs(y - h.y) < SNAP_THRESHOLD) snapY = h.y;
-                // Snap to bottom edges
-                if (Math.abs(y - (h.y + h.height)) < SNAP_THRESHOLD) snapY = h.y + h.height;
-            });
-        }
-
-        // Set the active box mapping for the visual smart guide lines
-        const snappedBox = allSnappableBoxes.find(h =>
-            Math.abs(snapX - h.x) < SNAP_THRESHOLD ||
-            Math.abs(snapX - (h.x + h.width)) < SNAP_THRESHOLD ||
-            Math.abs(snapY - h.y) < SNAP_THRESHOLD ||
-            Math.abs(snapY - (h.y + h.height)) < SNAP_THRESHOLD
-        );
-
-        if (snappedBox) {
-            setActiveBox({
-                left: snappedBox.x,
-                right: snappedBox.x + snappedBox.width,
-                top: snappedBox.y,
-                bottom: snappedBox.y + snappedBox.height
-            });
-        } else {
-            setActiveBox(null);
-        }
+            // Snap to top edges
+            if (Math.abs(y - h.y) < SNAP_THRESHOLD) snapY = h.y;
+            // Snap to bottom edges
+            if (Math.abs(y - (h.y + h.height)) < SNAP_THRESHOLD) snapY = h.y + h.height;
+        });
 
         if (isResizing && initialSelection) {
             const dx = snapX - startPos.x; // Use snapped coordinates for resizing!
@@ -323,8 +302,6 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
         if (width > 5 && height > 5) {
             setSelection({ x, y, width, height });
         }
-
-        setActiveBox(null);
     };
 
     const handleDeleteImage = async (slotId, imageUrl, e) => {
@@ -772,7 +749,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                         </>
                                     )}
 
-                                    {/* Action popup - outside of resize mode check */}
+                                    {/* Action popup */}
                                     <div
                                         className="absolute -bottom-14 left-1/2 -translate-x-1/2 flex gap-2 z-50 cursor-default"
                                         onMouseDown={(e) => e.stopPropagation()}
@@ -784,16 +761,16 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                                 captureSelection();
                                             }}
                                             disabled={!pdf || isCapturing}
-                                            className={`bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg flex items-center gap-1.5 whitespace-nowrap ${(!pdf || isCapturing) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700 hover:-translate-y-0.5 max-md:hidden active:scale-95'} transition-all`}
+                                            className={`bg-emerald-500 text-white px-4 py-2 rounded-full text-xs font-black shadow-2xl shadow-emerald-500/40 flex items-center gap-1.5 whitespace-nowrap ring-2 ring-black/20 ${(!pdf || isCapturing) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-emerald-400 active:scale-95'} transition-all`}
                                         >
-                                            <CheckCircle size={14} /> {isCapturing ? 'Saving...' : `Capture → ${activeSlot === 'question' ? 'Q' : activeSlot === 'solution' ? 'S' : activeSlot.replace('opt', '')}`}
+                                            <CheckCircle size={14} /> {isCapturing ? 'Saving…' : `Capture → ${activeSlot === 'question' ? 'Q' : activeSlot === 'solution' ? 'S' : activeSlot.replace('opt', '')}`}
                                         </button>
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setSelection(null);
                                             }}
-                                            className="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg flex items-center gap-1.5 whitespace-nowrap hover:bg-red-700 hover:-translate-y-0.5 active:scale-95 transition-all"
+                                            className="bg-white/10 backdrop-blur border border-white/20 text-white px-4 py-2 rounded-full text-xs font-black shadow-xl flex items-center gap-1.5 whitespace-nowrap hover:bg-white/20 active:scale-95 transition-all"
                                         >
                                             <X size={13} /> Clear
                                         </button>
