@@ -55,7 +55,21 @@ const ExamInterface = ({ test, onSubmit }) => {
     const touchRef = useRef({ startX: 0, endX: 0 });
     // const { warnings } = useAntiCheating((msg) => alert(msg));
     const timerRef = useRef(null);
+    const longPressTimerRef = useRef(null);
     const router = useRouter();
+
+    // Map DB size classes to Tailwind classes
+    const getQuestionImageSize = (size) => {
+        if (size === 'small') return 'max-h-[150px] md:max-h-[200px]';
+        if (size === 'large') return 'max-h-[500px] md:max-h-[700px]';
+        return 'max-h-[300px] md:max-h-[400px]'; // default medium
+    };
+
+    const getOptionImageSize = (size) => {
+        if (size === 'small') return 'max-h-12 md:max-h-16'; // ~48px/64px
+        if (size === 'large') return 'max-h-40 md:max-h-56'; // ~160px/224px
+        return 'max-h-24 md:max-h-32'; // default medium ~96px/128px
+    };
 
     // Init Subjects and Sections
     useEffect(() => {
@@ -453,7 +467,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                         <img
                                             src={currentQ.image}
                                             alt="Question"
-                                            className="max-h-[500px] w-full md:w-auto border rounded-lg shadow-md object-contain hover:brightness-95 transition"
+                                            className={`${getQuestionImageSize(currentQ.questionImageSize)} w-full md:w-auto border rounded-lg shadow-md object-contain hover:brightness-95 transition`}
                                         />
                                     </div>
                                 )}
@@ -461,7 +475,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                 {/* ANSWER AREA */}
                                 <div className="mt-8">
                                     {currentType === 'mcq' && (
-                                        <div className="grid gap-3">
+                                        <div className={`grid gap-3 ${currentQ.optionsLayout === 'grid' ? 'grid-cols-2' : 'grid-cols-1'}`}>
                                             {currentQ.options.map((opt, idx) => {
                                                 const effectiveOpt = opt || `Option ${idx + 1}`;
                                                 return (
@@ -483,7 +497,14 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                                 <img
                                                                     src={currentQ.optionImages[idx]}
                                                                     alt={`Opt ${idx}`}
-                                                                    className="mt-2 max-h-14 md:max-h-16 object-contain border rounded bg-white p-1 transition"
+                                                                    className={`mt-2 ${getOptionImageSize(currentQ.optionsImageSize)} object-contain border rounded bg-white p-1 transition select-none`}
+                                                                    onPointerDown={(e) => {
+                                                                        longPressTimerRef.current = setTimeout(() => {
+                                                                            setZoomedImg(currentQ.optionImages[idx]);
+                                                                        }, 500);
+                                                                    }}
+                                                                    onPointerUp={() => clearTimeout(longPressTimerRef.current)}
+                                                                    onPointerLeave={() => clearTimeout(longPressTimerRef.current)}
                                                                 />
                                                             )}
                                                         </div>
@@ -494,7 +515,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                     )}
 
                                     {currentType === 'msq' && (
-                                        <div className="grid gap-3">
+                                        <div className={`grid gap-3 ${currentQ.optionsLayout === 'grid' ? 'grid-cols-2' : 'grid-cols-1'}`}>
                                             {currentQ.options.map((opt, idx) => {
                                                 const effectiveOpt = opt || `Option ${idx + 1}`;
                                                 const isSelected = (answers[currentQ._id] || []).includes(effectiveOpt);
@@ -517,7 +538,14 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                                 <img
                                                                     src={currentQ.optionImages[idx]}
                                                                     alt={`Opt ${idx}`}
-                                                                    className="mt-2 max-h-14 md:max-h-16 object-contain border rounded bg-white p-1 transition"
+                                                                    className={`mt-2 ${getOptionImageSize(currentQ.optionsImageSize)} object-contain border rounded bg-white p-1 transition select-none`}
+                                                                    onPointerDown={(e) => {
+                                                                        longPressTimerRef.current = setTimeout(() => {
+                                                                            setZoomedImg(currentQ.optionImages[idx]);
+                                                                        }, 500);
+                                                                    }}
+                                                                    onPointerUp={() => clearTimeout(longPressTimerRef.current)}
+                                                                    onPointerLeave={() => clearTimeout(longPressTimerRef.current)}
                                                                 />
                                                             )}
                                                         </div>
@@ -529,7 +557,22 @@ const ExamInterface = ({ test, onSubmit }) => {
 
                                     {currentType === 'integer' && (
                                         <div className="mt-4">
-                                            <input type="number" value={answers[currentQ._id] || ''} onChange={(e) => handleAnswerChange(e.target.value)} className="border-2 border-gray-300 rounded-lg px-4 py-3 text-xl w-48 focus:border-blue-500 focus:outline-none shadow-sm" placeholder="Enter Answer" />
+                                            <input
+                                                type="text"
+                                                inputMode="decimal"
+                                                pattern="[0-9.-]*"
+                                                value={answers[currentQ._id] || ''}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    // Allow only numbers, one minus sign at start, and one decimal point
+                                                    if (/^-?\d*\.?\d*$/.test(val) || val === '') {
+                                                        handleAnswerChange(val);
+                                                    }
+                                                }}
+                                                className="border-2 border-gray-300 rounded-lg px-4 py-3 text-xl w-48 focus:border-blue-500 focus:outline-none shadow-sm"
+                                                placeholder="Enter Answer"
+                                            />
+                                            <p className="text-sm text-gray-500 mt-2 italic">Accepts negative numbers and decimals (e.g., -1.5, 42)</p>
                                         </div>
                                     )}
                                 </div>

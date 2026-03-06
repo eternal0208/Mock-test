@@ -62,7 +62,7 @@ You will deploy **Two Separate Projects** on Vercel:
 
 ---
 
-## Troubleshooting "Load Failed"
+## Troubleshooting 
 If your frontend says "Load Failed" when trying to login or fetch tests:
 1.  Go to **Backend Project** in Vercel.
 2.  Go to **Settings** -> **Environment Variables**.

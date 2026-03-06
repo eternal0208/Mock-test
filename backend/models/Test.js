@@ -38,7 +38,10 @@ class Test {
             _id: q._id, // Keep ID if provided (critical for editing/scoring)
             text: q.text || '', // Text can be empty if image is there
             image: q.image || '', // Question Image URL
+            questionImageSize: q.questionImageSize || 'medium', // 'small' | 'medium' | 'large'
             type: q.type || 'mcq', // 'mcq' | 'msq' | 'integer'
+            optionsLayout: q.optionsLayout || 'list', // 'list' (1 col) | 'grid' (2 cols)
+            optionsImageSize: q.optionsImageSize || 'medium', // 'small' | 'medium' | 'large'
             options: q.options || [], // Array of option strings (for text)
             optionImages: q.optionImages || [], // Array of option image URLs (corresponding indices)
             correctOption: q.correctOption, // For MCQ/Integer (Auto-check)
@@ -80,6 +83,9 @@ class Test {
             resultDeclarationTime: this.resultDeclarationTime,
             questions: this.questions.map(q => ({
                 ...q,
+                optionsLayout: q.optionsLayout || 'list',
+                questionImageSize: q.questionImageSize || 'medium',
+                optionsImageSize: q.optionsImageSize || 'medium',
                 solutionImages: q.solutionImages || []
             })),
             createdBy: this.createdBy,

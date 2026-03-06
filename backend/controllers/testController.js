@@ -30,6 +30,7 @@ exports.createTest = async (req, res) => {
                 solution: q.solution || '',
                 solutionImage: q.solutionImage || ''
             })),
+            questionCount: (questions || []).length,
             createdBy: req.user?._id || 'admin',
             createdAt: new Date().toISOString()
         };
@@ -101,7 +102,7 @@ exports.deleteTest = async (req, res) => {
 exports.getAllTests = async (req, res) => {
     try {
         console.log("🔍 [API] GET /api/tests called");
-        const snapshot = await db.collection('tests').get();
+        const snapshot = await db.collection('tests').select('title', 'duration_minutes', 'total_marks', 'subject', 'category', 'difficulty', 'isVisible', 'startTime', 'endTime', 'expiryDate', 'maxAttempts', 'questionCount').get();
         console.log(`🔍 [DEBUG] Tests found in DB: ${snapshot.size}`);
 
         const tests = [];
@@ -146,7 +147,7 @@ exports.getAllTests = async (req, res) => {
                     endTime: data.endTime,
                     expiryDate: data.expiryDate || null,
                     maxAttempts: data.maxAttempts,
-                    questionCount: data.questions?.length || 0
+                    questionCount: data.questionCount || 0
                 });
                 return;
             }
@@ -182,7 +183,7 @@ exports.getAllTests = async (req, res) => {
                 endTime: data.endTime,
                 expiryDate: data.expiryDate || null,
                 maxAttempts: data.maxAttempts,
-                questionCount: data.questions?.length || 0
+                questionCount: data.questionCount || 0
             });
         });
 
@@ -531,6 +532,7 @@ exports.updateTest = async (req, res) => {
                 solution: q.solution || '',
                 solutionImage: q.solutionImage || ''
             }));
+            updateData.questionCount = questions.length;
         }
 
         await db.collection('tests').doc(req.params.id).update(updateData);
@@ -692,20 +694,9 @@ exports.getAllSeries = async (req, res) => {
     try {
         const snapshot = await db.collection('testSeries').where('isActive', '==', true).get();
 
-        // Strict Field Filter
-        // Note: Middleware 'protect' attaches req.user
-        const userField = req.user ? (req.user.category || req.user.selectedField || req.user.interest) : null;
-        const isAdmin = req.user && req.user.role === 'admin';
-
         const series = [];
         snapshot.forEach(doc => {
             const data = doc.data();
-            const seriesField = data.category || data.field;
-
-            if (!isAdmin) {
-                if (!userField) return;
-                if (seriesField !== userField) return;
-            }
             series.push({ id: doc.id, ...data });
         });
 
@@ -739,6 +730,7 @@ exports.getSeriesById = async (req, res) => {
                 const batch = seriesData.testIds.slice(i, i + batchSize);
                 const testsSnapshot = await db.collection('tests')
                     .where('__name__', 'in', batch)
+                    .select('title', 'duration_minutes', 'total_marks', 'subject', 'category', 'difficulty', 'questionCount')
                     .get();
 
                 testsSnapshot.forEach(tDoc => {
@@ -751,7 +743,7 @@ exports.getSeriesById = async (req, res) => {
                         subject: tData.subject,
                         category: tData.category || 'General',
                         difficulty: tData.difficulty,
-                        questionCount: tData.questions?.length || 0
+                        questionCount: tData.questionCount || 0
                     });
                 });
             }

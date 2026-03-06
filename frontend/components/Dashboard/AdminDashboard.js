@@ -987,7 +987,7 @@ export default function AdminDashboard() {
     };
 
     const handleDeleteTest = async (testId) => {
-        if (!confirm('Are you sure you want to delete this test? This cannot be undone.')) return;
+        if (!confirm('Are you sure you want to delete this test container?\n\nNote: Uploaded images (Questions, Options, Solutions) are safely preserved in the database to prevent breaking other tests that might reuse them. Only this specific test will be removed.\n\nThis cannot be undone. Proceed?')) return;
         try {
             const token = await user?.getIdToken();
             const res = await fetch(`${API_BASE_URL}/api/admin/tests/${testId}`, {
