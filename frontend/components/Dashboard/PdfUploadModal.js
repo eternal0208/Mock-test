@@ -339,29 +339,24 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
         try {
             const tempCanvas = document.createElement('canvas');
 
-            // Auto-downscale max width to 1000px
-            const MAX_WIDTH = 1000;
-            let targetWidth = selection.width;
-            let targetHeight = selection.height;
-
-            if (targetWidth > MAX_WIDTH) {
-                const scaleFactor = MAX_WIDTH / targetWidth;
-                targetWidth = MAX_WIDTH;
-                targetHeight = Math.floor(targetHeight * scaleFactor);
-            }
+            // Render at 2x resolution for extremely crisp text when zoomed
+            const SCALE_FACTOR = 2.0;
+            const targetWidth = selection.width * SCALE_FACTOR;
+            const targetHeight = selection.height * SCALE_FACTOR;
 
             tempCanvas.width = targetWidth;
             tempCanvas.height = targetHeight;
             const tempCtx = tempCanvas.getContext('2d');
 
+            // Draw with scaling
             tempCtx.drawImage(
                 canvasRef.current,
                 selection.x, selection.y, selection.width, selection.height,
                 0, 0, targetWidth, targetHeight
             );
 
-            // Export as WebP for significant file size savings over JPEG on text/high-contrast lines
-            const blob = await new Promise(resolve => tempCanvas.toBlob(resolve, 'image/webp', 0.8));
+            // Export as WebP with near-lossless high quality (0.95) to prevent blurriness
+            const blob = await new Promise(resolve => tempCanvas.toBlob(resolve, 'image/webp', 0.95));
             console.log("Blob created, size:", blob.size);
             const fileName = `pdf_extract_${Date.now()}_${activeSlot}.webp`;
             const storagePath = `pdf_uploads/${fileName}`;
