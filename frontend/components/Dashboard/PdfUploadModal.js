@@ -677,17 +677,53 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                             ))}
 
                             {/* Captured Highlights */}
-                            {capturedHighlights.filter(h => h.page === currentPage).map((h, i) => (
-                                <div
-                                    key={i}
-                                    className="absolute border border-indigo-400/70 bg-indigo-400/10 pointer-events-none rounded-sm flex items-start justify-start p-1"
-                                    style={{ left: h.x, top: h.y, width: h.width, height: h.height }}
-                                >
-                                    <span className="bg-indigo-500 text-white text-[8px] px-1.5 py-0.5 rounded font-black uppercase shadow-md leading-none">
-                                        {h.slot === 'question' ? 'Q' : h.slot.replace('opt', '')}
-                                    </span>
-                                </div>
-                            ))}
+                            {capturedHighlights.filter(h => h.page === currentPage).map((h, i) => {
+                                const isOption = h.slot.startsWith('opt');
+                                const optionLetter = h.slot.replace('opt', '');
+                                const isCorrectMCQ = currentQuestionData.type === 'mcq' && currentQuestionData.correctOption === optionLetter;
+                                const isCorrectMSQ = currentQuestionData.type === 'msq' && currentQuestionData.correctOptions.includes(optionLetter);
+                                const isCorrect = isCorrectMCQ || isCorrectMSQ;
+
+                                return (
+                                    <div
+                                        key={i}
+                                        onClick={(e) => {
+                                            if (!isOption || isDragging || isMoving || isResizing) return;
+                                            e.stopPropagation();
+                                            setCurrentQuestionData(prev => {
+                                                if (prev.type === 'mcq') {
+                                                    return { ...prev, correctOption: prev.correctOption === optionLetter ? '' : optionLetter };
+                                                } else if (prev.type === 'msq') {
+                                                    const newArr = prev.correctOptions.includes(optionLetter)
+                                                        ? prev.correctOptions.filter(o => o !== optionLetter)
+                                                        : [...prev.correctOptions, optionLetter];
+                                                    return { ...prev, correctOptions: newArr };
+                                                }
+                                                return prev;
+                                            });
+                                        }}
+                                        className={`absolute pointer-events-auto rounded-sm flex items-start justify-start p-1 transition-colors ${isOption ? 'cursor-pointer hover:bg-indigo-400/20' : 'pointer-events-none'
+                                            } border-2 ${isCorrect
+                                                ? 'border-emerald-500 bg-emerald-500/20 z-20 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                                                : isOption
+                                                    ? 'border-indigo-400/70 bg-indigo-400/10 hover:border-indigo-400'
+                                                    : 'border-indigo-400/70 bg-indigo-400/10'
+                                            }`}
+                                        style={{ left: h.x, top: h.y, width: h.width, height: h.height }}
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            <span className={`text-white text-[8px] px-1.5 py-0.5 rounded font-black uppercase shadow-md leading-none ${isCorrect ? 'bg-emerald-600' : 'bg-indigo-500'}`}>
+                                                {h.slot === 'question' ? 'Q' : optionLetter}
+                                            </span>
+                                            {isCorrect && (
+                                                <span className="bg-emerald-500 text-white rounded-full p-0.5 shadow-md">
+                                                    <CheckCircle size={10} className="text-white" />
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
 
                             {/* Alignment Smart Guides */}
                             {activeBox && (
