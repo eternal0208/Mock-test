@@ -157,6 +157,68 @@ const ExamInterface = ({ test, onSubmit }) => {
         };
     }, [mode]);
 
+    // Intelligent Image Preloading Queue
+    useEffect(() => {
+        if (mode !== 'test' || !test?.questions?.length) return;
+
+        // Initialize global cache if not present (prevents redundant fetches)
+        if (!window.__preloadedImages) {
+            window.__preloadedImages = new Set();
+        }
+
+        let isCancelled = false;
+
+        const preloadImages = async () => {
+            // Build priority array: current, current+1, current+2... then current-1, current-2...
+            const total = test.questions.length;
+            const priorityIndices = [currentQuestionIndex];
+
+            let i = 1;
+            while (currentQuestionIndex + i < total || currentQuestionIndex - i >= 0) {
+                if (currentQuestionIndex + i < total) priorityIndices.push(currentQuestionIndex + i);
+                if (currentQuestionIndex - i >= 0) priorityIndices.push(currentQuestionIndex - i);
+                i++;
+            }
+
+            // Extract all un-cached URLs logically ordered by proximity to current question
+            const urlsToLoad = [];
+            for (const idx of priorityIndices) {
+                const q = test.questions[idx];
+                if (q.image && !window.__preloadedImages.has(q.image)) urlsToLoad.push(q.image);
+                if (q.optionImages && Array.isArray(q.optionImages)) {
+                    for (const optImg of q.optionImages) {
+                        if (optImg && !window.__preloadedImages.has(optImg)) urlsToLoad.push(optImg);
+                    }
+                }
+            }
+
+            // Waterfall load to preserve bandwidth and stability
+            for (const url of urlsToLoad) {
+                if (isCancelled) break; // Hard abort if user jumped to a different question
+
+                try {
+                    await new Promise((resolve) => {
+                        const img = new Image();
+                        img.src = url;
+                        img.onload = () => {
+                            window.__preloadedImages.add(url);
+                            resolve();
+                        };
+                        img.onerror = resolve; // Continue gracefully even if one image fails
+                    });
+                } catch (e) {
+                    console.error("Preload error:", e);
+                }
+            }
+        };
+
+        preloadImages();
+
+        return () => {
+            isCancelled = true; // Cleanup flag immediately aborts the previous queue natively
+        };
+    }, [currentQuestionIndex, mode, test.questions]);
+
     // --- Actions ---
 
     const startTest = () => {
