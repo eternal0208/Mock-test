@@ -5,6 +5,7 @@ import { API_BASE_URL } from '@/lib/config';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import ExamInterface from '@/components/Exam/ExamInterface';
+import LoadingScreen from '@/components/ui/LoadingScreen';
 
 export default function ExamPage() {
     const { id } = useParams();
@@ -102,7 +103,7 @@ export default function ExamPage() {
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-black">Loading Exam...</div>;
+    if (loading) return <LoadingScreen fullScreen={true} text="Loading Exam..." />;
     if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
     if (!test) return null;
 

@@ -10,6 +10,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import PdfUploadModal from './PdfUploadModal';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 const ImageZoomModal = ({ imageUrl, onClose }) => {
     if (!imageUrl) return null;
@@ -158,7 +159,17 @@ const AnalyticsModal = ({ testId, onClose }) => {
         fetchAnalytics();
     }, [testId, user]);
 
-    if (loading) return <div className="fixed inset-0 bg-black/50 flex items-center justify-center text-white z-50">Loading Analytics...</div>;
+    if (loading) return (
+        <div className="fixed inset-0 bg-black/50 flex flex-col items-center justify-center text-white z-50">
+            <DotLottieReact
+                src="https://lottie.host/585eaa49-82ac-4ffe-8958-524df205393d/GCwqhgbTtp.lottie"
+                loop
+                autoplay
+                className="w-32 h-32 md:w-48 md:h-48 mb-4"
+            />
+            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 to-purple-200 drop-shadow-md">Loading Analytics...</span>
+        </div>
+    );
 
     // Safety check for stats to prevent runtime crash
     if (error || !stats) return (
@@ -517,7 +528,12 @@ const BulkUploadModal = ({ onUpload, onClose }) => {
                     <div className="py-12 flex flex-col items-center justify-center text-center">
                         {status === 'parsing' && (
                             <>
-                                <Loader2 className="animate-spin text-indigo-600 mb-4" size={48} />
+                                <DotLottieReact
+                                    src="https://lottie.host/585eaa49-82ac-4ffe-8958-524df205393d/GCwqhgbTtp.lottie"
+                                    loop
+                                    autoplay
+                                    className="w-24 h-24 mb-4"
+                                />
                                 <h4 className="text-xl font-bold text-gray-800">Reading Excel File...</h4>
                                 <p className="text-gray-500">Extracting questions and images</p>
                             </>

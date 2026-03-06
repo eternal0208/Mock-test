@@ -7,6 +7,7 @@ import MathText from '@/components/ui/MathText';
 import Calculator from './Tools/Calculator';
 
 import { Calculator as CalcIcon, PenTool, X } from 'lucide-react';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 const ImageZoomModal = ({ imageUrl, onClose }) => {
     if (!imageUrl) return null;
@@ -420,7 +421,17 @@ const ExamInterface = ({ test, onSubmit }) => {
 
     // TEST MODE
     const currentQ = test.questions[currentQuestionIndex];
-    if (!currentQ) return <div className="p-10">Loading...</div>;
+    if (!currentQ) return (
+        <div className="p-10 flex flex-col items-center justify-center min-h-[50vh]">
+            <DotLottieReact
+                src="https://lottie.host/585eaa49-82ac-4ffe-8958-524df205393d/GCwqhgbTtp.lottie"
+                loop
+                autoplay
+                className="w-32 h-32 md:w-48 md:h-48 mb-4"
+            />
+            <span className="text-gray-500 font-bold">Loading Question...</span>
+        </div>
+    );
     const currentType = currentQ.type || 'mcq';
 
     return (

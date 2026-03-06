@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { motion } from 'framer-motion';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 interface LoadingScreenProps {
     fullScreen?: boolean;
@@ -15,25 +16,11 @@ export default function LoadingScreen({ fullScreen = true, text = "Loading Exper
     return (
         <div className={containerClasses}>
             <div className="relative">
-                {/* Outer Ring */}
-                <motion.div
-                    className="w-20 h-20 border-4 border-indigo-200 rounded-full"
-                    animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                />
-
-                {/* Spinning Gradient Ring */}
-                <motion.div
-                    className="absolute inset-0 w-20 h-20 border-4 border-t-indigo-600 border-r-transparent border-b-purple-500 border-l-transparent rounded-full"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                />
-
-                {/* Inner Dot */}
-                <motion.div
-                    className="absolute inset-0 m-auto w-3 h-3 bg-indigo-600 rounded-full"
-                    animate={{ scale: [1, 1.5, 1] }}
-                    transition={{ duration: 1, repeat: Infinity }}
+                <DotLottieReact
+                    src="https://lottie.host/585eaa49-82ac-4ffe-8958-524df205393d/GCwqhgbTtp.lottie"
+                    loop
+                    autoplay
+                    className="w-32 h-32 md:w-48 md:h-48 mx-auto"
                 />
             </div>
 
@@ -41,7 +28,7 @@ export default function LoadingScreen({ fullScreen = true, text = "Loading Exper
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="mt-6 flex flex-col items-center"
+                className="mt-2 flex flex-col items-center"
             >
                 <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
                     {text}

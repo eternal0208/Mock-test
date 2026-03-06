@@ -7,6 +7,7 @@ import AnalyticsDashboard from './AnalyticsDashboard';
 import { Clock, BookOpen, BarChart, User, Mail, Calendar, ShieldCheck, TrendingUp, ChevronRight, Star, Target, Zap, Search, Filter, Menu, X, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import SeriesCard from '@/components/ui/SeriesCard';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 export default function StudentDashboard() {
     const { user } = useAuth();
@@ -128,11 +129,14 @@ export default function StudentDashboard() {
     }, [user]);
 
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center">
-            <div className="animate-pulse flex flex-col items-center">
-                <div className="h-12 w-12 bg-gray-200 rounded-full mb-4"></div>
-                <div className="h-4 w-32 bg-gray-200 rounded"></div>
-            </div>
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+            <DotLottieReact
+                src="https://lottie.host/585eaa49-82ac-4ffe-8958-524df205393d/GCwqhgbTtp.lottie"
+                loop
+                autoplay
+                className="w-32 h-32 md:w-48 md:h-48 mb-4"
+            />
+            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 drop-shadow-sm">Loading Student Data...</span>
         </div>
     );
 
