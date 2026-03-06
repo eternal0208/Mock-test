@@ -1543,7 +1543,8 @@ export default function AdminDashboard() {
                         const now = new Date();
                         const isExpired = (date) => date && new Date(date) < now;
 
-                        const activeTests = tests.filter(t => !isExpired(t.expiryDate));
+                        const activeTests = tests.filter(t => !isExpired(t.expiryDate) && t.isVisible !== false);
+                        const hiddenTests = tests.filter(t => !isExpired(t.expiryDate) && t.isVisible === false);
                         const expiredTests = tests.filter(t => isExpired(t.expiryDate));
 
                         const renderTestTable = (testList, title, key) => (
@@ -1635,7 +1636,24 @@ export default function AdminDashboard() {
                                                             >
                                                                 <Search size={18} />
                                                             </button>
-                                                            <button onClick={() => setEditingTest(test)} className="text-blue-600 hover:text-blue-900 text-sm font-bold" title="Edit Test Details">
+                                                            <button
+                                                                onClick={async () => {
+                                                                    setLoading(true);
+                                                                    try {
+                                                                        const token = await user?.getIdToken();
+                                                                        const res = await fetch(`${API_BASE_URL}/api/tests/${test._id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                                                                        if (!res.ok) throw new Error("Could not fetch full test details");
+                                                                        const fullTest = await res.json();
+                                                                        setEditingTest(fullTest);
+                                                                    } catch (e) {
+                                                                        alert("Failed to load test for editing");
+                                                                    } finally {
+                                                                        setLoading(false);
+                                                                    }
+                                                                }}
+                                                                className="text-blue-600 hover:text-blue-900 text-sm font-bold"
+                                                                title="Edit Test Details"
+                                                            >
                                                                 <Edit2 size={18} />
                                                             </button>
                                                             <button onClick={() => setShowAnalytics(test._id)} className="text-indigo-600 hover:text-indigo-900 text-sm font-bold">Stats</button>
@@ -1682,15 +1700,24 @@ export default function AdminDashboard() {
 
                         return (
                             <div>
-                                <h2 className="text-2xl font-bold text-gray-800 mb-4">Active Tests</h2>
+                                <h2 className="text-2xl font-bold text-gray-800 mb-4 pb-2 border-b-2 border-green-500 inline-block">Active Tests (Visible)</h2>
                                 {categories.map(cat => {
                                     const catTests = activeTests.filter(t => t.category === cat);
                                     if (catTests.length === 0) return null;
                                     return renderTestTable(catTests, `${cat} - Active`, cat);
                                 })}
-                                {activeTests.length === 0 && <p className="text-gray-500 italic">No active tests.</p>}
+                                {activeTests.length === 0 && <p className="text-gray-500 italic mb-8">No active, visible tests.</p>}
 
-                                <h2 className="text-2xl font-bold text-gray-800 mb-4 mt-8 pt-8 border-t">Expired Tests</h2>
+                                <h2 className="text-2xl font-bold text-gray-800 mb-4 mt-8 pt-8 border-t-2 border-yellow-500 inline-block w-full">Hidden Tests (Drafts/Archived)</h2>
+                                <p className="text-sm text-gray-500 mb-6">These tests are deliberately hidden via the eye toggle and cannot be seen or attempted by students.</p>
+                                {categories.map(cat => {
+                                    const catTests = hiddenTests.filter(t => t.category === cat);
+                                    if (catTests.length === 0) return null;
+                                    return renderTestTable(catTests, `${cat} - Hidden`, cat);
+                                })}
+                                {hiddenTests.length === 0 && <p className="text-gray-500 italic mb-8">No hidden tests.</p>}
+
+                                <h2 className="text-2xl font-bold text-gray-800 mb-4 mt-8 pt-8 border-t-2 border-red-500 inline-block w-full">Expired Tests</h2>
                                 {categories.map(cat => {
                                     const catTests = expiredTests.filter(t => t.category === cat);
                                     if (catTests.length === 0) return null;
