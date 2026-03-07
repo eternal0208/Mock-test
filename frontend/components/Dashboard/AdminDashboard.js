@@ -1563,46 +1563,86 @@ export default function AdminDashboard() {
 
             {/* Manage Series Modal */}
             {managingSeries && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-4xl h-[80vh] rounded-xl shadow-2xl flex flex-col">
-                        <div className="p-6 border-b flex justify-between items-center bg-indigo-50">
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-white w-full max-w-5xl h-[85vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-white/20">
+                        {/* Header */}
+                        <div className="p-6 sm:p-8 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
                             <div>
-                                <h3 className="text-xl font-bold text-gray-800">Manage Tests for: {managingSeries.title}</h3>
-                                <p className="text-sm text-gray-500">Category: {managingSeries.category}</p>
-                            </div>
-                            <button onClick={() => setManagingSeries(null)} className="p-2 hover:bg-indigo-100 rounded-full"><Plus className="rotate-45" size={24} /></button>
-                        </div>
-                        <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-                            {/* Left: Available Tests */}
-                            <div className="flex-1 p-4 overflow-y-auto border-r border-gray-100">
-                                <h4 className="font-bold text-gray-700 mb-3 sticky top-0 bg-white py-2">Available Tests ({availableTests.length})</h4>
-                                <div className="space-y-2">
-                                    {availableTests.map(t => (
-                                        <div key={t._id} className="p-3 border rounded hover:bg-gray-50 flex justify-between items-center group">
-                                            <div>
-                                                <p className="font-medium text-sm">{t.title}</p>
-                                                <span className="text-xs text-gray-400">{t.questions?.length || 0} Qs</span>
-                                            </div>
-                                            <button onClick={() => handleAddTestToSeries(t._id)} className="px-3 py-1 bg-green-100 text-green-700 rounded text-xs font-bold hover:bg-green-200 opacity-0 group-hover:opacity-100 transition">ADD +</button>
-                                        </div>
-                                    ))}
-                                    {availableTests.length === 0 && <p className="text-gray-400 text-sm">No more tests available in this category.</p>}
+                                <h3 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">Manage Tests: {managingSeries.title}</h3>
+                                <div className="flex gap-2 mt-2">
+                                    <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-widest rounded-md border border-indigo-100">{managingSeries.category}</span>
+                                    <span className="px-2.5 py-1 bg-slate-50 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-md border border-slate-200">{seriesTests.length} Tests Included</span>
                                 </div>
                             </div>
-                            {/* Right: Included Tests */}
-                            <div className="flex-1 p-4 overflow-y-auto bg-gray-50/50">
-                                <h4 className="font-bold text-gray-700 mb-3 sticky top-0 bg-gray-50/50 py-2">Included Tests ({seriesTests.length})</h4>
-                                <div className="space-y-2">
-                                    {seriesTests.map(t => (
-                                        <div key={t._id} className="p-3 bg-white border border-indigo-100 shadow-sm rounded flex justify-between items-center">
-                                            <div>
-                                                <p className="font-medium text-sm text-indigo-900">{t.title}</p>
-                                                <span className="text-xs text-indigo-400">ID: {t._id.substr(0, 8)}...</span>
+                            <button onClick={() => setManagingSeries(null)} className="p-2 sm:p-3 bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-full transition-colors">
+                                <X size={24} strokeWidth={2.5} />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-hidden flex flex-col md:flex-row bg-slate-50/50">
+                            {/* Left: Available Tests */}
+                            <div className="flex-1 flex flex-col border-b md:border-b-0 md:border-r border-gray-200 bg-white">
+                                <div className="p-4 sm:p-6 border-b border-gray-100 bg-white sticky top-0 z-10 shadow-sm flex justify-between items-center">
+                                    <h4 className="font-extrabold text-slate-700 uppercase tracking-tight text-sm">Available Tests</h4>
+                                    <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">{availableTests.length} found</span>
+                                </div>
+                                <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3">
+                                    {availableTests.length > 0 ? availableTests.map(t => (
+                                        <div key={t._id} className="p-4 rounded-xl border-2 border-slate-100 hover:border-indigo-300 bg-white transition-all group flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:shadow-md">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-bold text-slate-800 text-sm sm:text-base truncate">{t.title}</p>
+                                                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                                                    <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100"><BookOpen size={10} /> {t.questionCount || t.questions?.length || 0} Qs</span>
+                                                    <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100"><Clock size={10} /> {t.duration_minutes || t.duration || 0}m</span>
+                                                    <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">{t.total_marks || 0} Marks</span>
+                                                </div>
                                             </div>
-                                            <button onClick={() => handleRemoveTestFromSeries(t._id)} className="p-1 text-red-400 hover:text-red-600 rounded bg-red-50 hover:bg-red-100"><Trash size={16} /></button>
+                                            <button onClick={() => handleAddTestToSeries(t._id)} className="w-full sm:w-auto px-4 py-2 sm:py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-600 hover:text-white transition-colors flex items-center justify-center gap-1 border border-indigo-100 hover:border-indigo-600 shadow-sm">
+                                                <Plus size={14} strokeWidth={3} /> Add
+                                            </button>
                                         </div>
-                                    ))}
-                                    {seriesTests.length === 0 && <p className="text-gray-400 text-sm italic">No tests added to this series yet.</p>}
+                                    )) : (
+                                        <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400">
+                                            <Search size={48} className="text-gray-200 mb-4" />
+                                            <p className="font-bold">No tests available</p>
+                                            <p className="text-sm mt-1">All compatible tests have been added.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Right: Included Tests */}
+                            <div className="flex-1 flex flex-col bg-slate-50/80">
+                                <div className="p-4 sm:p-6 border-b border-gray-200/60 sticky top-0 z-10 bg-slate-50/80 backdrop-blur-md flex justify-between items-center shadow-sm">
+                                    <h4 className="font-extrabold text-indigo-900 uppercase tracking-tight text-sm">Included Tests</h4>
+                                    <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-full">{seriesTests.length} items</span>
+                                </div>
+                                <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3">
+                                    {seriesTests.length > 0 ? seriesTests.map((t, idx) => (
+                                        <div key={t._id} className="p-4 bg-white border-2 border-indigo-100/50 shadow-sm hover:shadow relative rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-4 transition-all">
+                                            <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-indigo-500 rounded-l-xl"></div>
+                                            <div className="flex-1 min-w-0 pl-3">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="bg-slate-900 text-white text-[10px] font-black px-1.5 py-0.5 rounded uppercase">#{idx + 1}</span>
+                                                    <p className="font-bold text-indigo-950 text-sm sm:text-base truncate">{t.title}</p>
+                                                </div>
+                                                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                                                    <span className="text-[10px] uppercase font-bold text-gray-500 opacity-80">ID: {t._id.substr(0, 6)}...</span>
+                                                    <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-200"><BookOpen size={10} /> {t.questionCount || t.questions?.length || 0} Qs</span>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => handleRemoveTestFromSeries(t._id)} className="p-2 w-full sm:w-auto text-red-500 hover:text-white rounded-lg bg-red-50 hover:bg-red-500 transition-colors border border-red-100 hover:border-red-500 flex items-center justify-center group/btn shadow-sm">
+                                                <Trash size={16} className="group-hover/btn:scale-110 transition-transform" />
+                                                <span className="sm:hidden ml-2 font-bold text-xs uppercase">Remove</span>
+                                            </button>
+                                        </div>
+                                    )) : (
+                                        <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400">
+                                            <Layers size={48} className="text-gray-200 mb-4" />
+                                            <p className="font-bold text-indigo-900/40">Series is Empty</p>
+                                            <p className="text-sm mt-1 text-gray-500/70">Add tests from the available list on the left.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
