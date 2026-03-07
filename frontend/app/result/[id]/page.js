@@ -266,6 +266,9 @@ export default function ResultPage() {
                                                         <div className={`px-4 py-3 border-b flex justify-between items-center ${isAttempted ? (isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200') : 'bg-gray-50 border-gray-200'}`}>
                                                             <div className="flex items-center gap-2">
                                                                 <span className="font-bold text-gray-700">Question {idx + 1}</span>
+                                                                <span className={`text-xs px-2 py-0.5 rounded border uppercase font-bold text-indigo-800 bg-indigo-100 border-indigo-200`}>
+                                                                    {q.type === 'integer' ? 'INTEGER' : (q.type === 'msq' ? 'MSQ' : 'MCQ')}
+                                                                </span>
                                                                 <span className={`text-xs px-2 py-0.5 rounded border uppercase font-bold ${isAttempted ? (isCorrect ? 'bg-green-200 text-green-800 border-green-300' : 'bg-red-200 text-red-800 border-red-300') : 'bg-yellow-100 text-yellow-800 border-yellow-200'}`}>
                                                                     {isAttempted ? (isCorrect ? 'Correct' : 'Incorrect') : 'Skipped'}
                                                                 </span>
@@ -276,6 +279,14 @@ export default function ResultPage() {
                                                         </div>
 
                                                         <div className="p-6">
+                                                            {/* Skipped Notice */}
+                                                            {!isAttempted && (
+                                                                <div className="mb-4 flex items-center gap-2 text-yellow-700 bg-yellow-50 border border-yellow-200 px-4 py-2 rounded-lg">
+                                                                    <span className="text-xl">⚠️</span>
+                                                                    <p className="text-sm font-medium">You <strong>skipped</strong> this question. The correct answer is highlighted below.</p>
+                                                                </div>
+                                                            )}
+
                                                             {/* Question Text & Image */}
                                                             <div className="mb-6">
                                                                 <div className="text-lg text-gray-900 mb-3 font-medium">
@@ -286,7 +297,7 @@ export default function ResultPage() {
                                                                         <img
                                                                             src={q.image}
                                                                             alt={`Question ${idx + 1}`}
-                                                                            className="max-h-64 rounded border bg-gray-50 object-contain cursor-zoom-in hover:opacity-95 transition-opacity"
+                                                                            className="max-h-[500px] w-full object-contain rounded border bg-gray-50 cursor-zoom-in hover:opacity-95 transition-opacity"
                                                                             onClick={() => setPreviewImage(q.image)}
                                                                         />
                                                                     </div>
@@ -307,17 +318,17 @@ export default function ResultPage() {
 
                                                                         if (correct) {
                                                                             optionClass = "bg-green-50 border-green-500 ring-1 ring-green-500";
-                                                                            icon = <span className="text-green-600 font-bold">✓ Correct Answer</span>;
+                                                                            icon = <span className="text-green-600 font-bold px-2 py-1 bg-green-100 rounded text-xs ml-auto whitespace-nowrap">✓ Correct Answer</span>;
                                                                         } else if (selected) {
                                                                             optionClass = "bg-red-50 border-red-500 ring-1 ring-red-500";
-                                                                            icon = <span className="text-red-500 font-bold">✗ Your Answer</span>;
+                                                                            icon = <span className="text-red-500 font-bold px-2 py-1 bg-red-100 rounded text-xs ml-auto whitespace-nowrap">✗ Your Incorrect Answer</span>;
                                                                         } else {
                                                                             optionClass = "bg-white border-gray-200";
                                                                         }
 
-                                                                        // Special case: If selected AND correct (handled by first 'if' mostly, but we want to confirm user selection too)
+                                                                        // Special case: If selected AND correct
                                                                         if (selected && correct) {
-                                                                            icon = <span className="text-green-700 font-bold">✓ Your Answer (Correct)</span>;
+                                                                            icon = <span className="text-green-700 font-bold px-2 py-1 bg-green-100 rounded text-xs ml-auto whitespace-nowrap">✓ Your Answer (Correct)</span>;
                                                                         }
 
                                                                         return (
@@ -327,7 +338,7 @@ export default function ResultPage() {
                                                                                         {String.fromCharCode(65 + optIdx)}
                                                                                     </div>
                                                                                 </div>
-                                                                                <div className="flex-1">
+                                                                                <div className="flex-1 min-w-0">
                                                                                     <div className={`text-base ${correct || selected ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
                                                                                         <MathText text={opt || `Option ${String.fromCharCode(65 + optIdx)}`} />
                                                                                     </div>
@@ -336,7 +347,7 @@ export default function ResultPage() {
                                                                                         <img
                                                                                             src={q.optionImages[optIdx]}
                                                                                             alt={`Option ${optIdx}`}
-                                                                                            className="mt-2 h-20 object-contain rounded border bg-white cursor-zoom-in hover:opacity-95 transition-opacity"
+                                                                                            className="mt-2 max-h-16 max-w-full object-contain rounded border bg-white cursor-zoom-in hover:opacity-95 transition-opacity"
                                                                                             onClick={(e) => {
                                                                                                 e.stopPropagation();
                                                                                                 setPreviewImage(q.optionImages[optIdx]);
@@ -344,7 +355,7 @@ export default function ResultPage() {
                                                                                         />
                                                                                     )}
                                                                                 </div>
-                                                                                {icon && <div className="text-sm self-center shrink-0">{icon}</div>}
+                                                                                {icon && <div className="self-center shrink-0">{icon}</div>}
                                                                             </div>
                                                                         );
                                                                     })}
@@ -353,16 +364,16 @@ export default function ResultPage() {
 
                                                             {/* Integer Answer Display */}
                                                             {fullTest && q.type === 'integer' && (
-                                                                <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+                                                                <div className={`p-4 rounded-lg mb-6 border ${isAttempted ? (isCorrect ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500') : 'bg-gray-50 border-gray-200'}`}>
                                                                     <div className="grid grid-cols-2 gap-4">
                                                                         <div>
-                                                                            <span className="text-sm text-gray-500 block">Your Answer</span>
-                                                                            <span className={`font-mono text-xl font-bold ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                                                                            <span className={`text-sm block ${isAttempted && !isCorrect ? 'text-red-600 font-bold' : 'text-gray-500'}`}>Your Answer</span>
+                                                                            <span className={`font-mono text-xl font-bold ${isCorrect ? 'text-green-600' : (isAttempted ? 'text-red-600' : 'text-gray-500')}`}>
                                                                                 {isAttempted ? selectedOption : '-'}
                                                                             </span>
                                                                         </div>
                                                                         <div>
-                                                                            <span className="text-sm text-gray-500 block">Correct Answer</span>
+                                                                            <span className="text-sm block text-green-700 font-bold">Correct Answer</span>
                                                                             <span className="font-mono text-xl font-bold text-green-600">{q.integerAnswer}</span>
                                                                         </div>
                                                                     </div>
@@ -378,19 +389,31 @@ export default function ResultPage() {
                                                                     </h4>
                                                                     <div className="bg-blue-50/50 rounded-lg p-4 text-gray-800 text-sm leading-relaxed">
                                                                         {q.solution ? (
-                                                                            <div className="mb-3 whitespace-pre-wrap"><MathText text={q.solution} /></div>
-                                                                        ) : <p className="text-gray-400 italic mb-2">No text explanation provided.</p>}
+                                                                            <div className="mb-3 whitespace-pre-wrap text-base"><MathText text={q.solution} /></div>
+                                                                        ) : (
+                                                                            (!q.solutionImages || q.solutionImages.length === 0) && !q.solutionImage ? (
+                                                                                <div className="bg-indigo-50 border border-indigo-100 rounded p-4 my-2 text-indigo-900">
+                                                                                    <div className="flex items-start gap-3">
+                                                                                        <span className="text-xl">🎯</span>
+                                                                                        <div>
+                                                                                            <h5 className="font-bold mb-1">Self-Study Challenge!</h5>
+                                                                                            <p className="text-sm leading-relaxed text-indigo-800">No solution provided here. It's time to put on your researcher hat! Search the internet, consult your textbooks, or discuss with peers to find the answer. The best learning happens when you figure it out yourself. You've got this!</p>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            ) : null
+                                                                        )}
 
                                                                         {/* Multiple Images Support */}
                                                                         {q.solutionImages && q.solutionImages.length > 0 ? (
-                                                                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                            <div className="mt-3 grid grid-cols-1 gap-4">
                                                                                 {q.solutionImages.map((img, i) => (
-                                                                                    <div key={i}>
+                                                                                    <div key={i} className="w-full">
                                                                                         {i === 0 && <p className="text-xs font-bold text-gray-500 mb-1">Solution Images:</p>}
                                                                                         <img
                                                                                             src={img}
                                                                                             alt={`Solution ${i + 1}`}
-                                                                                            className="max-h-64 rounded border bg-white shadow-sm cursor-zoom-in hover:opacity-95 transition-opacity"
+                                                                                            className="max-h-[500px] w-full object-contain rounded border bg-white shadow-sm cursor-zoom-in hover:opacity-95 transition-opacity"
                                                                                             onClick={() => setPreviewImage(img)}
                                                                                         />
                                                                                     </div>
@@ -399,12 +422,12 @@ export default function ResultPage() {
                                                                         ) : (
                                                                             /* Legacy Single Image Fallback */
                                                                             q.solutionImage && (
-                                                                                <div>
+                                                                                <div className="mt-3 w-full">
                                                                                     <p className="text-xs font-bold text-gray-500 mb-1">Solution Image:</p>
                                                                                     <img
                                                                                         src={q.solutionImage}
                                                                                         alt="Solution"
-                                                                                        className="max-h-64 rounded border bg-white shadow-sm cursor-zoom-in hover:opacity-95 transition-opacity"
+                                                                                        className="max-h-[500px] w-full object-contain rounded border bg-white shadow-sm cursor-zoom-in hover:opacity-95 transition-opacity"
                                                                                         onClick={() => setPreviewImage(q.solutionImage)}
                                                                                     />
                                                                                 </div>
