@@ -245,11 +245,11 @@ export default function SeriesDetails() {
             <div className="max-w-4xl mx-auto">
                 <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
                     <BookOpen className="text-indigo-600" />
-                    Series Content ({tests.length} Tests)
+                    Series Content ({tests.filter(test => test.isActive !== false && test.isHidden !== true).length} Tests)
                 </h2>
 
                 <div className="space-y-4">
-                    {tests.map((test, idx) => (
+                    {tests.filter(test => test.isActive !== false && test.isHidden !== true).map((test, idx) => (
                         <div key={test._id} className={`bg-white p-4 sm:p-5 rounded-xl border transition-all ${isEnrolled ? 'hover:shadow-md border-gray-200' : 'opacity-75 border-gray-100'}`}>
                             <div className="flex justify-between items-center gap-3">
                                 <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
@@ -287,9 +287,9 @@ export default function SeriesDetails() {
                             </div>
                         </div>
                     ))}
-                    {tests.length === 0 && (
+                    {tests.filter(test => test.isActive !== false && test.isHidden !== true).length === 0 && (
                         <div className="text-center py-10 bg-white rounded-xl border border-dashed text-gray-400">
-                            No tests added to this series yet.
+                            No active tests added to this series yet.
                         </div>
                     )}
                 </div>
