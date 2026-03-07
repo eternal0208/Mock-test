@@ -40,89 +40,179 @@ const TestPreviewModal = ({ test, onClose }) => {
     return (
         <>
             {zoomedImg && <ImageZoomModal imageUrl={zoomedImg} onClose={() => setZoomedImg(null)} />}
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
-                <div className="bg-white rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4 sm:p-6">
+                <div className="bg-gray-50 rounded-3xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-white/20 animate-in zoom-in-95 duration-200">
                     {/* Header */}
-                    <div className="p-6 border-b bg-indigo-600 text-white flex justify-between items-center shrink-0">
-                        <div>
-                            <h2 className="text-2xl font-black">{test.title}</h2>
-                            <div className="flex gap-4 mt-1 text-sm font-bold opacity-90">
-                                <span className="bg-white/20 px-2 py-0.5 rounded uppercase tracking-wider">{test.category}</span>
-                                <span>{test.questions?.length || 0} Questions</span>
-                                <span>{test.duration} Minutes</span>
+                    <div className="p-6 sm:p-8 bg-white border-b border-gray-100 flex justify-between items-start shrink-0 relative overflow-hidden">
+                        <div className="relative z-10 w-full pr-12">
+                            <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                <span className="bg-indigo-100 text-indigo-700 font-black text-[10px] sm:text-xs px-2.5 py-1 rounded-full uppercase tracking-widest">{test.category}</span>
+                                <span className="bg-emerald-100 text-emerald-700 font-black text-[10px] sm:text-xs px-2.5 py-1 rounded-full uppercase tracking-widest flex items-center gap-1"><BookOpen size={12} /> {test.questions?.length || 0} QS</span>
+                                <span className="bg-amber-100 text-amber-700 font-black text-[10px] sm:text-xs px-2.5 py-1 rounded-full uppercase tracking-widest flex items-center gap-1"><Clock size={12} /> {test.duration} MINS</span>
                             </div>
+                            <h2 className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tight leading-tight">{test.title}</h2>
                         </div>
-                        <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition">
-                            <X size={28} />
+                        <button onClick={onClose} className="absolute top-6 right-6 p-2.5 bg-gray-100 hover:bg-red-100 hover:text-red-600 text-gray-500 rounded-full transition-all z-20">
+                            <X size={24} strokeWidth={2.5} />
                         </button>
+
+                        {/* Decorative background elements */}
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 overflow-y-auto p-6 bg-gray-50 space-y-8 pb-20">
-                        {test.questions?.map((q, idx) => (
-                            <div key={idx} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                                {/* Question Header */}
-                                <div className="bg-gray-100 px-6 py-3 flex justify-between items-center border-b">
-                                    <span className="font-black text-indigo-600 uppercase tracking-tighter italic">Question {idx + 1}</span>
-                                    <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded border uppercase">{q.subject || 'General'}</span>
-                                </div>
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-8 scroll-smooth pb-24">
+                        {test.questions && test.questions.length > 0 ? test.questions.map((q, idx) => {
+                            const qType = q.type || 'mcq';
+                            const isInteger = qType === 'integer';
+                            const isMsq = qType === 'msq';
+                            const optionsList = q.options && q.options.length > 0 ? q.options : ['A', 'B', 'C', 'D'];
 
-                                <div className="p-6 space-y-6">
-                                    {/* Question Content */}
-                                    <div className="space-y-4">
-                                        {q.text && <div className="text-gray-800 font-medium leading-relaxed mb-4">{q.text}</div>}
-                                        {q.image && (
-                                            <div className="bg-gray-50 rounded-lg p-4 inline-block border border-dashed border-gray-200 cursor-zoom-in hover:bg-gray-100 transition shadow-inner" onClick={() => setZoomedImg(q.image)}>
-                                                <img src={q.image} alt="Question" className="max-h-[400px] object-contain rounded" />
+                            return (
+                                <div key={idx} className="bg-white rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden relative group">
+                                    {/* Type indicator side border */}
+                                    <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${isInteger ? 'bg-amber-400' : isMsq ? 'bg-purple-500' : 'bg-blue-500'}`}></div>
+
+                                    {/* Question Header */}
+                                    <div className="px-5 py-4 flex flex-col sm:flex-row justify-between sm:items-center bg-transparent border-b border-gray-50 gap-4">
+                                        <div className="flex items-center gap-3 pl-1 sm:pl-0">
+                                            <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-lg shadow-md shrink-0">
+                                                {idx + 1}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Question Type</span>
+                                                <span className={`text-xs sm:text-sm font-black uppercase leading-none ${isInteger ? 'text-amber-600' : isMsq ? 'text-purple-600' : 'text-blue-600'}`}>
+                                                    {isInteger ? 'Integer' : isMsq ? 'Multiple Select' : 'Multiple Choice'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 pl-14 sm:pl-0">
+                                            <span className="px-3 py-1 bg-gray-50 text-gray-600 text-xs font-bold rounded-lg border border-gray-200">
+                                                {q.subject || 'General'}
+                                            </span>
+                                            <div className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-100 flex items-center gap-1">
+                                                +{q.marks || 4}
+                                                <span className="text-red-500 border-l border-emerald-200 pl-1 ml-1">-{q.negativeMarks || 1}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-5 sm:p-8 pl-6 sm:pl-8">
+                                        {/* Question Text & Image */}
+                                        <div className="mb-8">
+                                            {q.text && (
+                                                <div className="text-slate-800 text-base sm:text-lg font-medium leading-relaxed">
+                                                    <MathText text={q.text} />
+                                                </div>
+                                            )}
+                                            {q.image && (
+                                                <div className="mt-6 bg-slate-50 rounded-xl p-3 border border-slate-200 inline-block cursor-zoom-in hover:shadow-md transition group/img" onClick={() => setZoomedImg(q.image)}>
+                                                    <div className="relative">
+                                                        <img src={q.image} alt="Question" className="max-h-[350px] max-w-full object-contain rounded-lg" />
+                                                        <div className="absolute top-2 right-2 bg-black/60 text-white p-1.5 rounded-md opacity-0 group-hover/img:opacity-100 transition"><Search size={16} /></div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Options OR Integer Answer */}
+                                        {isInteger ? (
+                                            <div className="bg-amber-50/50 rounded-xl border-2 border-amber-200 p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+                                                <div className="flex flex-col text-center sm:text-left">
+                                                    <span className="text-amber-700 text-xs font-black uppercase tracking-widest mb-1">Correct Answer</span>
+                                                    <span className="text-amber-600/70 text-sm font-medium">Numerical Value Expected</span>
+                                                </div>
+                                                <div className="bg-white px-8 py-3 rounded-xl border-2 border-amber-300 shadow-sm font-mono text-3xl font-black text-amber-600 min-w-[120px] text-center shrink-0">
+                                                    {q.integerAnswer !== undefined && q.integerAnswer !== null && q.integerAnswer !== '' ? q.integerAnswer : '?'}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {optionsList.map((opt, i) => {
+                                                    const label = String.fromCharCode(65 + i); // A, B, C, D
+                                                    const optValue = opt;
+
+                                                    let isCorrect = false;
+                                                    if (isMsq) {
+                                                        if (Array.isArray(q.correctOptions)) {
+                                                            isCorrect = q.correctOptions.includes(label) || q.correctOptions.includes(optValue);
+                                                        }
+                                                    } else {
+                                                        isCorrect = q.correctOption === label || q.correctOption === optValue || q.correctAnswer === label;
+                                                    }
+
+                                                    return (
+                                                        <div key={i} className={`relative flex items-center p-3 sm:p-4 rounded-xl border-2 transition duration-200 ${isCorrect ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' : 'border-gray-100 bg-gray-50/50 hover:bg-gray-50'}`}>
+                                                            <div className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg font-black text-sm sm:text-base shrink-0 shadow-sm ${isCorrect ? 'bg-emerald-500 text-white' : 'bg-white border border-gray-200 text-slate-400'}`}>
+                                                                {label}
+                                                            </div>
+                                                            <div className="flex-1 ml-3 sm:ml-4 py-1 pr-6 text-slate-700 min-w-0">
+                                                                <div className="font-medium text-sm sm:text-base overflow-hidden break-words">
+                                                                    {optValue !== label && <MathText text={optValue} />}
+                                                                    {optValue === label && !q.optionImages?.[i] && <span className="text-gray-400 italic text-sm">Empty text option</span>}
+                                                                </div>
+                                                                {q.optionImages?.[i] && (
+                                                                    <div className="mt-3 cursor-zoom-in group/opt" onClick={() => setZoomedImg(q.optionImages[i])}>
+                                                                        <div className="inline-block relative bg-white p-2 border border-gray-200 shadow-sm rounded-lg">
+                                                                            <img src={q.optionImages[i]} alt={`Option ${label}`} className="max-h-20 sm:max-h-24 max-w-full object-contain" />
+                                                                            <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/opt:opacity-100 transition rounded-lg flex items-center justify-center"><Search size={20} className="text-white drop-shadow-md" /></div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            {isCorrect && (
+                                                                <div className="absolute top-2 right-2 sm:top-4 sm:right-4 text-emerald-500 bg-emerald-100 rounded-full p-1 shadow-sm">
+                                                                    <CheckCircle size={16} className="sm:w-5 sm:h-5" strokeWidth={3} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {/* Solution Section */}
+                                        {(q.solutionText || q.solution || (q.solutionImages && q.solutionImages.length > 0) || q.solutionImage) && (
+                                            <div className="mt-8 pt-6 border-t border-dashed border-gray-200">
+                                                <div className="inline-flex items-center gap-2 text-[10px] sm:text-xs font-black text-indigo-500 uppercase tracking-widest mb-4 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100">
+                                                    <span>💡</span> Solution & Explanation
+                                                </div>
+                                                <div className="bg-slate-50/80 rounded-2xl p-5 sm:p-6 border border-slate-100 shadow-inner">
+                                                    {(q.solutionText || q.solution) && (
+                                                        <div className="text-slate-700 text-sm sm:text-base leading-relaxed">
+                                                            <MathText text={q.solutionText || q.solution} />
+                                                        </div>
+                                                    )}
+
+                                                    {((q.solutionImages && q.solutionImages.length > 0) || q.solutionImage) && (
+                                                        <div className="mt-5 flex flex-wrap gap-4">
+                                                            {q.solutionImage && (
+                                                                <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-sm cursor-zoom-in hover:border-indigo-300 transition relative group/sol" onClick={() => setZoomedImg(q.solutionImage)}>
+                                                                    <img src={q.solutionImage} alt="Solution" className="max-h-[200px] sm:max-h-[250px] max-w-full object-contain rounded-lg" />
+                                                                    <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/sol:opacity-100 transition rounded-xl flex items-center justify-center"><Search size={28} className="text-white drop-shadow-md" /></div>
+                                                                </div>
+                                                            )}
+                                                            {q.solutionImages && q.solutionImages.map((img, i) => (
+                                                                <div key={i} className="bg-white p-2 rounded-xl border border-slate-200 shadow-sm cursor-zoom-in hover:border-indigo-300 transition relative group/sol2" onClick={() => setZoomedImg(img)}>
+                                                                    <img src={img} alt={`Solution ${i + 1}`} className="max-h-[200px] sm:max-h-[250px] max-w-full object-contain rounded-lg" />
+                                                                    <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/sol2:opacity-100 transition rounded-xl flex items-center justify-center"><Search size={28} className="text-white drop-shadow-md" /></div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
-
-                                    {/* Options */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {['A', 'B', 'C', 'D'].map((opt, i) => {
-                                            const isCorrect = q.correctOption === opt || q.correctAnswer === opt;
-                                            return (
-                                                <div key={opt} className={`relative p-4 rounded-xl border-2 transition-all ${isCorrect ? 'border-green-500 bg-green-50/50 ring-1 ring-green-500' : 'border-gray-100 bg-white'}`}>
-                                                    <div className="flex items-start gap-4">
-                                                        {(!q.optionImages?.[i] || q.options?.[i]) && (
-                                                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black shrink-0 ${isCorrect ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
-                                                                {opt}
-                                                            </span>
-                                                        )}
-                                                        <div className="flex-1 pt-1 cursor-zoom-in" onClick={() => setZoomedImg(q.optionImages[i])}>
-                                                            {q.optionImages?.[i] ? (
-                                                                <img src={q.optionImages[i]} alt={`Option ${opt}`} className="max-h-24 object-contain rounded" />
-                                                            ) : (
-                                                                <span className="text-gray-500 italic text-sm">No Image</span>
-                                                            )}
-                                                        </div>
-                                                        {isCorrect && <CheckCircle className="text-green-500 absolute top-3 right-3" size={20} />}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {/* Solution Section */}
-                                    {(q.solutionText || (q.solutionImages && q.solutionImages.length > 0) || q.solutionImage) && (
-                                        <div className="mt-6 pt-6 border-t border-dashed border-gray-200">
-                                            <div className="text-xs font-black text-indigo-500 uppercase tracking-widest mb-3">Solution / Explanation</div>
-                                            <div className="bg-indigo-50/30 rounded-xl p-5 border border-indigo-100">
-                                                {q.solutionText && <div className="text-gray-700 text-sm leading-relaxed mb-4">{q.solutionText}</div>}
-                                                {/* Support both array and single string for backward compatibility */}
-                                                {q.solutionImage && (
-                                                    <img src={q.solutionImage} alt="Solution" className="max-h-[300px] object-contain rounded shadow-sm border border-white mb-2 cursor-zoom-in" onClick={() => setZoomedImg(q.solutionImage)} />
-                                                )}
-                                                {q.solutionImages && q.solutionImages.map((img, i) => (
-                                                    <img key={i} src={img} alt={`Solution ${i + 1}`} className="max-h-[300px] object-contain rounded shadow-sm border border-white mb-2 cursor-zoom-in" onClick={() => setZoomedImg(img)} />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
+                            )
+                        }) : (
+                            <div className="flex flex-col items-center justify-center py-20 px-4 text-gray-400 border-2 border-dashed border-gray-200 rounded-3xl bg-white/50 backdrop-blur-sm">
+                                <BookOpen size={64} className="text-gray-300 mb-6 opacity-80 drop-shadow-sm" />
+                                <p className="text-xl font-black text-gray-500 mb-2">No questions found</p>
+                                <p className="text-sm font-medium text-gray-400">Add questions to this test to preview them in this viewer.</p>
                             </div>
-                        ))}
+                        )}
                     </div>
                 </div>
             </div>
