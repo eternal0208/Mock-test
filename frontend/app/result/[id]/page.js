@@ -2,12 +2,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { BarChart2, Award, Clock, ArrowLeft, Download, ChevronDown, ChevronUp, CheckCircle, XCircle, MinusCircle } from 'lucide-react';
+import { BarChart2, Award, Clock, ArrowLeft, Download, ChevronDown, ChevronUp, CheckCircle, XCircle, MinusCircle, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/config';
 import Link from 'next/link';
 import MathText from '@/components/ui/MathText';
 import ImageViewer from '@/components/ui/ImageViewer';
-import { useReactToPrint } from 'react-to-print';
 import PrintableResultReport from '@/components/Exam/PrintableResultReport';
 
 export default function ResultPage() {
@@ -19,13 +18,33 @@ export default function ResultPage() {
     const [error, setError] = useState(null);
     const [rankData, setRankData] = useState({ rank: '-', total: '-' });
     const [previewImage, setPreviewImage] = useState(null);
-    const [expandedQ, setExpandedQ] = useState(null); // which question is expanded
+    const [expandedQ, setExpandedQ] = useState(null);
+    const [downloading, setDownloading] = useState(false);
 
     const componentRef = useRef(null);
-    const handlePrint = useReactToPrint({
-        contentRef: componentRef,
-        documentTitle: `Apex_Mock_Test_Report_${fullTest?.title?.replace(/\s+/g, '_') || 'Result'}`,
-    });
+
+    const handleDownloadPDF = async () => {
+        if (!componentRef.current || downloading) return;
+        setDownloading(true);
+        try {
+            const html2pdf = (await import('html2pdf.js')).default;
+            const element = componentRef.current;
+            const filename = `Apex_Mock_Test_${fullTest?.title?.replace(/\s+/g, '_') || 'Report'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+            await html2pdf().set({
+                margin: [10, 8, 10, 8],
+                filename,
+                image: { type: 'jpeg', quality: 0.95 },
+                html2canvas: { scale: 2, useCORS: true, logging: false },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+            }).from(element).save();
+        } catch (err) {
+            console.error('PDF download error:', err);
+            alert('PDF download failed. Please try again.');
+        } finally {
+            setDownloading(false);
+        }
+    };
 
     useEffect(() => {
         if (!user) return;
@@ -153,12 +172,13 @@ export default function ResultPage() {
                     </Link>
                     {showSolutions && fullTest && (
                         <button
-                            onClick={() => handlePrint()}
-                            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold text-sm shadow-sm hover:bg-blue-700 transition flex items-center gap-1.5"
+                            onClick={handleDownloadPDF}
+                            disabled={downloading}
+                            className={`${downloading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} text-white px-3 py-1.5 rounded-lg font-semibold text-sm shadow-sm transition flex items-center gap-1.5`}
                         >
-                            <Download size={14} />
-                            <span className="hidden sm:inline">Download PDF</span>
-                            <span className="sm:hidden">PDF</span>
+                            {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                            <span className="hidden sm:inline">{downloading ? 'Generating...' : 'Download PDF'}</span>
+                            <span className="sm:hidden">{downloading ? '...' : 'PDF'}</span>
                         </button>
                     )}
                 </div>
@@ -492,9 +512,9 @@ export default function ResultPage() {
                 )}
             </div>
 
-            {/* Hidden Print Component */}
+            {/* Hidden PDF Component - visible to html2pdf only */}
             {showSolutions && fullTest && (
-                <div className="hidden">
+                <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
                     <PrintableResultReport
                         ref={componentRef}
                         result={result}

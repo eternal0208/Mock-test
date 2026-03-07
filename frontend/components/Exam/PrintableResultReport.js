@@ -80,9 +80,12 @@ const PrintableResultReport = forwardRef(({ result, test, effectiveQuestions, pe
                 <div>
                     {/* Header */}
                     <div className="border-b-4 border-blue-900 pb-8 mb-12 flex justify-between items-end">
-                        <div>
-                            <h1 className="text-5xl font-black text-blue-900 tracking-tighter shadow-sm">APEX MOCK TEST</h1>
-                            <p className="text-xl font-medium text-gray-500 mt-2 uppercase tracking-widest">Detailed Performance Analysis</p>
+                        <div className="flex items-center gap-4">
+                            <img src="/logo.png" alt="Apex Mock Test Logo" className="w-16 h-16 object-contain" />
+                            <div>
+                                <h1 className="text-5xl font-black text-blue-900 tracking-tighter">APEX MOCK TEST</h1>
+                                <p className="text-xl font-medium text-gray-500 mt-2 uppercase tracking-widest">Detailed Performance Analysis</p>
+                            </div>
                         </div>
                         <div className="text-right">
                             <div className="text-sm text-gray-400 font-bold uppercase tracking-wider mb-1">Generated On</div>
