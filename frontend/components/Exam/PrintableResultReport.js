@@ -258,7 +258,12 @@ const PrintableResultReport = forwardRef(({ result, test, effectiveQuestions, pe
                                             <div key={optIdx} className={`p-3 rounded border text-sm flex flex-col ${style}`}>
                                                 <div className="flex items-start gap-2 mb-1">
                                                     <span className="font-bold shrink-0">{getOptionLabel(optIdx)}.</span>
-                                                    <div className="flex-1"><MathText text={effectiveOpt} /></div>
+                                                    <div className="flex-1">
+                                                        <MathText text={effectiveOpt} />
+                                                        {q.optionImages && q.optionImages[optIdx] && (
+                                                            <img src={q.optionImages[optIdx]} alt={`Option ${getOptionLabel(optIdx)}`} className="mt-1 max-h-20 object-contain rounded border border-gray-200 bg-white" />
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 {marker && <span className={`text-[10px] uppercase tracking-wider font-bold mt-2 pt-2 border-t ${correct ? 'border-green-200 text-green-700' : 'border-red-200 text-red-600'}`}>{marker}</span>}
                                             </div>
@@ -283,8 +288,36 @@ const PrintableResultReport = forwardRef(({ result, test, effectiveQuestions, pe
                                 </div>
                             )}
 
+                            {/* Answer Summary */}
+                            <div className="mt-4 px-2 mb-3">
+                                <div className={`p-3 rounded-lg border-2 ${isAttempted ? (isCorrect ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400') : 'bg-yellow-50 border-yellow-300'}`}>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-0.5">Your Answer</div>
+                                            <div className={`text-sm font-bold ${isAttempted ? (isCorrect ? 'text-green-700' : 'text-red-700') : 'text-gray-400'}`}>
+                                                {isAttempted ? (
+                                                    q.type === 'integer' ? selectedOption :
+                                                        Array.isArray(selectedOption) ? selectedOption.join(', ') : selectedOption
+                                                ) : 'Skipped'}
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-[10px] font-bold uppercase tracking-widest text-green-700 mb-0.5">Correct Answer</div>
+                                            <div className="text-sm font-bold text-green-700">
+                                                {q.type === 'integer' ? q.integerAnswer :
+                                                    q.type === 'msq' && Array.isArray(q.correctOptions) ? q.correctOptions.join(', ') :
+                                                        q.correctOption || '-'}
+                                            </div>
+                                        </div>
+                                        <div className={`text-xl ${isAttempted ? (isCorrect ? '' : '') : ''}`}>
+                                            {isAttempted ? (isCorrect ? '✅' : '❌') : '⏭️'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Solution */}
-                            <div className="mt-4 px-2">
+                            <div className="px-2">
                                 <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
                                     <h4 className="text-xs font-bold text-blue-800 uppercase tracking-widest mb-3 flex items-center gap-2">
                                         <span className="text-base">💡</span> Official Solution
