@@ -2851,14 +2851,17 @@ export default function AdminDashboard() {
                                             const extractedQuestions = splittingTest.questions.filter(q => (q.subject || 'Uncategorized') === sub);
                                             setQuestions(extractedQuestions);
                                             setTestDetails({
-                                                ...testDetails,
-                                                title: `${splittingTest.title} - ${sub}`,
+                                                ...splittingTest,
+                                                _id: undefined,
+                                                id: undefined,
+                                                title: splittingTest.title,
                                                 category: splittingTest.category,
                                                 subject: sub,
                                                 duration: splittingTest.duration,
                                                 difficulty: splittingTest.difficulty || 'medium',
                                                 instructions: splittingTest.instructions || '',
                                                 calculator: splittingTest.calculator || false,
+                                                visibility: 'private',
                                                 totalMarks: extractedQuestions.reduce((acc, q) => acc + Number(q.marks), 0)
                                             });
                                             setActiveTab('create');
@@ -2878,13 +2881,16 @@ export default function AdminDashboard() {
                                 onClick={() => {
                                     setQuestions(splittingTest.questions);
                                     setTestDetails({
-                                        ...testDetails,
-                                        title: `${splittingTest.title} (Copy)`,
+                                        ...splittingTest,
+                                        _id: undefined,
+                                        id: undefined,
+                                        title: splittingTest.title,
                                         category: splittingTest.category,
                                         duration: splittingTest.duration,
                                         difficulty: splittingTest.difficulty || 'medium',
                                         instructions: splittingTest.instructions || '',
                                         calculator: splittingTest.calculator || false,
+                                        visibility: 'private',
                                         totalMarks: splittingTest.questions.reduce((acc, q) => acc + Number(q.marks), 0)
                                     });
                                     setActiveTab('create');
