@@ -38,7 +38,7 @@ const PrintableResultReport = forwardRef(({ result, test, effectiveQuestions, pe
     const getOptionLabel = (idx) => String.fromCharCode(65 + idx);
 
     return (
-        <div ref={ref} style={{ width: '794px', backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }}>
+        <div ref={ref} className="print-only">
             {/* Global Print Styles explicitly targeting standard A4 */}
             <style type="text/css" media="print">
                 {`
@@ -81,9 +81,9 @@ const PrintableResultReport = forwardRef(({ result, test, effectiveQuestions, pe
                     {/* Header */}
                     <div className="border-b-4 border-blue-900 pb-8 mb-12 flex justify-between items-end">
                         <div className="flex items-center gap-4">
-                            <img src="/logo.png" alt="Apex Mock Test Logo" className="w-16 h-16 object-contain" />
+                            <img src="/logo.png" alt="Apex Mock Test Logo" className="h-20 w-auto object-contain" />
                             <div>
-                                <h1 className="text-5xl font-black text-blue-900 tracking-tighter">APEX MOCK TEST</h1>
+                                <h1 className="text-5xl font-black text-blue-900 tracking-tighter shadow-sm">APEX MOCK TEST</h1>
                                 <p className="text-xl font-medium text-gray-500 mt-2 uppercase tracking-widest">Detailed Performance Analysis</p>
                             </div>
                         </div>

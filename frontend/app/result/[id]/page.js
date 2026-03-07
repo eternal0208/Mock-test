@@ -2,11 +2,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { BarChart2, Award, Clock, ArrowLeft, Download, ChevronDown, ChevronUp, CheckCircle, XCircle, MinusCircle, Loader2 } from 'lucide-react';
+import { BarChart2, Award, Clock, ArrowLeft, Download, ChevronDown, ChevronUp, CheckCircle, XCircle, MinusCircle } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/config';
 import Link from 'next/link';
 import MathText from '@/components/ui/MathText';
 import ImageViewer from '@/components/ui/ImageViewer';
+import { useReactToPrint } from 'react-to-print';
 import PrintableResultReport from '@/components/Exam/PrintableResultReport';
 
 export default function ResultPage() {
@@ -18,61 +19,65 @@ export default function ResultPage() {
     const [error, setError] = useState(null);
     const [rankData, setRankData] = useState({ rank: '-', total: '-' });
     const [previewImage, setPreviewImage] = useState(null);
-    const [expandedQ, setExpandedQ] = useState(null);
-    const [downloading, setDownloading] = useState(false);
+    const [expandedQ, setExpandedQ] = useState(null); // which question is expanded
 
     const componentRef = useRef(null);
+    const handlePrint = useReactToPrint({
+        contentRef: componentRef,
+        documentTitle: `Apex_Mock_Test_Report_${fullTest?.title?.replace(/\s+/g, '_') || 'Result'}`,
+        print: async (printIframe) => {
+            try {
+                const document = printIframe.contentDocument;
+                if (!document) throw new Error("Iframe document not loaded");
 
-    const handleDownloadPDF = async () => {
-        if (!componentRef.current || downloading) return;
-        setDownloading(true);
-        try {
-            const html2canvas = (await import('html2canvas-pro')).default;
-            const { jsPDF } = await import('jspdf');
+                // Strip lab/oklch/color properties from stylesheets as html2canvas fails to parse them
+                const styleTags = document.querySelectorAll('style, link[rel="stylesheet"]');
+                for (let style of styleTags) {
+                    try {
+                        if (style.tagName.toLowerCase() === 'style' && style.innerHTML) {
+                            const newCSS = style.innerHTML.replace(/[a-zA-Z-]+\s*:\s*[^;}]*(?:lab|oklch|color)\s*\([^;}]*[;}]/gi, match => match.endsWith('}') ? '}' : '');
+                            style.innerHTML = newCSS;
+                        }
+                    } catch (e) {
+                        console.warn("Could not process style tag", e);
+                    }
+                }
 
-            const element = componentRef.current;
-            const filename = `Apex_Mock_Test_${fullTest?.title?.replace(/\s+/g, '_') || 'Report'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+                // Dynamically import html2canvas-pro and jsPDF
+                const html2canvasModule = await import('html2canvas-pro');
+                const html2canvas = html2canvasModule.default ? html2canvasModule.default : html2canvasModule;
 
-            // Render to canvas
-            const canvas = await html2canvas(element, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                allowTaint: true,
-                backgroundColor: '#ffffff'
-            });
+                const { jsPDF } = await import('jspdf');
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.92);
-            const pdf = new jsPDF('p', 'mm', 'a4');
+                const element = document.body;
 
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            const imgWidth = pdfWidth;
-            const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+                const canvas = await html2canvas(element, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false
+                });
 
-            let heightLeft = imgHeight;
-            let position = 0;
+                const imgData = canvas.toDataURL('image/jpeg', 0.98);
+                const pdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
+                });
 
-            // First page
-            pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pdfHeight;
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-            // Additional pages
-            while (heightLeft > 0) {
-                position -= pdfHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pdfHeight;
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+                pdf.save(`Apex_Mock_Test_Report_${fullTest?.title?.replace(/\s+/g, '_') || 'Result'}.pdf`);
+            } catch (error) {
+                console.error('PDF generation error:', error);
+                // Fallback to regular print if generation fails
+                if (printIframe && printIframe.contentWindow) {
+                    printIframe.contentWindow.print();
+                }
             }
-
-            pdf.save(filename);
-        } catch (err) {
-            console.error('PDF download error:', err);
-            alert('PDF download failed. Please try again.');
-        } finally {
-            setDownloading(false);
         }
-    };
+    });
 
     useEffect(() => {
         if (!user) return;
@@ -198,17 +203,16 @@ export default function ResultPage() {
                     <Link href="/dashboard" className="flex items-center text-gray-600 hover:text-gray-900 transition text-sm font-medium">
                         <ArrowLeft className="mr-1" size={18} /> Back
                     </Link>
-                    {showSolutions && fullTest && (
+                    {/* {showSolutions && fullTest && (
                         <button
-                            onClick={handleDownloadPDF}
-                            disabled={downloading}
-                            className={`${downloading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} text-white px-3 py-1.5 rounded-lg font-semibold text-sm shadow-sm transition flex items-center gap-1.5`}
+                            onClick={() => handlePrint()}
+                            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold text-sm shadow-sm hover:bg-blue-700 transition flex items-center gap-1.5"
                         >
-                            {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                            <span className="hidden sm:inline">{downloading ? 'Generating...' : 'Download PDF'}</span>
-                            <span className="sm:hidden">{downloading ? '...' : 'PDF'}</span>
+                            <Download size={14} />
+                            <span className="hidden sm:inline">Download PDF</span>
+                            <span className="sm:hidden">PDF</span>
                         </button>
-                    )}
+                    )} */}
                 </div>
             </div>
 
@@ -540,9 +544,9 @@ export default function ResultPage() {
                 )}
             </div>
 
-            {/* Hidden PDF Component - visible to html2pdf only */}
+            {/* Hidden Print Component */}
             {showSolutions && fullTest && (
-                <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+                <div className="hidden">
                     <PrintableResultReport
                         ref={componentRef}
                         result={result}
