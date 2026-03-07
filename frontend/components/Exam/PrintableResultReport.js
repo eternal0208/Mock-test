@@ -38,7 +38,7 @@ const PrintableResultReport = forwardRef(({ result, test, effectiveQuestions, pe
     const getOptionLabel = (idx) => String.fromCharCode(65 + idx);
 
     return (
-        <div ref={ref} className="print-only">
+        <div ref={ref} style={{ width: '794px', backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }}>
             {/* Global Print Styles explicitly targeting standard A4 */}
             <style type="text/css" media="print">
                 {`

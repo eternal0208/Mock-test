@@ -27,17 +27,45 @@ export default function ResultPage() {
         if (!componentRef.current || downloading) return;
         setDownloading(true);
         try {
-            const html2pdf = (await import('html2pdf.js')).default;
+            const html2canvas = (await import('html2canvas')).default;
+            const { jsPDF } = await import('jspdf');
+
             const element = componentRef.current;
             const filename = `Apex_Mock_Test_${fullTest?.title?.replace(/\s+/g, '_') || 'Report'}_${new Date().toISOString().slice(0, 10)}.pdf`;
-            await html2pdf().set({
-                margin: [10, 8, 10, 8],
-                filename,
-                image: { type: 'jpeg', quality: 0.95 },
-                html2canvas: { scale: 2, useCORS: true, logging: false },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-            }).from(element).save();
+
+            // Render to canvas
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                allowTaint: true,
+                backgroundColor: '#ffffff'
+            });
+
+            const imgData = canvas.toDataURL('image/jpeg', 0.92);
+            const pdf = new jsPDF('p', 'mm', 'a4');
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = pdfWidth;
+            const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            // First page
+            pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pdfHeight;
+
+            // Additional pages
+            while (heightLeft > 0) {
+                position -= pdfHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pdfHeight;
+            }
+
+            pdf.save(filename);
         } catch (err) {
             console.error('PDF download error:', err);
             alert('PDF download failed. Please try again.');
