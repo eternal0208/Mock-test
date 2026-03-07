@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import MathText from '../MathText';
+import MathText from '@/components/ui/MathText';
 
 const PrintableResultReport = forwardRef(({ result, test, effectiveQuestions, percentage, rankData, maxMarks }, ref) => {
     if (!result || !test) return null;
