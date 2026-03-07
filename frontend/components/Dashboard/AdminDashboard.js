@@ -1521,8 +1521,8 @@ export default function AdminDashboard() {
     // Filter tests for Modal (Ensure logic works even if series not loaded yet, though normally is)
     // Tests already in series
     const seriesTests = managingSeries ? tests.filter(t => (managingSeries.testIds || []).includes(t._id)) : [];
-    // Tests available to add
-    const availableTests = managingSeries ? tests.filter(t => !managingSeries.testIds?.includes(t._id) && t.category === managingSeries.category) : [];
+    // Tests available to add (Admins should be able to add ANY test to a series)
+    const availableTests = managingSeries ? tests.filter(t => !managingSeries.testIds?.includes(t._id)) : [];
 
     const handleAddTestToSeries = async (testId) => {
         if (!managingSeries) return;
