@@ -1,7 +1,7 @@
 'use client';
 // Admin Dashboard Updated: 2026-02-04
 import { useState, useEffect } from 'react';
-import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X, Download, Loader2 } from 'lucide-react';
+import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X, Download, Loader2, Layers } from 'lucide-react';
 import SubjectToolbar from './SubjectToolbar';
 import MathText from '@/components/ui/MathText';
 import { API_BASE_URL } from '@/lib/config';
@@ -1588,10 +1588,10 @@ export default function AdminDashboard() {
                                 </div>
                                 <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3">
                                     {availableTests.length > 0 ? availableTests.map(t => (
-                                        <div key={t._id} className="p-4 rounded-xl border-2 border-slate-100 hover:border-indigo-300 bg-white transition-all group flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:shadow-md">
+                                        <div key={t._id} className="p-3 sm:p-4 rounded-xl border-2 border-slate-100 hover:border-indigo-300 bg-white transition-all group flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:shadow-md">
                                             <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-slate-800 text-sm sm:text-base truncate">{t.title}</p>
-                                                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                                                <p className="font-bold text-slate-800 text-[13px] sm:text-[15px] truncate">{t.title}</p>
+                                                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                                                     <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100"><BookOpen size={10} /> {t.questionCount || t.questions?.length || 0} Qs</span>
                                                     <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100"><Clock size={10} /> {t.duration_minutes || t.duration || 0}m</span>
                                                     <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">{t.total_marks || 0} Marks</span>
@@ -1619,15 +1619,15 @@ export default function AdminDashboard() {
                                 </div>
                                 <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3">
                                     {seriesTests.length > 0 ? seriesTests.map((t, idx) => (
-                                        <div key={t._id} className="p-4 bg-white border-2 border-indigo-100/50 shadow-sm hover:shadow relative rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-4 transition-all">
-                                            <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-indigo-500 rounded-l-xl"></div>
+                                        <div key={t._id} className="p-3 sm:p-4 bg-white border-2 border-indigo-100/50 shadow-sm hover:shadow relative rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-3 transition-all">
+                                            <div className="absolute top-0 left-0 bottom-0 w-1 bg-indigo-500 rounded-l-xl"></div>
                                             <div className="flex-1 min-w-0 pl-3">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <span className="bg-slate-900 text-white text-[10px] font-black px-1.5 py-0.5 rounded uppercase">#{idx + 1}</span>
-                                                    <p className="font-bold text-indigo-950 text-sm sm:text-base truncate">{t.title}</p>
+                                                    <span className="bg-slate-900 text-white text-[9px] font-black px-1.5 rounded uppercase">#{idx + 1}</span>
+                                                    <p className="font-bold text-indigo-950 text-[13px] sm:text-[15px] truncate">{t.title}</p>
                                                 </div>
-                                                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                                                    <span className="text-[10px] uppercase font-bold text-gray-500 opacity-80">ID: {t._id.substr(0, 6)}...</span>
+                                                <div className="flex items-center gap-2 mt-[2px] flex-wrap">
+                                                    <span className="text-[10px] uppercase font-bold text-gray-500 opacity-80 bg-gray-50 px-1 py-[1px] rounded">ID: {t._id.substr(0, 6)}</span>
                                                     <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-200"><BookOpen size={10} /> {t.questionCount || t.questions?.length || 0} Qs</span>
                                                 </div>
                                             </div>
