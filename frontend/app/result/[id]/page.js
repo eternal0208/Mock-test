@@ -27,7 +27,7 @@ export default function ResultPage() {
         if (!componentRef.current || downloading) return;
         setDownloading(true);
         try {
-            const html2canvas = (await import('html2canvas')).default;
+            const html2canvas = (await import('html2canvas-pro')).default;
             const { jsPDF } = await import('jspdf');
 
             const element = componentRef.current;
