@@ -1,12 +1,14 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { BarChart2, Award, Clock, ArrowLeft } from 'lucide-react';
+import { BarChart2, Award, Clock, ArrowLeft, Printer } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/config';
 import Link from 'next/link';
 import MathText from '@/components/ui/MathText';
 import ImageViewer from '@/components/ui/ImageViewer';
+import { useReactToPrint } from 'react-to-print';
+import PrintableResultReport from '@/components/Exam/PrintableResultReport';
 
 export default function ResultPage() {
     const { id } = useParams(); // result ID (not test ID)
@@ -17,6 +19,12 @@ export default function ResultPage() {
     const [error, setError] = useState(null);
     const [rankData, setRankData] = useState({ rank: '-', total: '-' });
     const [previewImage, setPreviewImage] = useState(null);
+
+    const componentRef = useRef(null);
+    const handlePrint = useReactToPrint({
+        contentRef: componentRef,
+        documentTitle: `Apex_Mock_Test_Report_${fullTest?.title?.replace(/\s+/g, '_') || 'Result'}`,
+    });
 
     useEffect(() => {
         if (!user) return;
@@ -136,9 +144,16 @@ export default function ResultPage() {
                             <h1 className="text-3xl font-bold">Exam Result</h1>
                             <p className="opacity-90 mt-1">{testMeta.title} {!fullTest && <span className="bg-red-500 text-xs px-2 py-0.5 rounded ml-2">ARCHIVED</span>}</p>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex flex-col items-end">
                             <div className="text-4xl font-bold">{result.score} <span className="text-xl font-normal opacity-75">/ {maxMarks}</span></div>
-                            <p className="text-sm opacity-90">Total Score</p>
+                            <p className="text-sm opacity-90 mb-4">Total Score</p>
+                            <button
+                                onClick={() => handlePrint()}
+                                className="bg-white text-blue-600 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-blue-50 transition whitespace-nowrap flex items-center gap-2 border border-blue-100"
+                            >
+                                <Printer size={18} />
+                                Download Full Analysis PDF
+                            </button>
                         </div>
                     </div>
 
@@ -242,9 +257,17 @@ export default function ResultPage() {
                                                     userAttempt = result.attempt_data.find(a => a.questionText === q.text);
                                                 }
 
-                                                const isAttempted = !!userAttempt;
+                                                let isAttempted = false;
                                                 const isCorrect = userAttempt?.isCorrect;
                                                 const selectedOption = userAttempt?.selectedOption; // Value or Array (for MSQ)
+
+                                                if (userAttempt) {
+                                                    if (Array.isArray(selectedOption)) {
+                                                        isAttempted = selectedOption.length > 0;
+                                                    } else {
+                                                        isAttempted = selectedOption !== undefined && selectedOption !== null && selectedOption !== '';
+                                                    }
+                                                }
 
                                                 // Helper to check if an option is selected by user
                                                 const isOptionSelected = (optVal) => {
@@ -448,6 +471,21 @@ export default function ResultPage() {
                     )}
                 </div>
             </div>
+
+            {/* Hidden Print Component */}
+            {showSolutions && fullTest && (
+                <div className="hidden">
+                    <PrintableResultReport
+                        ref={componentRef}
+                        result={result}
+                        test={fullTest}
+                        effectiveQuestions={effectiveQuestions}
+                        percentage={percentage}
+                        rankData={rankData}
+                        maxMarks={maxMarks}
+                    />
+                </div>
+            )}
         </div>
     );
 }
