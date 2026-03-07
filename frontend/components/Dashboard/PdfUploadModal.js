@@ -24,6 +24,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
     const [resizeHandle, setResizeHandle] = useState(null);
     const [uploadedCount, setUploadedCount] = useState(0);
     const [initialSelection, setInitialSelection] = useState(null);
+    const [pdfSize, setPdfSize] = useState({ width: 0, height: 0 });
     const [isPdfLoading, setIsPdfLoading] = useState(false);
     const [isCapturing, setIsCapturing] = useState(false);
     const [activeSlot, setActiveSlot] = useState('question'); // question, optA, optB, optC, optD, solution
@@ -125,7 +126,10 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                 }
 
                 const page = await pdf.getPage(currentPage);
-                const viewport = page.getViewport({ scale });
+                // Use a high-resolution modifier for the canvas internal dimensions
+                const HIGH_RES_SCALE = 3;
+                const baseViewport = page.getViewport({ scale });
+                const viewport = page.getViewport({ scale: scale * HIGH_RES_SCALE });
                 const canvas = canvasRef.current;
                 const context = canvas.getContext('2d');
 
@@ -133,6 +137,9 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
 
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
+                canvas.style.width = `${baseViewport.width}px`;
+                canvas.style.height = `${baseViewport.height}px`;
+                setPdfSize({ width: baseViewport.width, height: baseViewport.height });
 
                 const renderContext = {
                     canvasContext: context,
@@ -349,20 +356,22 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
         try {
             const tempCanvas = document.createElement('canvas');
 
-            // Render at 2x resolution for extremely crisp text when zoomed
-            const SCALE_FACTOR = 2.0;
-            const targetWidth = selection.width * SCALE_FACTOR;
-            const targetHeight = selection.height * SCALE_FACTOR;
+            // Map the CSS-space coordinates to the 3x high-res internal canvas
+            const HIGH_RES_SCALE = 3;
+            const sourceX = selection.x * HIGH_RES_SCALE;
+            const sourceY = selection.y * HIGH_RES_SCALE;
+            const sourceWidth = selection.width * HIGH_RES_SCALE;
+            const sourceHeight = selection.height * HIGH_RES_SCALE;
 
-            tempCanvas.width = targetWidth;
-            tempCanvas.height = targetHeight;
+            tempCanvas.width = sourceWidth;
+            tempCanvas.height = sourceHeight;
             const tempCtx = tempCanvas.getContext('2d');
 
-            // Draw with scaling
+            // Draw with 1:1 mapping from the high-res internal canvas
             tempCtx.drawImage(
                 canvasRef.current,
-                selection.x, selection.y, selection.width, selection.height,
-                0, 0, targetWidth, targetHeight
+                sourceX, sourceY, sourceWidth, sourceHeight,
+                0, 0, sourceWidth, sourceHeight
             );
 
             // Export as WebP with near-lossless high quality (0.95) to prevent blurriness
@@ -408,7 +417,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                 setSelection(prev => {
                     if (!prev) return null;
                     const newY = prev.y + prev.height + 15; // Shift down by height + gap
-                    return { ...prev, y: Math.min(newY, canvasRef.current.height - prev.height) };
+                    return { ...prev, y: Math.min(newY, pdfSize.height - prev.height) };
                 });
             } else {
                 setSelection(null);
@@ -647,7 +656,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                     <div
                         className="relative mx-auto my-8"
                         style={{
-                            width: canvasRef.current?.width || 'auto',
+                            width: pdfSize.width ? `${pdfSize.width}px` : 'auto',
                             transformOrigin: 'top center',
                         }}
                     >
