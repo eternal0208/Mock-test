@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import ExamInterface from '@/components/Exam/ExamInterface';
 import LoadingScreen from '@/components/ui/LoadingScreen';
+import { useTestStore } from '@/lib/store/testStore';
 
 export default function ExamPage() {
     const { id } = useParams();
@@ -14,6 +15,7 @@ export default function ExamPage() {
     const [test, setTest] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const { preloadedTests, clearTest } = useTestStore();
 
     const [showWarning, setShowWarning] = useState(false);
     const [warningMessage, setWarningMessage] = useState('');
@@ -30,6 +32,13 @@ export default function ExamPage() {
 
         const fetchTest = async () => {
             try {
+                // If test is preloaded from instruction page, use it instantly!
+                if (preloadedTests[id]) {
+                    setTest(preloadedTests[id]);
+                    setLoading(false);
+                    return;
+                }
+
                 const token = await user.getIdToken();
                 const res = await fetch(`${API_BASE_URL}/api/tests/${id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -97,6 +106,7 @@ export default function ExamPage() {
             if (document.fullscreenElement) document.exitFullscreen();
 
             // Redirect to Result Page
+            clearTest(id);
             router.push(`/result/${data._id}`);
         } catch (err) {
             alert('Error submitting test');

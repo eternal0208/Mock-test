@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Clock, CheckCircle, AlertTriangle, Play } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/config';
 import { useAuth } from '@/context/AuthContext';
+import { useTestStore } from '@/lib/store/testStore';
 
 interface Test {
     title: string;
@@ -19,6 +20,7 @@ export default function InstructionPage() {
     const { user, loading: authLoading } = useAuth();
     const [test, setTest] = useState<Test | null>(null);
     const [loading, setLoading] = useState(true);
+    const { setPreloadedTest } = useTestStore();
 
     useEffect(() => {
         if (authLoading) return;
@@ -38,6 +40,8 @@ export default function InstructionPage() {
                 if (res.ok) {
                     const data = await res.json();
                     setTest(data);
+                    // Pre-store for the actual exam page to pick up instantly
+                    setPreloadedTest(id as string, data);
                 } else {
                     console.error("Fetch failed", res.status);
                 }
