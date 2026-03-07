@@ -5,6 +5,27 @@ import MathText from '@/components/ui/MathText';
 const PrintableResultReport = forwardRef(({ result, test, effectiveQuestions, percentage, rankData, maxMarks }, ref) => {
     if (!result || !test) return null;
 
+    // Robust matching by deterministic questionId
+    const getAttemptForQuestion = (q, idx) => {
+        if (q._reconstructed) return result.attempt_data[idx];
+        const testId = test?._id || result.testId?._id || result.testId;
+        const expectedId = `q_${testId}_${idx}`;
+        let found = result.attempt_data.find(a => a.questionId === expectedId);
+        if (found) return found;
+        if (q._id) {
+            found = result.attempt_data.find(a => a.questionId === q._id || a.questionId === String(q._id));
+            if (found) return found;
+        }
+        found = result.attempt_data.find(a => a.questionText && q.text && a.questionText === q.text);
+        return found || null;
+    };
+
+    const getIsAttempted = (selectedOption) => {
+        if (selectedOption === undefined || selectedOption === null || selectedOption === '') return false;
+        if (Array.isArray(selectedOption)) return selectedOption.length > 0;
+        return true;
+    };
+
     // Chart Data Preparation
     const pieData = [
         { name: 'Correct', value: result.correctAnswers || 0, color: '#22c55e' },
@@ -159,24 +180,10 @@ const PrintableResultReport = forwardRef(({ result, test, effectiveQuestions, pe
                 <h2 className="text-3xl font-black text-gray-800 mb-8 pb-4 border-b-4 border-gray-800 uppercase tracking-wider">Detailed Solutions</h2>
 
                 {effectiveQuestions.map((q, idx) => {
-                    let userAttempt;
-                    if (q._reconstructed) {
-                        userAttempt = result.attempt_data[idx];
-                    } else {
-                        userAttempt = result.attempt_data.find(a => a.questionText === q.text);
-                    }
-
-                    let isAttempted = false;
-                    const isCorrect = userAttempt?.isCorrect;
+                    const userAttempt = getAttemptForQuestion(q, idx);
                     const selectedOption = userAttempt?.selectedOption;
-
-                    if (userAttempt) {
-                        if (Array.isArray(selectedOption)) {
-                            isAttempted = selectedOption.length > 0;
-                        } else {
-                            isAttempted = selectedOption !== undefined && selectedOption !== null && selectedOption !== '';
-                        }
-                    }
+                    const isAttempted = getIsAttempted(selectedOption);
+                    const isCorrect = userAttempt?.isCorrect;
 
                     const isOptionSelected = (optVal) => {
                         if (!isAttempted) return false;
