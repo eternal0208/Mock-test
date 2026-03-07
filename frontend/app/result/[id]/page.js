@@ -413,6 +413,34 @@ export default function ResultPage() {
                                                     </div>
                                                 )}
 
+                                                {/* Answer Summary */}
+                                                {fullTest && (
+                                                    <div className={`p-3 rounded-xl border-2 mb-3 ${isAttempted ? (isCorrect ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300') : 'bg-yellow-50 border-yellow-300'}`}>
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <div className="min-w-0">
+                                                                <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Your Answer</div>
+                                                                <div className={`text-sm font-bold truncate ${isAttempted ? (isCorrect ? 'text-green-700' : 'text-red-700') : 'text-gray-400'}`}>
+                                                                    {isAttempted ? (
+                                                                        q.type === 'integer' ? selectedOption :
+                                                                            Array.isArray(selectedOption) ? selectedOption.join(', ') : selectedOption
+                                                                    ) : 'Skipped'}
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right min-w-0">
+                                                                <div className="text-[10px] font-bold uppercase tracking-widest text-green-700">Correct Answer</div>
+                                                                <div className="text-sm font-bold text-green-600 truncate">
+                                                                    {q.type === 'integer' ? q.integerAnswer :
+                                                                        q.type === 'msq' && Array.isArray(q.correctOptions) ? q.correctOptions.join(', ') :
+                                                                            q.correctOption || '-'}
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-lg shrink-0">
+                                                                {isAttempted ? (isCorrect ? '✅' : '❌') : '⏭️'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 {/* Solution */}
                                                 {fullTest && (
                                                     <div className="mt-3 pt-3 border-t border-gray-100">
