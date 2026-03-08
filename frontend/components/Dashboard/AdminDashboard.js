@@ -1031,10 +1031,10 @@ export default function AdminDashboard() {
     const [showQuickMarkModal, setShowQuickMarkModal] = useState(false);
     const [quickMarkInput, setQuickMarkInput] = useState('');
 
-    // Revenue Password State
-    const [isRevenueUnlocked, setIsRevenueUnlocked] = useState(false);
-    const [revenuePasswordInput, setRevenuePasswordInput] = useState('');
-    const [revenueUnlockError, setRevenueUnlockError] = useState('');
+    // Master Password State
+    const [isMasterUnlocked, setIsMasterUnlocked] = useState(false);
+    const [masterPasswordInput, setMasterPasswordInput] = useState('');
+    const [masterUnlockError, setMasterUnlockError] = useState('');
     const [isUnlocking, setIsUnlocking] = useState(false);
 
     // Initial Data Fetching
@@ -1044,11 +1044,11 @@ export default function AdminDashboard() {
                 fetchTests();
                 fetchSeries(); // Fetch series to show names in manage tab
             }
-            if (activeTab === 'users') fetchStudents();
+            if (activeTab === 'users' && isMasterUnlocked) fetchStudents();
             if (activeTab === 'series') fetchSeries();
-            if (activeTab === 'revenue' && isRevenueUnlocked) fetchRevenue();
+            if (activeTab === 'revenue' && isMasterUnlocked) fetchRevenue();
         }
-    }, [activeTab, user, isRevenueUnlocked]);
+    }, [activeTab, user, isMasterUnlocked]);
 
     // Fetch Syllabus on mount
     useEffect(() => {
@@ -1066,8 +1066,8 @@ export default function AdminDashboard() {
                 console.error("Error fetching syllabus:", error);
             }
         };
-        if (user && activeTab === 'content') fetchSyllabus();
-    }, [user, activeTab]);
+        if (user && activeTab === 'content' && isMasterUnlocked) fetchSyllabus();
+    }, [user, activeTab, isMasterUnlocked]);
 
     // Update local input when category changes or data loads
     useEffect(() => {
@@ -1169,9 +1169,9 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleUnlockRevenue = async (e) => {
+    const handleUnlockMaster = async (e) => {
         e.preventDefault();
-        setRevenueUnlockError('');
+        setMasterUnlockError('');
         setIsUnlocking(true);
         try {
             const token = await user?.getIdToken();
@@ -1181,19 +1181,19 @@ export default function AdminDashboard() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ password: revenuePasswordInput })
+                body: JSON.stringify({ password: masterPasswordInput })
             });
 
             const data = await res.json();
             if (res.ok && data.success) {
-                setIsRevenueUnlocked(true);
-                setRevenuePasswordInput('');
+                setIsMasterUnlocked(true);
+                setMasterPasswordInput('');
             } else {
-                setRevenueUnlockError(data.error || 'Incorrect password');
+                setMasterUnlockError(data.error || 'Incorrect password');
             }
         } catch (error) {
-            console.error("Revenue Unlock Error:", error);
-            setRevenueUnlockError('Failed to verify password');
+            console.error("Master Unlock Error:", error);
+            setMasterUnlockError('Failed to verify password');
         } finally {
             setIsUnlocking(false);
         }
@@ -2173,15 +2173,68 @@ export default function AdminDashboard() {
                 </div>
             )}
 
+            {/* Dashboard Lock Screen for Protected Tabs */}
+            {['users', 'revenue', 'content'].includes(activeTab) && !isMasterUnlocked && (
+                <div className="flex items-center justify-center py-20">
+                    <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-8 max-w-md w-full text-center">
+                        <div className="mx-auto w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6 border border-red-100 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
+                        <h2 className="text-2xl font-black text-gray-900 mb-2">Restricted Access</h2>
+                        <p className="text-gray-500 mb-8 text-sm leading-relaxed">Please enter the master password to view sensitive student, content, and revenue data.</p>
+
+                        <form onSubmit={handleUnlockMaster} className="space-y-4">
+                            <div>
+                                <input
+                                    type="password"
+                                    value={masterPasswordInput}
+                                    onChange={(e) => setMasterPasswordInput(e.target.value)}
+                                    placeholder="Enter password"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                                    required
+                                />
+                            </div>
+                            {masterUnlockError && (
+                                <p className="text-red-500 text-sm font-medium">{masterUnlockError}</p>
+                            )}
+                            <button
+                                type="submit"
+                                disabled={isUnlocking}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex justify-center items-center shadow-md disabled:bg-indigo-400"
+                            >
+                                {isUnlocking ? (
+                                    <span className="flex items-center gap-2">
+                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                        Verifying...
+                                    </span>
+                                ) : "Unlock Admin Controls"}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* Students Tab */}
-            {activeTab === 'users' && (
+            {activeTab === 'users' && isMasterUnlocked && (
                 <div className="bg-white rounded-lg shadow overflow-hidden">
                     <div className="p-6 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                            <h3 className="text-xl font-bold text-gray-800">Students Management ({usersList.length})</h3>
-                            <p className="text-xs text-gray-500">View and filter active students</p>
+                            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                                Students Management ({usersList.length})
+                            </h3>
+                            <p className="text-xs text-gray-500 flex items-center gap-2">
+                                View and filter active students
+                            </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                            <button onClick={() => setIsMasterUnlocked(false)} className="text-sm text-gray-500 hover:text-red-500 font-medium flex items-center gap-1 transition-colors mr-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                                Lock Dashboard
+                            </button>
+
                             <div className="relative flex-1 md:w-64">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                                 <input
@@ -2325,48 +2378,7 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             )}    {/* Revenue Tab */}
-            {activeTab === 'revenue' && !isRevenueUnlocked && (
-                <div className="flex items-center justify-center py-20">
-                    <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-8 max-w-md w-full text-center">
-                        <div className="mx-auto w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6 border border-red-100 shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
-                        </div>
-                        <h2 className="text-2xl font-black text-gray-900 mb-2">Restricted Access</h2>
-                        <p className="text-gray-500 mb-8 text-sm leading-relaxed">Please enter the master password to view sensitive revenue and transaction data.</p>
-
-                        <form onSubmit={handleUnlockRevenue} className="space-y-4">
-                            <div>
-                                <input
-                                    type="password"
-                                    value={revenuePasswordInput}
-                                    onChange={(e) => setRevenuePasswordInput(e.target.value)}
-                                    placeholder="Enter password"
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
-                                    required
-                                />
-                            </div>
-                            {revenueUnlockError && (
-                                <p className="text-red-500 text-sm font-medium">{revenueUnlockError}</p>
-                            )}
-                            <button
-                                type="submit"
-                                disabled={isUnlocking}
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex justify-center items-center shadow-md disabled:bg-indigo-400"
-                            >
-                                {isUnlocking ? (
-                                    <span className="flex items-center gap-2">
-                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                        Verifying...
-                                    </span>
-                                ) : "Unlock Revenue Dashboard"}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
-            {activeTab === 'revenue' && isRevenueUnlocked && revenueStats && (
+            {activeTab === 'revenue' && isMasterUnlocked && revenueStats && (
                 <div className="space-y-6">
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2393,7 +2405,7 @@ export default function AdminDashboard() {
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
                                 Recent Transactions
                             </h3>
-                            <button onClick={() => setIsRevenueUnlocked(false)} className="text-sm text-gray-500 hover:text-red-500 font-medium flex items-center gap-1 transition-colors">
+                            <button onClick={() => setIsMasterUnlocked(false)} className="text-sm text-gray-500 hover:text-red-500 font-medium flex items-center gap-1 transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                                 Lock Dashboard
                             </button>
@@ -2436,13 +2448,19 @@ export default function AdminDashboard() {
             )}
 
             {/* Content Tab */}
-            {activeTab === 'content' && (
+            {activeTab === 'content' && isMasterUnlocked && (
                 <div className="space-y-8">
                     {/* Syllabus Management */}
                     <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                        <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                            <BookOpen className="text-indigo-600" /> Syllabus Management
-                        </h3>
+                        <div className="flex justify-between items-start mb-6">
+                            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                <BookOpen className="text-indigo-600" /> Syllabus Management
+                            </h3>
+                            <button onClick={() => setIsMasterUnlocked(false)} className="text-sm text-gray-500 hover:text-red-500 font-medium flex items-center gap-1 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                                Lock Dashboard
+                            </button>
+                        </div>
 
                         <div className="max-w-3xl">
                             <div className="mb-6">
