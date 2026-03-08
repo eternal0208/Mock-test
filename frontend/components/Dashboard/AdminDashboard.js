@@ -10,6 +10,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import PdfUploadModal from './PdfUploadModal';
+import PercentileConfig from './PercentileConfig';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 const ImageZoomModal = ({ imageUrl, onClose }) => {
@@ -1681,7 +1682,7 @@ export default function AdminDashboard() {
                     <button onClick={() => setActiveTab('series')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'series' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Series</button>
                     <button onClick={() => setActiveTab('users')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'users' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Students</button>
                     <button onClick={() => setActiveTab('revenue')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'revenue' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Revenue</button>
-                    <button onClick={() => setActiveTab('content')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'content' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Content</button>
+                    <button onClick={() => setActiveTab('content')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'content' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Content & Config</button>
                     <button onClick={() => setActiveTab('create')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'create' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>+ Create</button>
                     <button onClick={() => window.location.href = '/'} className="px-3 py-2 sm:px-4 rounded-md bg-red-100 text-red-700 hover:bg-red-200 font-bold flex items-center gap-1 text-sm whitespace-nowrap"><LogOut size={16} /> Logout</button>
                 </div>
@@ -2200,69 +2201,75 @@ export default function AdminDashboard() {
 
             {/* Content Tab */}
             {activeTab === 'content' && (
-                <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                    <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                        <BookOpen className="text-indigo-600" /> Syllabus Management
-                    </h3>
+                <div className="space-y-8">
+                    {/* Syllabus Management */}
+                    <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+                        <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            <BookOpen className="text-indigo-600" /> Syllabus Management
+                        </h3>
 
-                    <div className="max-w-3xl">
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Select Exam Category</label>
-                            <div className="flex flex-wrap gap-2">
-                                {Object.keys(syllabusData).map(cat => (
+                        <div className="max-w-3xl">
+                            <div className="mb-6">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Select Exam Category</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {Object.keys(syllabusData).map(cat => (
+                                        <button
+                                            key={cat}
+                                            onClick={() => setSelectedSyllabusCategory(cat)}
+                                            className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${selectedSyllabusCategory === cat
+                                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            {cat}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="mb-6">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Syllabus PDF Link for <span className="text-indigo-600 font-bold">{selectedSyllabusCategory}</span>
+                                </label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={syllabusLink}
+                                        onChange={(e) => setSyllabusLink(e.target.value)}
+                                        placeholder="Paste Google Drive or PDF link here..."
+                                        className="flex-1 border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    />
                                     <button
-                                        key={cat}
-                                        onClick={() => setSelectedSyllabusCategory(cat)}
-                                        className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${selectedSyllabusCategory === cat
-                                            ? 'bg-indigo-600 text-white border-indigo-600'
-                                            : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                                            }`}
+                                        onClick={handleSaveSyllabus}
+                                        disabled={savingSyllabus}
+                                        className="px-6 py-3 bg-green-600 text-white font-bold rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
                                     >
-                                        {cat}
+                                        {savingSyllabus ? 'Saving...' : <><Save size={18} /> Save Link</>}
                                     </button>
-                                ))}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Paste the shareable link of the PDF (e.g., Google Drive link with "Anyone with the link" access).
+                                </p>
                             </div>
-                        </div>
 
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Syllabus PDF Link for <span className="text-indigo-600 font-bold">{selectedSyllabusCategory}</span>
-                            </label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    value={syllabusLink}
-                                    onChange={(e) => setSyllabusLink(e.target.value)}
-                                    placeholder="Paste Google Drive or PDF link here..."
-                                    className="flex-1 border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                />
-                                <button
-                                    onClick={handleSaveSyllabus}
-                                    disabled={savingSyllabus}
-                                    className="px-6 py-3 bg-green-600 text-white font-bold rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
-                                >
-                                    {savingSyllabus ? 'Saving...' : <><Save size={18} /> Save Link</>}
-                                </button>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-2">
-                                Paste the shareable link of the PDF (e.g., Google Drive link with "Anyone with the link" access).
-                            </p>
+                            {syllabusLink && (
+                                <div className="p-4 bg-gray-50 rounded border border-gray-200">
+                                    <p className="text-sm font-bold text-gray-700 mb-2">Preview Action:</p>
+                                    <a
+                                        href={syllabusLink}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-indigo-600 underline font-medium flex items-center gap-1"
+                                    >
+                                        <Download size={16} /> Download / View Syllabus
+                                    </a>
+                                </div>
+                            )}
                         </div>
-
-                        {syllabusLink && (
-                            <div className="p-4 bg-gray-50 rounded border border-gray-200">
-                                <p className="text-sm font-bold text-gray-700 mb-2">Preview Action:</p>
-                                <a
-                                    href={syllabusLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-indigo-600 underline font-medium flex items-center gap-1"
-                                >
-                                    <Download size={16} /> Download / View Syllabus
-                                </a>
-                            </div>
-                        )}
                     </div>
+
+                    {/* Percentile Config */}
+                    <PercentileConfig user={user} />
                 </div>
             )}
 

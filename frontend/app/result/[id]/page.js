@@ -18,6 +18,7 @@ export default function ResultPage() {
     const [fullTest, setFullTest] = useState(null);
     const [error, setError] = useState(null);
     const [rankData, setRankData] = useState({ rank: '-', total: '-' });
+    const [percentileData, setPercentileData] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
     const [expandedQ, setExpandedQ] = useState(null); // which question is expanded
 
@@ -98,6 +99,13 @@ export default function ResultPage() {
                         setFullTest(testData);
                     }
                 }
+
+                // Fetch Percentile Data (Ideally public or accessible by students for this calculation)
+                const percRes = await fetch(`${API_BASE_URL}/api/admin/percentile-data`, { headers });
+                if (percRes.ok) {
+                    const pd = await percRes.json();
+                    setPercentileData(pd);
+                }
             } catch (error) {
                 console.error("Error fetching data:", error);
                 setError(error.message);
@@ -136,6 +144,36 @@ export default function ResultPage() {
     const maxMarks = testMeta.total_marks || 100;
     const percentage = ((result.score / maxMarks) * 100).toFixed(1);
     const unattempted = (result.totalQuestions - (result.correctAnswers || 0) - (result.wrongAnswers || 0)) || 0;
+
+    // Percentile Calculation Logic
+    let expectedPercentile = "N/A";
+    let expectedRankRange = "N/A";
+
+    if (percentileData && testMeta.category === 'JEE Main' && maxMarks === 300) {
+        // Find matching range based on overall mappings
+        const score = result.score;
+        const mapping = (percentileData.overallMappings || []).find(m => {
+            const rangeStr = String(m.marksRequired).replace(/\+/g, '');
+            const parts = rangeStr.split('-');
+            if (parts.length === 2) {
+                const min = parseInt(parts[0].trim());
+                const max = parseInt(parts[1].trim());
+                return score >= min && score <= max;
+            } else if (parts.length === 1 && String(m.marksRequired).includes('+')) {
+                const min = parseInt(parts[0].trim());
+                return score >= min;
+            }
+            return false;
+        });
+
+        if (mapping) {
+            expectedPercentile = mapping.percentileRange;
+            expectedRankRange = mapping.expectedRankRange;
+        } else if (score < 70) {
+            expectedPercentile = "< 80.0 %ile";
+            expectedRankRange = "> 2.5 Lakh";
+        }
+    }
 
     const checkResultAccess = () => {
         const mode = fullTest?.resultVisibility || 'immediate';
@@ -253,6 +291,23 @@ export default function ResultPage() {
                             <div className="text-[10px] sm:text-xs opacity-60">Time</div>
                         </div>
                     </div>
+
+                    {/* Expected Percentile Badge (JEE Main Only) */}
+                    {testMeta.category === 'JEE Main' && maxMarks === 300 && expectedPercentile !== "N/A" && (
+                        <div className="mt-6 p-4 bg-white/10 rounded-xl border border-white/20 backdrop-blur-sm">
+                            <h4 className="text-white/80 text-xs font-bold uppercase tracking-widest mb-3 text-center">AI Predictive Analysis (Based on 2024/2025 Difficulty)</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="text-center">
+                                    <div className="text-2xl sm:text-3xl font-black text-yellow-300 drop-shadow-md">{expectedPercentile}</div>
+                                    <div className="text-xs text-blue-100 font-medium mt-1">Expected Percentile</div>
+                                </div>
+                                <div className="text-center border-l border-white/20">
+                                    <div className="text-2xl sm:text-3xl font-black text-green-300 drop-shadow-md">AIR {expectedRankRange}</div>
+                                    <div className="text-xs text-blue-100 font-medium mt-1">Expected Rank Range</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Performance Chips */}

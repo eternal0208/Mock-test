@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../config/firebaseAdmin');
 const TestSeries = require('../models/TestSeries');
+const { getPercentileData, updatePercentileData } = require('../models/PercentileData');
 
 // --- Middleware to Check Admin Role (Simplified for now, assumes middleware used in index.js or check here) ---
 // For this task, we'll assume the /api/admin/* routes are protected or we trust the frontend checking role for now.
@@ -93,6 +94,29 @@ router.post('/syllabus', async (req, res) => {
         const data = req.body; // { 'JEE Main': 'url', ... }
         await db.collection('settings').doc('syllabus').set(data, { merge: true });
         res.json({ success: true, message: 'Syllabus links updated' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Percentile Config Management ---
+
+// GET /api/admin/percentile-data
+router.get('/percentile-data', async (req, res) => {
+    try {
+        const data = await getPercentileData();
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /api/admin/percentile-data
+router.post('/percentile-data', async (req, res) => {
+    try {
+        const updatedData = req.body;
+        await updatePercentileData(updatedData);
+        res.json({ success: true, message: 'Percentile data updated successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/config';
 import AnalyticsDashboard from './AnalyticsDashboard';
-import { Clock, BookOpen, BarChart, User, Mail, Calendar, ShieldCheck, TrendingUp, ChevronRight, Star, Target, Zap, Search, Filter, Menu, X, CheckCircle } from 'lucide-react';
+import { Clock, BookOpen, BarChart, User, Mail, Calendar, ShieldCheck, TrendingUp, ChevronRight, Star, Target, Zap, Search, Filter, Menu, X, CheckCircle, Award } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import SeriesCard from '@/components/ui/SeriesCard';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
@@ -20,6 +20,7 @@ export default function StudentDashboard() {
     const [results, setResults] = useState([]);
     const [orders, setOrders] = useState([]); // New Orders State
     const [testRanks, setTestRanks] = useState({});
+    const [percentileData, setPercentileData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [currentFilter, setFilter] = useState('all');
 
@@ -49,16 +50,27 @@ export default function StudentDashboard() {
                 let hasCache = false;
                 try {
                     const cachedTests = localStorage.getItem(cacheKeys.tests);
-                    if (cachedTests) { setTests(JSON.parse(cachedTests)); hasCache = true; }
+                    if (cachedTests) {
+                        const pd = JSON.parse(cachedTests);
+                        setTests(Array.isArray(pd) ? pd.sort((a, b) => (a.title || '').localeCompare(b.title || '')) : pd);
+                        hasCache = true;
+                    }
 
                     const cachedSeries = localStorage.getItem(cacheKeys.series);
-                    if (cachedSeries) { setSeries(JSON.parse(cachedSeries)); hasCache = true; }
+                    if (cachedSeries) {
+                        const pd = JSON.parse(cachedSeries);
+                        setSeries(Array.isArray(pd) ? pd.sort((a, b) => (a.title || '').localeCompare(b.title || '')) : pd);
+                        hasCache = true;
+                    }
 
                     const cachedResults = localStorage.getItem(cacheKeys.results);
                     if (cachedResults) { setResults(JSON.parse(cachedResults)); hasCache = true; }
 
                     const cachedOrders = localStorage.getItem(cacheKeys.orders);
                     if (cachedOrders) { setOrders(JSON.parse(cachedOrders)); hasCache = true; }
+
+                    const cachedPercentile = localStorage.getItem(`apex_cache_percentile`);
+                    if (cachedPercentile) { setPercentileData(JSON.parse(cachedPercentile)); }
                 } catch (e) { console.warn("Cache read failed", e); }
 
                 if (hasCache) {
@@ -78,16 +90,18 @@ export default function StudentDashboard() {
                     const testsRes = await fetch(`${API_BASE_URL}/api/tests`, { headers });
                     const testsData = await testsRes.json();
                     if (Array.isArray(testsData)) {
-                        setTests(testsData);
-                        localStorage.setItem(cacheKeys.tests, JSON.stringify(testsData));
+                        const sortedTests = testsData.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+                        setTests(sortedTests);
+                        localStorage.setItem(cacheKeys.tests, JSON.stringify(sortedTests));
                     }
 
                     // Fetch Series
                     const seriesRes = await fetch(`${API_BASE_URL}/api/tests/series`, { headers });
                     const seriesData = await seriesRes.json();
                     if (Array.isArray(seriesData)) {
-                        setSeries(seriesData);
-                        localStorage.setItem(cacheKeys.series, JSON.stringify(seriesData));
+                        const sortedSeries = seriesData.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+                        setSeries(sortedSeries);
+                        localStorage.setItem(cacheKeys.series, JSON.stringify(sortedSeries));
                     }
 
                     // Fetch Results
@@ -106,6 +120,16 @@ export default function StudentDashboard() {
                             localStorage.setItem(cacheKeys.orders, JSON.stringify(ordersData));
                         }
                     } catch (e) { console.error("Cache Orders Error", e) }
+
+                    // Fetch Percentile Data (Global, not user scoped)
+                    try {
+                        const percRes = await fetch(`${API_BASE_URL}/api/admin/percentile-data`, { headers });
+                        if (percRes.ok) {
+                            const pData = await percRes.json();
+                            setPercentileData(pData);
+                            localStorage.setItem(`apex_cache_percentile`, JSON.stringify(pData));
+                        }
+                    } catch (e) { console.error("Percentile Error", e) }
 
                 } catch (error) {
                     console.error("Background fetch failed", error);
@@ -147,10 +171,47 @@ export default function StudentDashboard() {
         }).length
     };
 
-    // SAFETY CHECK: If user has no category/field, redirect to signup-details?
-    // This is handled by Route Guards usually, but good practice here too.
+    // Calculate AI Expected Benchmarks (JEE Main)
+    let aiPercentile = "N/A", aiRank = "N/A";
     const userField = user?.category || user?.selectedField;
 
+    if (userField === 'JEE Main' && percentileData && results.length > 0) {
+        // Find matching range based on average score mapped to max marks scaling
+        // (Assuming standard full mock scale is 300 for simplification in dashboard average)
+        // A more complex average could weight by total_marks per test.
+        // We will just scale the average score if tests were 300 marks.
+        // For accurate dashboard predicting we filter to full mocks
+
+        const fullMocks = results.filter(r => {
+            const t = tests.find(t => t._id === (r.testId?._id || r.testId));
+            return t && t.total_marks === 300;
+        });
+
+        if (fullMocks.length > 0) {
+            const avgFullMockScore = Math.round(fullMocks.reduce((acc, r) => acc + r.score, 0) / fullMocks.length);
+            const mapping = (percentileData.overallMappings || []).find(m => {
+                const rangeStr = String(m.marksRequired).replace(/\+/g, '');
+                const parts = rangeStr.split('-');
+                if (parts.length === 2) {
+                    return avgFullMockScore >= parseInt(parts[0].trim()) && avgFullMockScore <= parseInt(parts[1].trim());
+                } else if (parts.length === 1 && String(m.marksRequired).includes('+')) {
+                    return avgFullMockScore >= parseInt(parts[0].trim());
+                }
+                return false;
+            });
+
+            if (mapping) {
+                aiPercentile = mapping.percentileRange;
+                aiRank = mapping.expectedRankRange;
+            } else if (avgFullMockScore < 70) {
+                aiPercentile = "< 80.0 %ile";
+                aiRank = "> 2.5 Lakh";
+            }
+        }
+    }
+
+    // SAFETY CHECK: If user has no category/field, redirect to signup-details?
+    // This is handled by Route Guards usually, but good practice here too.
     if (!userField) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
@@ -207,7 +268,7 @@ export default function StudentDashboard() {
     const enrolledSeries = series.filter(s => enrolledSeriesIds.has(s.id));
 
     const handleStartTest = (testId) => {
-        window.location.href = `/exam/${testId}`;
+        router.push(`/exam/${testId}`);
     };
 
     const handlePhotoUpload = (e) => {
@@ -518,20 +579,47 @@ export default function StudentDashboard() {
                         </div>
                         <h3 className="text-2xl font-black text-gray-900">{quickStats.avgAccuracy}%</h3>
                     </div>
-                    <div className="bg-white p-5 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 hover:-translate-y-1 transition-transform">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><TrendingUp size={18} /></div>
-                            <span className="text-xs font-bold text-gray-400 uppercase">Avg Score</span>
-                        </div>
-                        <h3 className="text-2xl font-black text-gray-900">{quickStats.avgScore}</h3>
-                    </div>
-                    <div className="bg-white p-5 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 hover:-translate-y-1 transition-transform">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-orange-50 text-orange-600 rounded-lg"><Zap size={18} /></div>
-                            <span className="text-xs font-bold text-gray-400 uppercase">This Week</span>
-                        </div>
-                        <h3 className="text-2xl font-black text-gray-900">{quickStats.testsThisWeek}</h3>
-                    </div>
+                    {userField === 'JEE Main' && aiPercentile !== 'N/A' ? (
+                        <>
+                            <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-5 rounded-2xl shadow-[0_8px_30px_rgba(79,70,229,0.2)] border border-indigo-500 hover:-translate-y-1 transition-transform text-white">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-1.5 bg-white/20 rounded-lg"><Star size={18} /></div>
+                                        <span className="text-xs font-extrabold text-indigo-100 uppercase tracking-widest">Expected %ile</span>
+                                    </div>
+                                    <span className="text-[9px] bg-indigo-500 px-1.5 py-0.5 rounded border border-indigo-400">AI</span>
+                                </div>
+                                <h3 className="text-xl sm:text-2xl font-black text-yellow-300 drop-shadow-sm">{aiPercentile.replace(' %ile', '')}</h3>
+                            </div>
+                            <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-5 rounded-2xl shadow-[0_8px_30px_rgba(147,51,234,0.2)] border border-purple-500 hover:-translate-y-1 transition-transform text-white">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-1.5 bg-white/20 rounded-lg"><Award size={18} /></div>
+                                        <span className="text-xs font-extrabold text-purple-100 uppercase tracking-widest">Expected AIR</span>
+                                    </div>
+                                    <span className="text-[9px] bg-purple-500 px-1.5 py-0.5 rounded border border-purple-400">AI</span>
+                                </div>
+                                <h3 className="text-xl sm:text-2xl font-black text-green-300 drop-shadow-sm">{aiRank}</h3>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="bg-white p-5 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 hover:-translate-y-1 transition-transform">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><TrendingUp size={18} /></div>
+                                    <span className="text-xs font-bold text-gray-400 uppercase">Avg Score</span>
+                                </div>
+                                <h3 className="text-2xl font-black text-gray-900">{quickStats.avgScore}</h3>
+                            </div>
+                            <div className="bg-white p-5 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 hover:-translate-y-1 transition-transform">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 bg-orange-50 text-orange-600 rounded-lg"><Zap size={18} /></div>
+                                    <span className="text-xs font-bold text-gray-400 uppercase">This Week</span>
+                                </div>
+                                <h3 className="text-2xl font-black text-gray-900">{quickStats.testsThisWeek}</h3>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 

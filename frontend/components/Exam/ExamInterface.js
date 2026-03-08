@@ -160,7 +160,7 @@ const ExamInterface = ({ test, onSubmit }) => {
 
     // Intelligent Image Preloading Queue
     useEffect(() => {
-        if (mode !== 'test' || !test?.questions?.length) return;
+        if (!['test', 'instruction'].includes(mode) || !test?.questions?.length) return;
 
         // Initialize global cache if not present (prevents redundant fetches)
         if (!window.__preloadedImages) {
@@ -438,8 +438,8 @@ const ExamInterface = ({ test, onSubmit }) => {
         <div className="flex flex-col h-screen bg-white select-none">
             {/* Header */}
             <header className="bg-blue-700 text-white shadow sticky top-0 z-50">
-                <div className="h-16 flex justify-between items-center px-4">
-                    <h1 className="text-sm md:text-lg font-bold truncate max-w-[150px] md:max-w-md">{test.title}</h1>
+                <div className="h-14 md:h-16 flex justify-between items-center px-2 md:px-4">
+                    <h1 className="text-sm md:text-lg font-bold truncate max-w-[200px] md:max-w-md ml-1">{test.title}</h1>
                     <div className="flex items-center">
                         <div className="flex flex-col items-end mr-4">
                             <span className="text-[10px] text-blue-200">Time Left:</span>
@@ -481,7 +481,7 @@ const ExamInterface = ({ test, onSubmit }) => {
 
             <div className="flex flex-1 overflow-hidden">
                 <main
-                    className="flex-1 flex flex-col h-full relative overflow-y-auto"
+                    className="flex-1 flex flex-col overflow-hidden"
                     onTouchStart={(e) => touchRef.current.startX = e.touches[0].clientX}
                     onTouchEnd={(e) => {
                         const endX = e.changedTouches[0].clientX;
@@ -492,8 +492,8 @@ const ExamInterface = ({ test, onSubmit }) => {
                         }
                     }}
                 >
-                    {/* Mobile Question Navigator */}
-                    <div className="md:hidden bg-blue-50 border-b overflow-x-auto no-scrollbar flex items-center p-2 gap-2 sticky top-0 z-20 shadow-sm scroll-smooth">
+                    {/* Mobile Question Navigator - sticky, never scrolls */}
+                    <div className="md:hidden bg-blue-50 border-b overflow-x-auto no-scrollbar flex items-center px-2.5 py-2 gap-2 flex-shrink-0 shadow-sm">
                         {test.questions.map((q, idx) => {
                             const status = questionStatus[q._id] || 'not_visited';
                             let dotClass = 'bg-gray-200';
@@ -505,7 +505,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                 <button
                                     key={idx}
                                     onClick={() => handlePaletteClick(idx)}
-                                    className={`flex-none w-10 h-10 rounded flex items-center justify-center font-bold text-xs transition-all relative ${currentQuestionIndex === idx ? 'bg-blue-600 text-white scale-110 shadow-md ring-2 ring-blue-300' : 'bg-white text-gray-700 border border-gray-200 shadow-sm'}`}
+                                    className={`flex-none w-10 h-10 rounded-md flex items-center justify-center font-bold text-sm transition-all relative ${currentQuestionIndex === idx ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-300' : 'bg-white text-gray-700 border border-gray-200'}`}
                                 >
                                     {idx + 1}
                                     <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-white ${dotClass}`}></span>
@@ -514,10 +514,11 @@ const ExamInterface = ({ test, onSubmit }) => {
                         })}
                     </div>
 
-                    <div className="bg-white border-b p-3 flex justify-between items-center sticky top-0 md:relative z-10 shadow-sm">
-                        <div className="font-bold text-sm md:text-lg text-blue-800 flex items-center gap-2">
-                            <span className="truncate max-w-[100px]">{currentQ.subject || 'General'}</span>
-                            <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full border truncate max-w-[80px]">{currentQ.topic || 'Topic'}</span>
+                    {/* Question Info Bar - always visible */}
+                    <div className="bg-white border-b px-4 py-2.5 flex justify-between items-center flex-shrink-0">
+                        <div className="font-bold text-sm text-blue-900 flex items-center gap-2">
+                            <span className="truncate max-w-[120px] md:max-w-none">{currentQ.subject || 'General'}</span>
+                            <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full border hidden sm:inline-block">{currentQ.topic || 'Topic'}</span>
                             <span className="text-[10px] font-normal text-gray-500">({currentType.toUpperCase()})</span>
                         </div>
                         <div className="flex space-x-2 text-xs font-bold">
@@ -526,142 +527,145 @@ const ExamInterface = ({ test, onSubmit }) => {
                         </div>
                     </div>
 
-                    <div className="p-6 md:p-10 flex-1">
-                        <div className="flex items-start gap-4 mb-6">
-                            <span className="font-bold text-lg text-gray-500 w-8 pt-1">Q{currentQuestionIndex + 1}.</span>
-                            <div className="flex-1">
-                                {currentQ.text && (
-                                    <div className="text-lg md:text-xl text-gray-900 leading-relaxed font-serif mb-4 whitespace-pre-wrap">
-                                        <MathText text={currentQ.text} />
-                                    </div>
-                                )}
-                                {currentQ.image && (
-                                    <div className="w-full flex justify-center mb-6 cursor-zoom-in" onClick={() => setZoomedImg(currentQ.image)}>
-                                        <img
-                                            src={currentQ.image}
-                                            alt="Question"
-                                            className={`${getQuestionImageSize(currentQ.questionImageSize)} w-full md:w-auto border rounded-lg shadow-md object-contain hover:brightness-95 transition`}
-                                        />
-                                    </div>
-                                )}
-
-                                {/* ANSWER AREA */}
-                                <div className="mt-8">
-                                    {currentType === 'mcq' && (
-                                        <div className={`grid gap-3 ${currentQ.optionsLayout === 'grid' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                                            {currentQ.options.map((opt, idx) => {
-                                                const effectiveOpt = opt || `Option ${idx + 1}`;
-                                                return (
-                                                    <label key={idx} className={`flex items-start cursor-pointer group p-3 rounded-lg border transition-all ${answers[currentQ._id] === effectiveOpt ? 'bg-blue-50 border-blue-400 shadow-sm' : 'hover:bg-gray-50 border-transparent'}`}>
-                                                        <div className="relative flex items-center pt-1">
-                                                            <input type="radio" name={`q-${currentQ._id}`} className="sr-only" checked={answers[currentQ._id] === effectiveOpt} onChange={() => handleAnswerChange(effectiveOpt)} />
-                                                            <div className={`w-5 h-5 rounded-full border-2 mr-4 flex items-center justify-center transition-colors ${answers[currentQ._id] === effectiveOpt ? 'border-blue-600 bg-blue-600' : 'border-gray-400 group-hover:border-blue-400'}`}>
-                                                                {answers[currentQ._id] === effectiveOpt && <div className="w-2 h-2 bg-white rounded-full" />}
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            {opt && (
-                                                                <div className={`text-lg ${answers[currentQ._id] === effectiveOpt ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
-                                                                    <MathText text={opt} />
-                                                                </div>
-                                                            )}
-                                                            {(!opt || !currentQ.optionImages?.[idx]) && !opt && <div className="text-gray-400 text-sm font-medium mb-1">{String.fromCharCode(65 + idx)}</div>}
-                                                            {currentQ.optionImages && currentQ.optionImages[idx] && (
-                                                                <img
-                                                                    src={currentQ.optionImages[idx]}
-                                                                    alt={`Opt ${idx}`}
-                                                                    className={`mt-2 ${getOptionImageSize(currentQ.optionsImageSize)} object-contain border rounded bg-white p-1 transition select-none`}
-                                                                    onPointerDown={(e) => {
-                                                                        longPressTimerRef.current = setTimeout(() => {
-                                                                            setZoomedImg(currentQ.optionImages[idx]);
-                                                                        }, 500);
-                                                                    }}
-                                                                    onPointerUp={() => clearTimeout(longPressTimerRef.current)}
-                                                                    onPointerLeave={() => clearTimeout(longPressTimerRef.current)}
-                                                                />
-                                                            )}
-                                                        </div>
-                                                    </label>
-                                                );
-                                            })}
+                    {/* Scrollable Question & Answer Area */}
+                    <div className="flex-1 overflow-y-auto">
+                        <div className="p-4 md:p-6 lg:p-8 pb-6">
+                            <div className="flex items-start gap-4 mb-6">
+                                <span className="font-bold text-lg md:text-xl text-gray-500 w-8 pt-1 flex-shrink-0">Q{currentQuestionIndex + 1}.</span>
+                                <div className="flex-1">
+                                    {currentQ.text && (
+                                        <div className="text-lg md:text-xl text-gray-900 leading-relaxed font-serif mb-4 whitespace-pre-wrap">
+                                            <MathText text={currentQ.text} />
                                         </div>
                                     )}
-
-                                    {currentType === 'msq' && (
-                                        <div className={`grid gap-3 ${currentQ.optionsLayout === 'grid' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                                            {currentQ.options.map((opt, idx) => {
-                                                const effectiveOpt = opt || `Option ${idx + 1}`;
-                                                const isSelected = (answers[currentQ._id] || []).includes(effectiveOpt);
-                                                return (
-                                                    <label key={idx} className={`flex items-start cursor-pointer group p-3 rounded-lg border transition-all ${isSelected ? 'bg-blue-50 border-blue-400 shadow-sm' : 'hover:bg-gray-50 border-transparent'}`}>
-                                                        <div className="relative flex items-center pt-1">
-                                                            <input type="checkbox" className="sr-only" checked={isSelected} onChange={() => handleMSQChange(effectiveOpt)} />
-                                                            <div className={`w-5 h-5 rounded border-2 mr-4 flex items-center justify-center transition-colors ${isSelected ? 'border-blue-600 bg-blue-600' : 'border-gray-400 group-hover:border-blue-400'}`}>
-                                                                {isSelected && <div className="text-white font-bold text-xs">✓</div>}
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            {opt && (
-                                                                <div className={`text-lg ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
-                                                                    <MathText text={opt} />
-                                                                </div>
-                                                            )}
-                                                            {(!opt || !currentQ.optionImages?.[idx]) && !opt && <div className="text-gray-400 text-sm font-medium mb-1">{String.fromCharCode(65 + idx)}</div>}
-                                                            {currentQ.optionImages && currentQ.optionImages[idx] && (
-                                                                <img
-                                                                    src={currentQ.optionImages[idx]}
-                                                                    alt={`Opt ${idx}`}
-                                                                    className={`mt-2 ${getOptionImageSize(currentQ.optionsImageSize)} object-contain border rounded bg-white p-1 transition select-none`}
-                                                                    onPointerDown={(e) => {
-                                                                        longPressTimerRef.current = setTimeout(() => {
-                                                                            setZoomedImg(currentQ.optionImages[idx]);
-                                                                        }, 500);
-                                                                    }}
-                                                                    onPointerUp={() => clearTimeout(longPressTimerRef.current)}
-                                                                    onPointerLeave={() => clearTimeout(longPressTimerRef.current)}
-                                                                />
-                                                            )}
-                                                        </div>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-
-                                    {currentType === 'integer' && (
-                                        <div className="mt-4">
-                                            <input
-                                                type="text"
-                                                inputMode="decimal"
-                                                pattern="[0-9.-]*"
-                                                value={answers[currentQ._id] || ''}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    // Allow only numbers, one minus sign at start, and one decimal point
-                                                    if (/^-?\d*\.?\d*$/.test(val) || val === '') {
-                                                        handleAnswerChange(val);
-                                                    }
-                                                }}
-                                                className="border-2 border-gray-300 rounded-lg px-4 py-3 text-xl w-48 focus:border-blue-500 focus:outline-none shadow-sm"
-                                                placeholder="Enter Answer"
+                                    {currentQ.image && (
+                                        <div className="w-full flex justify-center mb-6 cursor-zoom-in" onClick={() => setZoomedImg(currentQ.image)}>
+                                            <img
+                                                src={currentQ.image}
+                                                alt="Question"
+                                                className={`${getQuestionImageSize(currentQ.questionImageSize)} w-full md:w-auto border rounded-lg shadow-md object-contain hover:brightness-95 transition`}
                                             />
-                                            <p className="text-sm text-gray-500 mt-2 italic">Accepts negative numbers and decimals (e.g., -1.5, 42)</p>
                                         </div>
                                     )}
+
+                                    {/* ANSWER AREA */}
+                                    <div className="mt-6">
+                                        {currentType === 'mcq' && (
+                                            <div className={`grid gap-3 ${currentQ.optionsLayout === 'grid' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                                                {currentQ.options.map((opt, idx) => {
+                                                    const effectiveOpt = opt || `Option ${idx + 1}`;
+                                                    return (
+                                                        <label key={idx} className={`flex items-start cursor-pointer group p-3 rounded-lg border transition-all ${answers[currentQ._id] === effectiveOpt ? 'bg-blue-50 border-blue-400 shadow-sm' : 'hover:bg-gray-50 border-gray-200'}`}>
+                                                            <div className="relative flex items-center pt-1">
+                                                                <input type="radio" name={`q-${currentQ._id}`} className="sr-only" checked={answers[currentQ._id] === effectiveOpt} onChange={() => handleAnswerChange(effectiveOpt)} />
+                                                                <div className={`w-5 h-5 rounded-full border-2 mr-4 flex items-center justify-center transition-colors ${answers[currentQ._id] === effectiveOpt ? 'border-blue-600 bg-blue-600' : 'border-gray-400 group-hover:border-blue-400'}`}>
+                                                                    {answers[currentQ._id] === effectiveOpt && <div className="w-2 h-2 bg-white rounded-full" />}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                {opt && (
+                                                                    <div className={`text-base md:text-lg ${answers[currentQ._id] === effectiveOpt ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
+                                                                        <MathText text={opt} />
+                                                                    </div>
+                                                                )}
+                                                                {(!opt || !currentQ.optionImages?.[idx]) && !opt && <div className="text-gray-400 text-sm font-medium mb-1">{String.fromCharCode(65 + idx)}</div>}
+                                                                {currentQ.optionImages && currentQ.optionImages[idx] && (
+                                                                    <img
+                                                                        src={currentQ.optionImages[idx]}
+                                                                        alt={`Opt ${idx}`}
+                                                                        className={`mt-2 ${getOptionImageSize(currentQ.optionsImageSize)} object-contain border rounded bg-white p-1 transition select-none`}
+                                                                        onPointerDown={(e) => {
+                                                                            longPressTimerRef.current = setTimeout(() => {
+                                                                                setZoomedImg(currentQ.optionImages[idx]);
+                                                                            }, 500);
+                                                                        }}
+                                                                        onPointerUp={() => clearTimeout(longPressTimerRef.current)}
+                                                                        onPointerLeave={() => clearTimeout(longPressTimerRef.current)}
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {currentType === 'msq' && (
+                                            <div className={`grid gap-3 ${currentQ.optionsLayout === 'grid' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                                                {currentQ.options.map((opt, idx) => {
+                                                    const effectiveOpt = opt || `Option ${idx + 1}`;
+                                                    const isSelected = (answers[currentQ._id] || []).includes(effectiveOpt);
+                                                    return (
+                                                        <label key={idx} className={`flex items-start cursor-pointer group p-3 rounded-lg border transition-all ${isSelected ? 'bg-blue-50 border-blue-400 shadow-sm' : 'hover:bg-gray-50 border-gray-200'}`}>
+                                                            <div className="relative flex items-center pt-1">
+                                                                <input type="checkbox" className="sr-only" checked={isSelected} onChange={() => handleMSQChange(effectiveOpt)} />
+                                                                <div className={`w-5 h-5 rounded border-2 mr-4 flex items-center justify-center transition-colors ${isSelected ? 'border-blue-600 bg-blue-600' : 'border-gray-400 group-hover:border-blue-400'}`}>
+                                                                    {isSelected && <div className="text-white font-bold text-xs">✓</div>}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                {opt && (
+                                                                    <div className={`text-base md:text-lg ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
+                                                                        <MathText text={opt} />
+                                                                    </div>
+                                                                )}
+                                                                {(!opt || !currentQ.optionImages?.[idx]) && !opt && <div className="text-gray-400 text-sm font-medium mb-1">{String.fromCharCode(65 + idx)}</div>}
+                                                                {currentQ.optionImages && currentQ.optionImages[idx] && (
+                                                                    <img
+                                                                        src={currentQ.optionImages[idx]}
+                                                                        alt={`Opt ${idx}`}
+                                                                        className={`mt-2 ${getOptionImageSize(currentQ.optionsImageSize)} object-contain border rounded bg-white p-1 transition select-none`}
+                                                                        onPointerDown={(e) => {
+                                                                            longPressTimerRef.current = setTimeout(() => {
+                                                                                setZoomedImg(currentQ.optionImages[idx]);
+                                                                            }, 500);
+                                                                        }}
+                                                                        onPointerUp={() => clearTimeout(longPressTimerRef.current)}
+                                                                        onPointerLeave={() => clearTimeout(longPressTimerRef.current)}
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {currentType === 'integer' && (
+                                            <div className="mt-4">
+                                                <input
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    pattern="[0-9.-]*"
+                                                    value={answers[currentQ._id] || ''}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (/^-?\d*\.?\d*$/.test(val) || val === '') {
+                                                            handleAnswerChange(val);
+                                                        }
+                                                    }}
+                                                    className="border-2 border-gray-300 rounded-lg px-4 py-3 text-xl w-48 focus:border-blue-500 focus:outline-none shadow-sm"
+                                                    placeholder="Enter Answer"
+                                                />
+                                                <p className="text-sm text-gray-500 mt-2 italic">Accepts negative numbers and decimals (e.g., -1.5, 42)</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-white border-t p-3 md:p-4 flex flex-wrap gap-2 justify-between items-center sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-                        <div className="flex gap-1 md:gap-2">
-                            <button onClick={handleMarkForReview} className="px-3 py-2 bg-purple-100 text-purple-800 border border-purple-300 rounded text-xs md:text-sm hover:bg-purple-200 font-medium transition">Review</button>
-                            <button onClick={handleClearResponse} className="px-3 py-2 bg-white text-gray-700 border border-gray-300 rounded text-xs md:text-sm hover:bg-gray-50 font-medium transition">Clear</button>
+                    {/* Bottom Toolbar — locked to bottom, never scrolls */}
+                    <div className="bg-gray-50 border-t px-3 py-2.5 md:px-4 md:py-3 flex flex-wrap gap-2 justify-between items-center flex-shrink-0 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
+                        <div className="flex gap-2">
+                            <button onClick={handleMarkForReview} className="px-3 md:px-4 py-2 bg-purple-100 text-purple-800 border border-purple-200 rounded text-xs md:text-sm hover:bg-purple-200 font-bold transition">Mark for Review</button>
+                            <button onClick={handleClearResponse} className="px-3 md:px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded text-xs md:text-sm hover:bg-gray-100 font-bold transition">Clear</button>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={handlePrev} disabled={currentQuestionIndex === 0} className="px-4 py-2 border border-blue-600 text-blue-600 rounded font-bold text-xs md:text-base hover:bg-blue-50 transition disabled:opacity-30">Prev</button>
-                            <button onClick={currentQuestionIndex === test.questions.length - 1 ? () => handleSubmitTest(false) : handleNext} className="bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-2 rounded font-bold shadow-md transition transform active:scale-95 text-xs md:text-base">
-                                {currentQuestionIndex === test.questions.length - 1 ? 'Finish' : 'Next'}
+                            <button onClick={handlePrev} disabled={currentQuestionIndex === 0} className="px-4 md:px-5 py-2 bg-white border border-blue-600 text-blue-700 rounded font-bold text-xs md:text-sm hover:bg-blue-50 transition disabled:opacity-50">Previous</button>
+                            <button onClick={currentQuestionIndex === test.questions.length - 1 ? () => handleSubmitTest(false) : handleNext} className="bg-blue-700 hover:bg-blue-800 text-white px-6 md:px-8 py-2 rounded font-bold shadow-md transition text-xs md:text-sm">
+                                {currentQuestionIndex === test.questions.length - 1 ? 'Submit Test' : 'Save & Next'}
                             </button>
                         </div>
                     </div>
