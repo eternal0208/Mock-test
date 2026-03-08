@@ -40,7 +40,10 @@ export default function SeriesDetails() {
 
                 const data = await res.json();
                 setSeries(data.series);
-                setTests(data.tests || []);
+
+                // Ensure tests are sorted alphabetically
+                const sortedTests = (data.tests || []).sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+                setTests(sortedTests);
 
                 // 2. Check if user already has access (permanent check)
                 const accessResult = await checkUserAccess(id, user.uid);

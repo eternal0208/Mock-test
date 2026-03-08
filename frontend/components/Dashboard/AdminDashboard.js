@@ -1034,7 +1034,7 @@ export default function AdminDashboard() {
             });
             const data = await res.json();
             if (Array.isArray(data)) {
-                setTests(data);
+                setTests(data.sort((a, b) => (a.title || '').localeCompare(b.title || '')));
             } else {
                 setTests([]);
             }
@@ -1071,7 +1071,7 @@ export default function AdminDashboard() {
             });
             const data = await res.json();
             if (Array.isArray(data)) {
-                setSeriesList(data);
+                setSeriesList(data.sort((a, b) => (a.title || '').localeCompare(b.title || '')));
             } else {
                 console.error("Invalid series data:", data);
                 setSeriesList([]);
@@ -1089,6 +1089,26 @@ export default function AdminDashboard() {
             setRevenueStats(data);
         } catch (error) {
             console.error("Error fetching revenue:", error);
+        }
+    };
+
+    const handleDeleteSeries = async (seriesId) => {
+        if (!confirm('Are you sure you want to delete this Test Series?\n\nThe tests inside will remain intact, but the series itself will be removed. Proceed?')) return;
+        try {
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/admin/series/${seriesId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                alert('Series deleted successfully');
+                fetchSeries();
+            } else {
+                alert('Failed to delete series');
+            }
+        } catch (error) {
+            console.error("Error deleting series:", error);
+            alert("Error deleting series");
         }
     };
 
@@ -1931,6 +1951,13 @@ export default function AdminDashboard() {
                                                             title="Edit Series"
                                                         >
                                                             <Edit2 size={18} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteSeries(series.id)}
+                                                            className="text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded transition ml-2"
+                                                            title="Delete Series"
+                                                        >
+                                                            <Trash size={18} />
                                                         </button>
                                                     </td>
                                                 </tr>
