@@ -300,4 +300,109 @@ router.get('/revenue', async (req, res) => {
     }
 });
 
+
+// POST /api/admin/rescore-all-results
+// Re-scores all existing results using the fixed correctOption comparison logic
+router.post('/rescore-all-results', async (req, res) => {
+    try {
+        // Helper: resolve letter-format correctOption to actual text
+        const resolveCorrectOption = (question) => {
+            if (!question.correctOption) return null;
+            const letterToIdx = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+            const letter = String(question.correctOption).trim().toUpperCase();
+            if (letterToIdx[letter] !== undefined && question.options) {
+                const idx = letterToIdx[letter];
+                return question.options[idx] || `Option ${idx + 1}`;
+            }
+            return question.correctOption;
+        };
+
+        const resultsSnap = await db.collection('results').get();
+        let updated = 0, skipped = 0, errors = 0;
+
+        for (const resultDoc of resultsSnap.docs) {
+            try {
+                const result = resultDoc.data();
+                const testId = result.testId;
+                if (!testId) { skipped++; continue; }
+
+                // Fetch original test
+                const testDoc = await db.collection('tests').doc(testId).get();
+                if (!testDoc.exists) { skipped++; continue; }
+
+                const testData = testDoc.data();
+                const questions = testData.questions || [];
+
+                // Build question map
+                const questionMap = new Map(
+                    questions.map((q, i) => [q._id || `q_${testId}_${i}`, q])
+                );
+
+                // Re-score each attempt
+                let score = 0, correctCount = 0, wrongCount = 0;
+                const newAttemptData = (result.attempt_data || []).map(att => {
+                    const question = questionMap.get(att.questionId);
+                    if (!question) return att; // Keep as-is if question not found
+
+                    let isCorrect = false;
+                    if (question.type === 'msq') {
+                        const userAns = Array.isArray(att.selectedOption) ? att.selectedOption : [att.selectedOption];
+                        const correctAns = question.correctOptions || [];
+                        const sortedUser = [...userAns].sort();
+                        const sortedCorrect = [...correctAns].sort();
+                        isCorrect = sortedUser.length === sortedCorrect.length &&
+                            sortedUser.every((val, i) => val === sortedCorrect[i]);
+                    } else if (question.type === 'integer') {
+                        isCorrect = String(att.selectedOption).trim() === String(question.integerAnswer).trim();
+                    } else {
+                        // MCQ — resolve letter format
+                        const correctOptResolved = resolveCorrectOption(question);
+                        isCorrect = correctOptResolved === att.selectedOption;
+                    }
+
+                    const isAttempted = att.selectedOption !== null && att.selectedOption !== undefined && att.selectedOption !== '';
+                    if (isCorrect) {
+                        score += Number(question.marks || 4);
+                        correctCount++;
+                    } else if (isAttempted) {
+                        score -= Number(question.negativeMarks || 1);
+                        wrongCount++;
+                    }
+
+                    return { ...att, isCorrect };
+                });
+
+                const totalQ = questions.length;
+                const accuracy = totalQ > 0 ? (correctCount / totalQ) * 100 : 0;
+
+                await db.collection('results').doc(resultDoc.id).update({
+                    score,
+                    correctAnswers: correctCount,
+                    wrongAnswers: wrongCount,
+                    accuracy: Math.round(accuracy * 100) / 100,
+                    attempt_data: newAttemptData,
+                    rescored_at: new Date().toISOString()
+                });
+
+                updated++;
+            } catch (err) {
+                console.error(`Error rescoring result ${resultDoc.id}:`, err.message);
+                errors++;
+            }
+        }
+
+        res.json({
+            message: `Rescoring complete`,
+            total: resultsSnap.size,
+            updated,
+            skipped,
+            errors
+        });
+    } catch (error) {
+        console.error('Rescore Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;
+
