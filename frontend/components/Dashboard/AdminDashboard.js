@@ -1031,6 +1031,12 @@ export default function AdminDashboard() {
     const [showQuickMarkModal, setShowQuickMarkModal] = useState(false);
     const [quickMarkInput, setQuickMarkInput] = useState('');
 
+    // Revenue Password State
+    const [isRevenueUnlocked, setIsRevenueUnlocked] = useState(false);
+    const [revenuePasswordInput, setRevenuePasswordInput] = useState('');
+    const [revenueUnlockError, setRevenueUnlockError] = useState('');
+    const [isUnlocking, setIsUnlocking] = useState(false);
+
     // Initial Data Fetching
     useEffect(() => {
         if (user) {
@@ -1040,9 +1046,9 @@ export default function AdminDashboard() {
             }
             if (activeTab === 'users') fetchStudents();
             if (activeTab === 'series') fetchSeries();
-            if (activeTab === 'revenue') fetchRevenue();
+            if (activeTab === 'revenue' && isRevenueUnlocked) fetchRevenue();
         }
-    }, [activeTab, user]);
+    }, [activeTab, user, isRevenueUnlocked]);
 
     // Fetch Syllabus on mount
     useEffect(() => {
@@ -1160,6 +1166,36 @@ export default function AdminDashboard() {
             setRevenueStats(data);
         } catch (error) {
             console.error("Error fetching revenue:", error);
+        }
+    };
+
+    const handleUnlockRevenue = async (e) => {
+        e.preventDefault();
+        setRevenueUnlockError('');
+        setIsUnlocking(true);
+        try {
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/admin/verify-revenue-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ password: revenuePasswordInput })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setIsRevenueUnlocked(true);
+                setRevenuePasswordInput('');
+            } else {
+                setRevenueUnlockError(data.error || 'Incorrect password');
+            }
+        } catch (error) {
+            console.error("Revenue Unlock Error:", error);
+            setRevenueUnlockError('Failed to verify password');
+        } finally {
+            setIsUnlocking(false);
         }
     };
 
@@ -2289,33 +2325,89 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             )}    {/* Revenue Tab */}
-            {activeTab === 'revenue' && revenueStats && (
+            {activeTab === 'revenue' && !isRevenueUnlocked && (
+                <div className="flex items-center justify-center py-20">
+                    <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-8 max-w-md w-full text-center">
+                        <div className="mx-auto w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6 border border-red-100 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
+                        <h2 className="text-2xl font-black text-gray-900 mb-2">Restricted Access</h2>
+                        <p className="text-gray-500 mb-8 text-sm leading-relaxed">Please enter the master password to view sensitive revenue and transaction data.</p>
+
+                        <form onSubmit={handleUnlockRevenue} className="space-y-4">
+                            <div>
+                                <input
+                                    type="password"
+                                    value={revenuePasswordInput}
+                                    onChange={(e) => setRevenuePasswordInput(e.target.value)}
+                                    placeholder="Enter password"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                                    required
+                                />
+                            </div>
+                            {revenueUnlockError && (
+                                <p className="text-red-500 text-sm font-medium">{revenueUnlockError}</p>
+                            )}
+                            <button
+                                type="submit"
+                                disabled={isUnlocking}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex justify-center items-center shadow-md disabled:bg-indigo-400"
+                            >
+                                {isUnlocking ? (
+                                    <span className="flex items-center gap-2">
+                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                        Verifying...
+                                    </span>
+                                ) : "Unlock Revenue Dashboard"}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {activeTab === 'revenue' && isRevenueUnlocked && revenueStats && (
                 <div className="space-y-6">
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-green-50 p-6 rounded-lg text-center border border-green-200">
-                            <h4 className="text-gray-600 font-bold uppercase tracking-wider">Total Revenue</h4>
-                            <p className="text-5xl font-extrabold text-green-700 mt-2">₹{revenueStats.totalRevenue}</p>
+                        <div className="bg-green-50 p-6 rounded-lg text-center border border-green-200 shadow-sm transition-transform hover:-translate-y-1">
+                            <h4 className="text-gray-600 font-bold uppercase tracking-wider text-sm flex items-center justify-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                                Total Revenue
+                            </h4>
+                            <p className="text-5xl font-black text-green-700 mt-3 drop-shadow-sm">₹{revenueStats.totalRevenue.toLocaleString('en-IN')}</p>
                         </div>
-                        <div className="bg-blue-50 p-6 rounded-lg text-center border border-blue-200">
-                            <h4 className="text-gray-600 font-bold uppercase tracking-wider">Total Orders</h4>
-                            <p className="text-5xl font-extrabold text-blue-700 mt-2">{revenueStats.totalOrders}</p>
+                        <div className="bg-blue-50 p-6 rounded-lg text-center border border-blue-200 shadow-sm transition-transform hover:-translate-y-1">
+                            <h4 className="text-gray-600 font-bold uppercase tracking-wider text-sm flex items-center justify-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor"><path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" /></svg>
+                                Total Orders
+                            </h4>
+                            <p className="text-5xl font-black text-blue-700 mt-3 drop-shadow-sm">{revenueStats.totalOrders}</p>
                         </div>
                     </div>
 
                     {/* Transactions Table */}
-                    <div className="bg-white rounded-lg shadow overflow-hidden">
-                        <div className="p-6 border-b border-gray-200"><h3 className="text-xl font-bold text-gray-800">Recent Transactions</h3></div>
+                    <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+                        <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                                Recent Transactions
+                            </h3>
+                            <button onClick={() => setIsRevenueUnlocked(false)} className="text-sm text-gray-500 hover:text-red-500 font-medium flex items-center gap-1 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                                Lock Dashboard
+                            </button>
+                        </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ref ID</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Student</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Item Name</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider border-l border-gray-100">Amount Paid</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Ref ID</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">

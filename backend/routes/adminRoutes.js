@@ -300,6 +300,43 @@ router.get('/revenue', async (req, res) => {
     }
 });
 
+// POST /api/admin/verify-revenue-password - Verify the admin dashboard revenue tab access password
+router.post('/verify-revenue-password', async (req, res) => {
+    try {
+        const { password } = req.body;
+
+        if (!password) {
+            return res.status(400).json({ error: 'Password is required' });
+        }
+
+        const doc = await db.collection('settings').doc('admin_config').get();
+
+        if (!doc.exists) {
+            // If the document doesn't exist, it means the password hasn't been configured yet.
+            // For security, default to denying access until the DB is set up securely.
+            console.warn('Revenue password not configured in database yet: settings/admin_config');
+            return res.status(401).json({ error: 'Revenue access not configured. Please contact site Administrator.' });
+        }
+
+        const data = doc.data();
+        const storedPassword = data.revenuePassword;
+
+        if (!storedPassword) {
+            return res.status(401).json({ error: 'Revenue access not configured. Please contact site Administrator.' });
+        }
+
+        if (password === storedPassword) {
+            res.json({ success: true, message: 'Access granted' });
+        } else {
+            res.status(401).json({ error: 'Incorrect password' });
+        }
+    } catch (error) {
+        console.error('Verify Revenue Password Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
 
 // POST /api/admin/rescore-all-results
 // Re-scores all existing results using the fixed correctOption comparison logic
