@@ -2,235 +2,217 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { BarChart2, Award, Clock, ArrowLeft, Download, ChevronDown, ChevronUp, CheckCircle, XCircle, MinusCircle } from 'lucide-react';
+import { Award, ArrowLeft, Download, ChevronDown, ChevronUp, CheckCircle, XCircle, MinusCircle } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/config';
 import Link from 'next/link';
 import MathText from '@/components/ui/MathText';
 import ImageViewer from '@/components/ui/ImageViewer';
-import { useReactToPrint } from 'react-to-print';
-import PrintableResultReport from '@/components/Exam/PrintableResultReport';
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
+
+/** Returns true if the student actually answered this question */
+const isAnswered = (sel) => {
+    if (sel === undefined || sel === null || sel === '') return false;
+    if (Array.isArray(sel)) return sel.length > 0;
+    return true;
+};
+
+/**
+ * Resolve correct MCQ option.
+ * Priority:
+ *  1. attempt.correctAnswer  (stored at submit time — most reliable)
+ *  2. q.correctOption from fullTest, resolving 'A'/'B'/'C'/'D' letters to text if needed
+ */
+const resolveCorrectOption = (attempt, q) => {
+    if (attempt?.correctAnswer) return String(attempt.correctAnswer);
+    if (!q?.correctOption) return null;
+    const raw = String(q.correctOption).trim();
+    // If it's a single letter A/B/C/D, resolve to option text
+    const letterIdx = { A: 0, B: 1, C: 2, D: 3 }[raw.toUpperCase()];
+    if (letterIdx !== undefined && Array.isArray(q.options)) {
+        return q.options[letterIdx] || `Option ${letterIdx + 1}`;
+    }
+    return raw;
+};
+
+/**
+ * Resolve correct integer answer.
+ * Priority: attempt.integerAnswer → q.integerAnswer
+ */
+const resolveIntegerAnswer = (attempt, q) => {
+    if (attempt?.integerAnswer !== null && attempt?.integerAnswer !== undefined) return String(attempt.integerAnswer);
+    if (q?.integerAnswer !== null && q?.integerAnswer !== undefined) return String(q.integerAnswer);
+    return null;
+};
+
+/**
+ * Resolve correct MSQ options array.
+ * Priority: attempt.correctOptions → q.correctOptions
+ */
+const resolveCorrectOptions = (attempt, q) => {
+    if (Array.isArray(attempt?.correctOptions) && attempt.correctOptions.length > 0) return attempt.correctOptions;
+    if (Array.isArray(q?.correctOptions) && q.correctOptions.length > 0) return q.correctOptions;
+    return [];
+};
+
+/** Get question type. Priority: attempt.questionType → q.type → 'mcq' */
+const getQType = (attempt, q) => attempt?.questionType || q?.type || 'mcq';
+
+// ─────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────
 
 export default function ResultPage() {
     const { id } = useParams();
     const { user } = useAuth();
+
     const [result, setResult] = useState(null);
-    const [loading, setLoading] = useState(true);
     const [fullTest, setFullTest] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [rankData, setRankData] = useState({ rank: '-', total: '-' });
     const [percentileData, setPercentileData] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
-    const [expandedQ, setExpandedQ] = useState(null); // which question is expanded
+    const [expandedQ, setExpandedQ] = useState(null);
 
-    const componentRef = useRef(null);
-    const handlePrint = useReactToPrint({
-        contentRef: componentRef,
-        documentTitle: `Apex_Mock_Test_Report_${fullTest?.title?.replace(/\s+/g, '_') || 'Result'}`,
-        print: async (printIframe) => {
-            try {
-                const document = printIframe.contentDocument;
-                if (!document) throw new Error("Iframe document not loaded");
-
-                // Strip lab/oklch/color properties from stylesheets as html2canvas fails to parse them
-                const styleTags = document.querySelectorAll('style, link[rel="stylesheet"]');
-                for (let style of styleTags) {
-                    try {
-                        if (style.tagName.toLowerCase() === 'style' && style.innerHTML) {
-                            const newCSS = style.innerHTML.replace(/[a-zA-Z-]+\s*:\s*[^;}]*(?:lab|oklch|color)\s*\([^;}]*[;}]/gi, match => match.endsWith('}') ? '}' : '');
-                            style.innerHTML = newCSS;
-                        }
-                    } catch (e) {
-                        console.warn("Could not process style tag", e);
-                    }
-                }
-
-                // Dynamically import html2canvas-pro and jsPDF
-                const html2canvasModule = await import('html2canvas-pro');
-                const html2canvas = html2canvasModule.default ? html2canvasModule.default : html2canvasModule;
-
-                const { jsPDF } = await import('jspdf');
-
-                const element = document.body;
-
-                const canvas = await html2canvas(element, {
-                    scale: 2,
-                    useCORS: true,
-                    logging: false
-                });
-
-                const imgData = canvas.toDataURL('image/jpeg', 0.98);
-                const pdf = new jsPDF({
-                    orientation: 'portrait',
-                    unit: 'mm',
-                    format: 'a4'
-                });
-
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save(`Apex_Mock_Test_Report_${fullTest?.title?.replace(/\s+/g, '_') || 'Result'}.pdf`);
-            } catch (error) {
-                console.error('PDF generation error:', error);
-                // Fallback to regular print if generation fails
-                if (printIframe && printIframe.contentWindow) {
-                    printIframe.contentWindow.print();
-                }
-            }
-        }
-    });
-
+    // ── Fetch result + test + percentile ──────────────────────
     useEffect(() => {
         if (!user) return;
-        const fetchData = async () => {
+        (async () => {
             try {
                 const token = await user.getIdToken();
-                const headers = { 'Authorization': `Bearer ${token}` };
+                const headers = { Authorization: `Bearer ${token}` };
+
                 const res = await fetch(`${API_BASE_URL}/api/results/${id}`, { headers });
                 if (!res.ok) throw new Error('Result not found');
-                const specificResult = await res.json();
-                setResult(specificResult);
+                const resultData = await res.json();
+                setResult(resultData);
 
-                const testId = specificResult.testId?._id || specificResult.testId;
+                // Fetch test for question text / images / solutions
+                const testId = resultData.testId?._id || resultData.testId;
                 if (testId) {
                     const testRes = await fetch(`${API_BASE_URL}/api/tests/${testId}`, { headers });
-                    if (testRes.ok) {
-                        const testData = await testRes.json();
-                        setFullTest(testData);
-                    }
+                    if (testRes.ok) setFullTest(await testRes.json());
                 }
 
-                // Fetch Percentile Data (Ideally public or accessible by students for this calculation)
+                // Percentile data
                 const percRes = await fetch(`${API_BASE_URL}/api/admin/percentile-data`, { headers });
-                if (percRes.ok) {
-                    const pd = await percRes.json();
-                    setPercentileData(pd);
-                }
-            } catch (error) {
-                console.error("Error fetching data:", error);
-                setError(error.message);
+                if (percRes.ok) setPercentileData(await percRes.json());
+            } catch (e) {
+                setError(e.message);
             } finally {
                 setLoading(false);
             }
-        };
-        fetchData();
+        })();
     }, [id, user]);
 
+    // ── Fetch rank ────────────────────────────────────────────
     useEffect(() => {
-        if (!result) return;
-        const targetTestId = fullTest?._id || result.testId?._id || result.testId;
-        if (!targetTestId) return;
-        const fetchRank = async () => {
+        if (!result || !user) return;
+        const testId = fullTest?._id || result.testId?._id || result.testId;
+        if (!testId) return;
+        (async () => {
             try {
                 const token = await user.getIdToken();
-                const res = await fetch(`${API_BASE_URL}/api/results/test/${targetTestId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                const res = await fetch(`${API_BASE_URL}/api/results/test/${testId}`, {
+                    headers: { Authorization: `Bearer ${token}` }
                 });
                 if (res.ok) {
-                    const allResults = await res.json();
-                    const myRank = allResults.findIndex(r => r._id === result._id) + 1;
-                    setRankData({ rank: myRank > 0 ? myRank : '-', total: allResults.length });
+                    const all = await res.json();
+                    const myRank = all.findIndex(r => r._id === result._id) + 1;
+                    setRankData({ rank: myRank > 0 ? myRank : '-', total: all.length });
                 }
-            } catch (e) { console.error("Rank fetch error", e); }
-        };
-        fetchRank();
+            } catch (e) { /* silent */ }
+        })();
     }, [fullTest, result, user]);
 
-    if (loading) return <div className="p-8 text-center">Loading Result...</div>;
+    // ─────────────────────────────────────────────────────────
+    // LOADING / ERROR
+    // ─────────────────────────────────────────────────────────
+    if (loading) return <div className="p-8 text-center text-gray-500 text-sm">Loading result…</div>;
     if (error) return <div className="p-8 text-center text-red-500 font-bold">{error}</div>;
-    if (!result) return <div className="p-8 text-center text-red-500">Result data not found.</div>;
+    if (!result) return <div className="p-8 text-center text-red-500">Result not found.</div>;
 
-    const testMeta = fullTest || result.testDetails || { title: 'Unknown Test', total_marks: 0 };
-    const maxMarks = testMeta.total_marks || 100;
+    // ─────────────────────────────────────────────────────────
+    // DERIVED VALUES
+    // ─────────────────────────────────────────────────────────
+    const testMeta = fullTest || result.testDetails || { title: 'Test Result', total_marks: 100 };
+    const maxMarks = Number(testMeta.total_marks) || 100;
     const percentage = ((result.score / maxMarks) * 100).toFixed(1);
-    const unattempted = (result.totalQuestions - (result.correctAnswers || 0) - (result.wrongAnswers || 0)) || 0;
+    const skipped = (result.totalQuestions || 0) - (result.correctAnswers || 0) - (result.wrongAnswers || 0);
 
-    // Percentile Calculation Logic
-    let expectedPercentile = "N/A";
-    let expectedRankRange = "N/A";
-
+    // Percentile (JEE Main 300-mark tests only)
+    let expectedPercentile = 'N/A', expectedRankRange = 'N/A';
     if (percentileData && testMeta.category === 'JEE Main' && maxMarks === 300) {
-        // Find matching range based on overall mappings
         const score = result.score;
         const mapping = (percentileData.overallMappings || []).find(m => {
             const rangeStr = String(m.marksRequired).replace(/\+/g, '');
             const parts = rangeStr.split('-');
             if (parts.length === 2) {
-                const min = parseInt(parts[0].trim());
-                const max = parseInt(parts[1].trim());
-                return score >= min && score <= max;
-            } else if (parts.length === 1 && String(m.marksRequired).includes('+')) {
-                const min = parseInt(parts[0].trim());
-                return score >= min;
+                return score >= parseInt(parts[0]) && score <= parseInt(parts[1]);
+            } else if (String(m.marksRequired).includes('+')) {
+                return score >= parseInt(parts[0]);
             }
             return false;
         });
-
         if (mapping) {
             expectedPercentile = mapping.percentileRange;
             expectedRankRange = mapping.expectedRankRange;
         } else if (score < 70) {
-            expectedPercentile = "< 80.0 %ile";
-            expectedRankRange = "> 2.5 Lakh";
+            expectedPercentile = '< 80.0 %ile';
+            expectedRankRange = '> 2.5 Lakh';
         }
     }
 
-    const checkResultAccess = () => {
+    // Result visibility
+    const checkAccess = () => {
         const mode = fullTest?.resultVisibility || 'immediate';
-        const declTime = fullTest?.resultDeclarationTime;
-        const testEndTime = fullTest?.endTime;
-        const now = new Date();
         if (mode === 'immediate') return true;
-        if (mode === 'scheduled' && declTime) return new Date(declTime) <= now;
-        if (mode === 'afterTestEnds' && testEndTime) return new Date(testEndTime) <= now;
+        if (mode === 'scheduled' && fullTest?.resultDeclarationTime)
+            return new Date(fullTest.resultDeclarationTime) <= new Date();
+        if (mode === 'afterTestEnds' && fullTest?.endTime)
+            return new Date(fullTest.endTime) <= new Date();
         return true;
     };
+    const showSolutions = checkAccess();
 
-    const showSolutions = checkResultAccess();
-    const questionsList = fullTest?.questions || [];
+    // Build question list: prefer fullTest.questions, fall back to attempt_data reconstructed
+    const questions = (fullTest?.questions?.length > 0)
+        ? fullTest.questions
+        : (result.attempt_data || []).map((a, i) => ({
+            text: a.questionText || `Question ${i + 1}`,
+            _reconstructed: true,
+        }));
 
-    const effectiveQuestions = questionsList.length > 0 ? questionsList : result.attempt_data.map((a, i) => ({
-        text: a.questionText || `Question ${i + 1}`,
-        correctAnswer: '?',
-        solution: 'Detailed solution unavailable (Test content deleted)',
-        _reconstructed: true
-    }));
+    // Map attempt_data by questionId for fast lookup
+    const attemptByQId = {};
+    (result.attempt_data || []).forEach(a => {
+        if (a.questionId) attemptByQId[a.questionId] = a;
+    });
 
-    // --- ROBUST MATCHING ---
-    // Build attempt_data lookup. The backend stores questionId like "q_testId_index".
-    // The fullTest questions fetched via getTestById have random _id per request. 
-    // So we MUST match by INDEX (the backend uses deterministic q_testId_index).
-    const getAttemptForQuestion = (q, idx) => {
-        if (q._reconstructed) return result.attempt_data[idx];
+    const testId = fullTest?._id || result.testId?._id || result.testId;
 
-        const testId = fullTest?._id || result.testId?._id || result.testId;
-        const expectedId = `q_${testId}_${idx}`;
+    /** Find the attempt entry for question at index idx */
+    const getAttempt = (q, idx) => {
+        if (q._reconstructed) return result.attempt_data?.[idx] || null;
 
-        // Primary: match by deterministic questionId
-        let found = result.attempt_data.find(a => a.questionId === expectedId);
-        if (found) return found;
+        // Try deterministic ID (q_testId_idx)
+        const deterministicId = `q_${testId}_${idx}`;
+        if (attemptByQId[deterministicId]) return attemptByQId[deterministicId];
 
-        // Secondary: match by stored _id if questions have persistent IDs
-        if (q._id) {
-            found = result.attempt_data.find(a => a.questionId === q._id || a.questionId === String(q._id));
-            if (found) return found;
-        }
+        // Try stored _id
+        if (q._id && attemptByQId[q._id]) return attemptByQId[q._id];
+        if (q._id && attemptByQId[String(q._id)]) return attemptByQId[String(q._id)];
 
-        // Tertiary fallback: match by questionText
-        found = result.attempt_data.find(a => a.questionText && q.text && a.questionText === q.text);
-        return found || null;
+        // Match by question text
+        return (result.attempt_data || []).find(a => a.questionText && q.text && a.questionText === q.text) || null;
     };
 
-    const getIsAttempted = (selectedOption) => {
-        if (selectedOption === undefined || selectedOption === null || selectedOption === '') return false;
-        if (Array.isArray(selectedOption)) return selectedOption.length > 0;
-        return true;
-    };
-
-    const toggleQuestion = (idx) => {
-        setExpandedQ(expandedQ === idx ? null : idx);
-    };
-
+    // ─────────────────────────────────────────────────────────
+    // RENDER
+    // ─────────────────────────────────────────────────────────
     return (
         <div className="min-h-screen bg-gray-50">
             <ImageViewer src={previewImage} onClose={() => setPreviewImage(null)} />
@@ -238,26 +220,16 @@ export default function ResultPage() {
             {/* Top Bar */}
             <div className="bg-white border-b sticky top-0 z-10">
                 <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-                    <Link href="/dashboard" className="flex items-center text-gray-600 hover:text-gray-900 transition text-sm font-medium">
+                    <Link href="/dashboard" className="flex items-center text-gray-600 hover:text-gray-900 text-sm font-medium transition">
                         <ArrowLeft className="mr-1" size={18} /> Back
                     </Link>
-                    {/* {showSolutions && fullTest && (
-                        <button
-                            onClick={() => handlePrint()}
-                            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold text-sm shadow-sm hover:bg-blue-700 transition flex items-center gap-1.5"
-                        >
-                            <Download size={14} />
-                            <span className="hidden sm:inline">Download PDF</span>
-                            <span className="sm:hidden">PDF</span>
-                        </button>
-                    )} */}
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+            <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4">
 
-                {/* Score Card */}
-                <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl shadow-lg text-white p-5 sm:p-8 mb-4">
+                {/* ── Score Card ── */}
+                <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl shadow-lg text-white p-5 sm:p-8">
                     <div className="flex justify-between items-start mb-4">
                         <div>
                             <h1 className="text-lg sm:text-2xl font-bold">{testMeta.title}</h1>
@@ -269,12 +241,10 @@ export default function ResultPage() {
                         </div>
                     </div>
 
-                    {/* Mini Stats */}
-                    <div className="grid grid-cols-4 gap-2 sm:gap-4 mt-4 pt-4 border-t border-white/20">
+                    <div className="grid grid-cols-4 gap-2 sm:gap-4 pt-4 border-t border-white/20">
                         <div className="text-center">
                             <div className="text-lg sm:text-2xl font-bold flex items-center justify-center gap-1">
-                                <Award size={16} className="text-yellow-300" />
-                                #{rankData.rank}
+                                <Award size={16} className="text-yellow-300" />#{rankData.rank}
                             </div>
                             <div className="text-[10px] sm:text-xs opacity-60">Rank / {rankData.total}</div>
                         </div>
@@ -287,22 +257,24 @@ export default function ResultPage() {
                             <div className="text-[10px] sm:text-xs opacity-60">Percentage</div>
                         </div>
                         <div className="text-center">
-                            <div className="text-lg sm:text-2xl font-bold">{Math.floor(result.time_taken / 60)}m</div>
+                            <div className="text-lg sm:text-2xl font-bold">{Math.floor((result.time_taken || 0) / 60)}m</div>
                             <div className="text-[10px] sm:text-xs opacity-60">Time</div>
                         </div>
                     </div>
 
-                    {/* Expected Percentile Badge (JEE Main Only) */}
-                    {testMeta.category === 'JEE Main' && maxMarks === 300 && expectedPercentile !== "N/A" && (
-                        <div className="mt-6 p-4 bg-white/10 rounded-xl border border-white/20 backdrop-blur-sm">
-                            <h4 className="text-white/80 text-xs font-bold uppercase tracking-widest mb-3 text-center">AI Predictive Analysis (Based on 2024/2025 Difficulty)</h4>
+                    {/* Percentile (JEE Main) */}
+                    {testMeta.category === 'JEE Main' && maxMarks === 300 && expectedPercentile !== 'N/A' && (
+                        <div className="mt-6 p-4 bg-white/10 rounded-xl border border-white/20">
+                            <h4 className="text-white/80 text-xs font-bold uppercase tracking-widest mb-3 text-center">
+                                AI Predictive Analysis (Based on 2024/2025 Difficulty)
+                            </h4>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="text-center">
-                                    <div className="text-2xl sm:text-3xl font-black text-yellow-300 drop-shadow-md">{expectedPercentile}</div>
+                                    <div className="text-2xl sm:text-3xl font-black text-yellow-300">{expectedPercentile}</div>
                                     <div className="text-xs text-blue-100 font-medium mt-1">Expected Percentile</div>
                                 </div>
                                 <div className="text-center border-l border-white/20">
-                                    <div className="text-2xl sm:text-3xl font-black text-green-300 drop-shadow-md">AIR {expectedRankRange}</div>
+                                    <div className="text-2xl sm:text-3xl font-black text-green-300">AIR {expectedRankRange}</div>
                                     <div className="text-xs text-blue-100 font-medium mt-1">Expected Rank Range</div>
                                 </div>
                             </div>
@@ -310,8 +282,8 @@ export default function ResultPage() {
                     )}
                 </div>
 
-                {/* Performance Chips */}
-                <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+                {/* ── Stats Chips ── */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     <div className="bg-green-50 border border-green-200 rounded-xl p-3 sm:p-4 text-center">
                         <div className="text-xl sm:text-2xl font-black text-green-600">{result.correctAnswers || 0}</div>
                         <div className="text-[10px] sm:text-xs text-green-700 font-medium">Correct</div>
@@ -321,12 +293,12 @@ export default function ResultPage() {
                         <div className="text-[10px] sm:text-xs text-red-700 font-medium">Incorrect</div>
                     </div>
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 sm:p-4 text-center">
-                        <div className="text-xl sm:text-2xl font-black text-gray-500">{unattempted}</div>
+                        <div className="text-xl sm:text-2xl font-black text-gray-500">{skipped > 0 ? skipped : 0}</div>
                         <div className="text-[10px] sm:text-xs text-gray-600 font-medium">Skipped</div>
                     </div>
                 </div>
 
-                {/* Result Not Available */}
+                {/* ── Solutions ── */}
                 {!showSolutions ? (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
                         <h3 className="text-base font-bold text-gray-800 mb-2">Results Not Yet Available</h3>
@@ -342,10 +314,10 @@ export default function ResultPage() {
                     </div>
                 ) : (
                     <>
-                        {/* Solution PDF */}
+                        {/* Solution PDF download */}
                         {fullTest?.solutionPdf && (
                             <a href={fullTest.solutionPdf} target="_blank" rel="noopener noreferrer"
-                                className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 hover:bg-blue-100 transition">
+                                className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-4 hover:bg-blue-100 transition">
                                 <div>
                                     <h3 className="font-bold text-blue-800 text-sm">Full Solution PDF</h3>
                                     <p className="text-xs text-blue-600">Download solution key</p>
@@ -354,22 +326,23 @@ export default function ResultPage() {
                             </a>
                         )}
 
-                        {/* Question Palette */}
-                        <div className="mb-4">
+                        {/* Question Navigator */}
+                        <div>
                             <h3 className="font-bold text-gray-800 text-sm mb-2">Question Navigator</h3>
                             <div className="flex flex-wrap gap-1.5">
-                                {effectiveQuestions.map((q, idx) => {
-                                    const attempt = getAttemptForQuestion(q, idx);
-                                    const selOpt = attempt?.selectedOption;
-                                    const isAtt = getIsAttempted(selOpt);
-                                    const isCor = attempt?.isCorrect;
-
-                                    let bg = 'bg-gray-200 text-gray-600'; // skipped
-                                    if (isAtt && isCor) bg = 'bg-green-500 text-white';
-                                    else if (isAtt) bg = 'bg-red-500 text-white';
-
+                                {questions.map((q, idx) => {
+                                    const att = getAttempt(q, idx);
+                                    const attempted = isAnswered(att?.selectedOption);
+                                    const correct = att?.isCorrect;
+                                    let bg = 'bg-gray-200 text-gray-600';
+                                    if (attempted && correct) bg = 'bg-green-500 text-white';
+                                    else if (attempted) bg = 'bg-red-500 text-white';
                                     return (
-                                        <button key={idx} onClick={() => { setExpandedQ(idx); document.getElementById(`q-${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+                                        <button key={idx}
+                                            onClick={() => {
+                                                setExpandedQ(idx);
+                                                document.getElementById(`q-${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                            }}
                                             className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg text-xs font-bold ${bg} transition hover:scale-110`}>
                                             {idx + 1}
                                         </button>
@@ -378,95 +351,82 @@ export default function ResultPage() {
                             </div>
                         </div>
 
-                        {/* Questions List */}
-                        {!fullTest && <div className="mb-3 text-xs text-red-500 bg-red-50 p-2 rounded border border-red-100">Note: Original test data missing. Showing limited details.</div>}
+                        {!fullTest && (
+                            <div className="text-xs text-red-500 bg-red-50 p-2 rounded border border-red-100">
+                                Note: Original test data unavailable. Showing limited question details.
+                            </div>
+                        )}
 
+                        {/* ── Question List ── */}
                         <div className="space-y-3">
-                            {effectiveQuestions.map((q, idx) => {
-                                const attempt = getAttemptForQuestion(q, idx);
-                                const selectedOption = attempt?.selectedOption;
-                                const isAttempted = getIsAttempted(selectedOption);
-                                const isCorrect = attempt?.isCorrect;
+                            {questions.map((q, idx) => {
+                                const attempt = getAttempt(q, idx);
+                                const selectedOpt = attempt?.selectedOption;
+                                const attempted = isAnswered(selectedOpt);
+                                const isCorrect = attempt?.isCorrect ?? false;
                                 const isExpanded = expandedQ === idx;
 
-                                const isOptionSelected = (optVal) => {
-                                    if (!isAttempted) return false;
-                                    if (Array.isArray(selectedOption)) return selectedOption.includes(optVal);
-                                    return selectedOption === optVal;
+                                // Resolved correct-answer data — attempt_data is source of truth
+                                const qType = getQType(attempt, q);
+                                const correctOptText = resolveCorrectOption(attempt, q);   // MCQ
+                                const correctOpts = resolveCorrectOptions(attempt, q); // MSQ
+                                const intAnswer = resolveIntegerAnswer(attempt, q);  // INT
+
+                                // Status
+                                let StatusIcon = MinusCircle, statusColor = 'text-gray-400', statusLabel = 'Skipped';
+                                if (attempted && isCorrect) { StatusIcon = CheckCircle; statusColor = 'text-green-500'; statusLabel = 'Correct'; }
+                                else if (attempted) { StatusIcon = XCircle; statusColor = 'text-red-500'; statusLabel = 'Incorrect'; }
+
+                                // Marks display
+                                const marksDisplay = isCorrect
+                                    ? `+${attempt?.marks ?? q.marks ?? 4}`
+                                    : attempted
+                                        ? `-${attempt?.negativeMarks ?? q.negativeMarks ?? 1}`
+                                        : '0';
+
+                                // Is a given option the correct answer?
+                                const isOptCorrect = (optVal) => {
+                                    if (qType === 'msq') return correctOpts.includes(optVal);
+                                    return correctOptText === optVal;
                                 };
-
-                                // PRIMARY: use correctAnswer stored in attempt_data at submit time
-                                // FALLBACK: resolve from fullTest (handles legacy results before this fix)
-                                const resolveCorrectOption = () => {
-                                    if (attempt?.correctAnswer) return attempt.correctAnswer;
-                                    if (!q.correctOption) return null;
-                                    const letterMap = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
-                                    const letter = String(q.correctOption).trim().toUpperCase();
-                                    if (letterMap[letter] !== undefined && q.options) {
-                                        const optIdx = letterMap[letter];
-                                        return q.options[optIdx] || `Option ${optIdx + 1}`;
-                                    }
-                                    return q.correctOption;
-                                };
-                                const resolvedCorrectOption = resolveCorrectOption();
-
-                                // Determine effective question type (from attempt or fullTest)
-                                const qType = attempt?.questionType || q.type || 'mcq';
-
-                                // Correct options for MSQ and integer — prefer stored data
-                                const storedCorrectOptions = attempt?.correctOptions || q.correctOptions;
-                                const storedIntegerAnswer = attempt?.integerAnswer ?? q.integerAnswer;
-
-                                const isOptionCorrect = (optVal) => {
-                                    if (qType === 'msq' && Array.isArray(storedCorrectOptions)) return storedCorrectOptions.includes(optVal);
-                                    return resolvedCorrectOption === optVal;
-                                };
-
-                                // Status icon
-                                let StatusIcon, statusColor, statusLabel;
-                                if (!isAttempted) {
-                                    StatusIcon = MinusCircle; statusColor = 'text-gray-400'; statusLabel = 'Skipped';
-                                } else if (isCorrect) {
-                                    StatusIcon = CheckCircle; statusColor = 'text-green-500'; statusLabel = 'Correct';
-                                } else {
-                                    StatusIcon = XCircle; statusColor = 'text-red-500'; statusLabel = 'Incorrect';
-                                }
 
                                 return (
                                     <div key={idx} id={`q-${idx}`} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                                        {/* Compact Header - Always Visible */}
-                                        <button onClick={() => toggleQuestion(idx)}
+
+                                        {/* ── Always-visible header ── */}
+                                        <button onClick={() => setExpandedQ(isExpanded ? null : idx)}
                                             className="w-full flex items-center justify-between px-3 sm:px-4 py-3 text-left hover:bg-gray-50 transition">
                                             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                                                <span className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${isAttempted ? (isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700') : 'bg-gray-100 text-gray-500'
-                                                    }`}>{idx + 1}</span>
+                                                <span className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold
+                                                    ${attempted ? (isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700') : 'bg-gray-100 text-gray-500'}`}>
+                                                    {idx + 1}
+                                                </span>
                                                 <div className="flex items-center gap-1.5 flex-wrap">
                                                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold border border-indigo-100">
-                                                        {q.type === 'integer' ? 'INT' : (q.type === 'msq' ? 'MSQ' : 'MCQ')}
+                                                        {qType === 'integer' ? 'INT' : qType === 'msq' ? 'MSQ' : 'MCQ'}
                                                     </span>
                                                     <StatusIcon size={16} className={statusColor} />
                                                     <span className={`text-xs font-semibold ${statusColor}`}>{statusLabel}</span>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-gray-400">
-                                                    {isCorrect ? `+${q.marks || 0}` : (isAttempted ? `-${q.negativeMarks || 0}` : '0')}
-                                                </span>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <span className="text-xs font-bold text-gray-400">{marksDisplay}</span>
                                                 {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
                                             </div>
                                         </button>
 
-                                        {/* Expanded Content */}
+                                        {/* ── Expanded content ── */}
                                         {isExpanded && (
                                             <div className="px-3 sm:px-4 pb-4 border-t border-gray-100">
-                                                {/* Skipped Notice */}
-                                                {!isAttempted && (
+
+                                                {/* Skipped notice */}
+                                                {!attempted && (
                                                     <div className="mt-3 flex items-center gap-2 text-yellow-700 bg-yellow-50 border border-yellow-200 px-3 py-2 rounded-lg text-xs sm:text-sm">
-                                                        ⚠️ <span className="font-medium">You <strong>skipped</strong> this question. Correct answer highlighted below.</span>
+                                                        ⚠️ <span className="font-medium">You <strong>skipped</strong> this question.</span>
                                                     </div>
                                                 )}
 
-                                                {/* Question */}
+                                                {/* Question text + image */}
                                                 <div className="mt-3 mb-4">
                                                     <div className="text-sm sm:text-base text-gray-900 font-medium">
                                                         <MathText text={q.text} />
@@ -478,42 +438,44 @@ export default function ResultPage() {
                                                     )}
                                                 </div>
 
-                                                {/* MCQ/MSQ Options */}
-                                                {fullTest && q.type !== 'integer' && q.options && q.options.length > 0 && (
+                                                {/* ── MCQ / MSQ options ── */}
+                                                {qType !== 'integer' && q.options && q.options.length > 0 && (
                                                     <div className="space-y-1.5 mb-4">
                                                         {q.options.map((opt, optIdx) => {
                                                             const effectiveOpt = opt || `Option ${optIdx + 1}`;
-                                                            const selected = isOptionSelected(effectiveOpt);
-                                                            const correct = isOptionCorrect(effectiveOpt);
+                                                            const isSelected = attempted &&
+                                                                (Array.isArray(selectedOpt) ? selectedOpt.includes(effectiveOpt) : selectedOpt === effectiveOpt);
+                                                            const isCorrectOpt = isOptCorrect(effectiveOpt);
 
-                                                            let optBg = 'bg-white border-gray-200';
+                                                            let bg = 'bg-white border-gray-200';
                                                             let badge = null;
-
-                                                            if (selected && correct) {
-                                                                optBg = 'bg-green-50 border-green-400 ring-1 ring-green-400';
-                                                                badge = <span className="text-[10px] sm:text-xs font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded whitespace-nowrap">✓ Your Answer (Correct)</span>;
-                                                            } else if (correct) {
-                                                                optBg = 'bg-green-50 border-green-400';
+                                                            if (isSelected && isCorrectOpt) {
+                                                                bg = 'bg-green-50 border-green-400 ring-1 ring-green-400';
                                                                 badge = <span className="text-[10px] sm:text-xs font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded whitespace-nowrap">✓ Correct</span>;
-                                                            } else if (selected) {
-                                                                optBg = 'bg-red-50 border-red-400 ring-1 ring-red-400';
+                                                            } else if (isCorrectOpt) {
+                                                                bg = 'bg-green-50 border-green-400';
+                                                                badge = <span className="text-[10px] sm:text-xs font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded whitespace-nowrap">✓ Correct Answer</span>;
+                                                            } else if (isSelected) {
+                                                                bg = 'bg-red-50 border-red-400 ring-1 ring-red-400';
                                                                 badge = <span className="text-[10px] sm:text-xs font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded whitespace-nowrap">✗ Your Answer</span>;
                                                             }
 
                                                             return (
-                                                                <div key={optIdx} className={`flex items-start gap-2 p-2.5 sm:p-3 rounded-lg border ${optBg}`}>
-                                                                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center font-bold text-[10px] sm:text-xs shrink-0 mt-0.5 ${correct ? 'bg-green-500 border-green-500 text-white' : (selected ? 'bg-red-500 border-red-500 text-white' : 'border-gray-300 text-gray-400 bg-white')
-                                                                        }`}>
+                                                                <div key={optIdx} className={`flex items-start gap-2 p-2.5 sm:p-3 rounded-lg border ${bg}`}>
+                                                                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center font-bold text-[10px] sm:text-xs shrink-0 mt-0.5
+                                                                        ${isCorrectOpt ? 'bg-green-500 border-green-500 text-white' :
+                                                                            isSelected ? 'bg-red-500 border-red-500 text-white' :
+                                                                                'border-gray-300 text-gray-400 bg-white'}`}>
                                                                         {String.fromCharCode(65 + optIdx)}
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
-                                                                        <div className={`text-xs sm:text-sm ${correct || selected ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
+                                                                        <div className={`text-xs sm:text-sm ${isCorrectOpt || isSelected ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
                                                                             <MathText text={effectiveOpt} />
                                                                         </div>
-                                                                        {q.optionImages && q.optionImages[optIdx] && (
+                                                                        {q.optionImages?.[optIdx] && (
                                                                             <img src={q.optionImages[optIdx]} alt={`Opt ${optIdx}`}
                                                                                 className="mt-1.5 max-h-12 sm:max-h-16 object-contain rounded border bg-white cursor-zoom-in"
-                                                                                onClick={(e) => { e.stopPropagation(); setPreviewImage(q.optionImages[optIdx]); }} />
+                                                                                onClick={e => { e.stopPropagation(); setPreviewImage(q.optionImages[optIdx]); }} />
                                                                         )}
                                                                     </div>
                                                                     {badge && <div className="shrink-0 self-center">{badge}</div>}
@@ -523,91 +485,85 @@ export default function ResultPage() {
                                                     </div>
                                                 )}
 
-                                                {/* Integer Answer */}
+                                                {/* ── Integer answer block ── */}
                                                 {qType === 'integer' && (
-                                                    <div className={`p-3 sm:p-4 rounded-lg mb-4 border ${isAttempted ? (isCorrect ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400') : 'bg-gray-50 border-gray-200'}`}>
-                                                        <div className="grid grid-cols-2 gap-3">
+                                                    <div className={`p-3 sm:p-4 rounded-lg mb-4 border
+                                                        ${attempted ? (isCorrect ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400') : 'bg-gray-50 border-gray-200'}`}>
+                                                        <div className="grid grid-cols-2 gap-4">
                                                             <div>
-                                                                <span className={`text-[10px] sm:text-xs block font-bold ${isAttempted && !isCorrect ? 'text-red-600' : 'text-gray-500'}`}>YOUR ANSWER</span>
-                                                                <span className={`font-mono text-lg sm:text-xl font-bold ${isCorrect ? 'text-green-600' : (isAttempted ? 'text-red-600' : 'text-gray-400')}`}>
-                                                                    {isAttempted ? selectedOption : '-'}
-                                                                </span>
+                                                                <div className={`text-[10px] sm:text-xs font-bold mb-1 ${attempted && !isCorrect ? 'text-red-600' : 'text-gray-500'}`}>YOUR ANSWER</div>
+                                                                <div className={`font-mono text-xl sm:text-2xl font-black
+                                                                    ${isCorrect ? 'text-green-600' : attempted ? 'text-red-600' : 'text-gray-400'}`}>
+                                                                    {attempted ? String(selectedOpt) : '—'}
+                                                                </div>
                                                             </div>
                                                             <div>
-                                                                <span className="text-[10px] sm:text-xs block font-bold text-green-700">CORRECT ANSWER</span>
-                                                                <span className="font-mono text-lg sm:text-xl font-bold text-green-600">{storedIntegerAnswer ?? '-'}</span>
+                                                                <div className="text-[10px] sm:text-xs font-bold mb-1 text-green-700">CORRECT ANSWER</div>
+                                                                <div className="font-mono text-xl sm:text-2xl font-black text-green-600">
+                                                                    {intAnswer ?? '—'}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 )}
 
-                                                {/* Answer Summary (for MCQ/MSQ only; integer has its own block above) */}
+                                                {/* ── MCQ / MSQ answer summary ── */}
                                                 {qType !== 'integer' && (
-                                                    <div className={`p-3 rounded-xl border-2 mb-3 ${isAttempted ? (isCorrect ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300') : 'bg-yellow-50 border-yellow-300'}`}>
+                                                    <div className={`p-3 rounded-xl border-2 mb-3
+                                                        ${attempted ? (isCorrect ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300') : 'bg-yellow-50 border-yellow-300'}`}>
                                                         <div className="flex items-center justify-between gap-3">
                                                             <div className="min-w-0">
                                                                 <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Your Answer</div>
-                                                                <div className={`text-sm font-bold truncate ${isAttempted ? (isCorrect ? 'text-green-700' : 'text-red-700') : 'text-gray-400'}`}>
-                                                                    {isAttempted ? (
-                                                                        Array.isArray(selectedOption) ? selectedOption.join(', ') : selectedOption
-                                                                    ) : 'Skipped'}
+                                                                <div className={`text-sm font-bold truncate ${attempted ? (isCorrect ? 'text-green-700' : 'text-red-700') : 'text-gray-400'}`}>
+                                                                    {attempted
+                                                                        ? (Array.isArray(selectedOpt) ? selectedOpt.join(', ') : String(selectedOpt))
+                                                                        : 'Skipped'}
                                                                 </div>
                                                             </div>
                                                             <div className="text-right min-w-0">
                                                                 <div className="text-[10px] font-bold uppercase tracking-widest text-green-700">Correct Answer</div>
                                                                 <div className="text-sm font-bold text-green-600 truncate">
-                                                                    {qType === 'msq' && Array.isArray(storedCorrectOptions) ? storedCorrectOptions.join(', ') :
-                                                                        resolvedCorrectOption || '-'}
+                                                                    {qType === 'msq'
+                                                                        ? (correctOpts.length > 0 ? correctOpts.join(', ') : '—')
+                                                                        : (correctOptText || '—')}
                                                                 </div>
                                                             </div>
                                                             <div className="text-lg shrink-0">
-                                                                {isAttempted ? (isCorrect ? '✅' : '❌') : '⏭️'}
+                                                                {attempted ? (isCorrect ? '✅' : '❌') : '⏭️'}
                                                             </div>
                                                         </div>
                                                     </div>
                                                 )}
 
-                                                {/* Solution */}
-                                                {fullTest && (
+                                                {/* ── Solution ── */}
+                                                {(q.solution || q.solutionImage || q.solutionImages?.length > 0) && (
                                                     <div className="mt-3 pt-3 border-t border-gray-100">
                                                         <h4 className="text-xs sm:text-sm text-blue-900 font-bold mb-2 flex items-center gap-1.5">
                                                             💡 Solution
                                                         </h4>
                                                         <div className="bg-blue-50/50 rounded-lg p-3 sm:p-4 text-gray-800">
-                                                            {q.solution ? (
-                                                                <div className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap"><MathText text={q.solution} /></div>
-                                                            ) : (
-                                                                (!q.solutionImages || q.solutionImages.length === 0) && !q.solutionImage ? (
-                                                                    <div className="bg-indigo-50 border border-indigo-100 rounded p-3 text-indigo-900">
-                                                                        <div className="flex items-start gap-2">
-                                                                            <span className="text-lg">🎯</span>
-                                                                            <div>
-                                                                                <h5 className="font-bold text-xs sm:text-sm mb-1">Self-Study Challenge!</h5>
-                                                                                <p className="text-[10px] sm:text-xs leading-relaxed text-indigo-800">No solution provided. Search the internet, textbooks, or discuss with peers. The best learning is self-driven!</p>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                ) : null
+                                                            {q.solution && (
+                                                                <div className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap mb-2">
+                                                                    <MathText text={q.solution} />
+                                                                </div>
                                                             )}
-
-                                                            {q.solutionImages && q.solutionImages.length > 0 ? (
-                                                                <div className="mt-2 grid grid-cols-1 gap-3">
+                                                            {q.solutionImages?.length > 0 ? (
+                                                                <div className="grid grid-cols-1 gap-3">
                                                                     {q.solutionImages.map((img, i) => (
                                                                         <img key={i} src={img} alt={`Solution ${i + 1}`}
                                                                             className="max-h-60 sm:max-h-[400px] w-full object-contain rounded border bg-white shadow-sm cursor-zoom-in"
                                                                             onClick={() => setPreviewImage(img)} />
                                                                     ))}
                                                                 </div>
-                                                            ) : (
-                                                                q.solutionImage && (
-                                                                    <img src={q.solutionImage} alt="Solution"
-                                                                        className="mt-2 max-h-60 sm:max-h-[400px] w-full object-contain rounded border bg-white shadow-sm cursor-zoom-in"
-                                                                        onClick={() => setPreviewImage(q.solutionImage)} />
-                                                                )
+                                                            ) : q.solutionImage && (
+                                                                <img src={q.solutionImage} alt="Solution"
+                                                                    className="max-h-60 sm:max-h-[400px] w-full object-contain rounded border bg-white shadow-sm cursor-zoom-in"
+                                                                    onClick={() => setPreviewImage(q.solutionImage)} />
                                                             )}
                                                         </div>
                                                     </div>
                                                 )}
+
                                             </div>
                                         )}
                                     </div>
@@ -617,21 +573,6 @@ export default function ResultPage() {
                     </>
                 )}
             </div>
-
-            {/* Hidden Print Component */}
-            {showSolutions && fullTest && (
-                <div className="hidden">
-                    <PrintableResultReport
-                        ref={componentRef}
-                        result={result}
-                        test={fullTest}
-                        effectiveQuestions={effectiveQuestions}
-                        percentage={percentage}
-                        rankData={rankData}
-                        maxMarks={maxMarks}
-                    />
-                </div>
-            )}
         </div>
     );
 }
