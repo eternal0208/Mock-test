@@ -210,16 +210,13 @@ exports.getTestById = async (req, res) => {
         // Security: Check permissions
         const isAdmin = req.user && req.user.role === 'admin';
 
-        // ADMIN: Can access any test
+        // ADMIN: Can access any test — include all question data (they created it)
         if (isAdmin) {
-            const sanitizedQuestions = (data.questions || []).map(q => ({
+            const questionsWithIds = (data.questions || []).map(q => ({
                 ...q,
                 _id: q._id || Math.random().toString(36).substr(2, 9),
-                correctOption: undefined,
-                correctOptions: undefined,
-                integerAnswer: undefined
             }));
-            return res.status(200).json({ _id: doc.id, ...data, questions: sanitizedQuestions });
+            return res.status(200).json({ _id: doc.id, ...data, questions: questionsWithIds });
         }
 
         // STUDENT: Check category and visibility
