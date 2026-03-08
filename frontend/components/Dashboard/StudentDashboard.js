@@ -35,95 +35,87 @@ export default function StudentDashboard() {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!user) return;
+            // Local Storage Keys scoped to User ID
+            const uid = user.uid || user._id;
+            const cacheKeys = {
+                tests: `apex_cache_tests_${uid}`,
+                series: `apex_cache_series_${uid}`,
+                results: `apex_cache_results_${uid}`,
+                orders: `apex_cache_orders_${uid}`
+            };
 
-            try {
-                // Fetch Tests (Backend will filter by user.category via middleware/token logic or we pass param)
-                // Since we haven't fully implemented backend middleware filtering yet, keeping client safe?
-                // The PLAN says Backend filtering. 
-                // But for now, let's assume the endpoint returns EVERYTHING and we filter here strictly until backend is ready?
-                // NO, strict requirement: "Do NOT show all fields and filter only on frontend".
-                // HOWEVER, the backend changes are next step. 
-                // So I will implement this assuming backend WILL return filtered data, 
-                // BUT just in case, I will also add a safety check here to NOT render anything if it mismatches.
-                // Wait, if backend sends everything, and I hide it, it's still "Not allowed" technically?
-                // I'll add a param `?field=${user.category}` for now so existing backend might use it if I update it? 
-                // Or wait for the backend update.
-
-                // For this step (Frontend), I will remove the UI filters.
-                // The actual data restriction relies on the backend change I'll make next.
-
-                const token = await user.getIdToken();
-                const headers = { 'Authorization': `Bearer ${token}` };
-
-                // Fetch Tests
-                const testsRes = await fetch(`${API_BASE_URL}/api/tests`, { headers });
-                const testsData = await testsRes.json();
-                console.log("📊 [Dashboard Debug] User:", user);
-                console.log("📊 [Dashboard Debug] Tests Received:", testsData);
-
-                if (Array.isArray(testsData)) {
-                    setTests(testsData);
-                } else {
-                    console.error("Invalid tests data:", testsData);
-                    setTests([]);
-                }
-
-                // Fetch Series
-                const seriesRes = await fetch(`${API_BASE_URL}/api/tests/series`, { headers });
-                const seriesData = await seriesRes.json();
-                if (Array.isArray(seriesData)) {
-                    setSeries(seriesData);
-                } else {
-                    console.error("Invalid series data:", seriesData);
-                    setSeries([]);
-                }
-
-                // Fetch Results (Protected Route - Needs Headers)
-                const userId = user.uid || user._id; // Prefer uid (Firebase standard)
-                const resultsRes = await fetch(`${API_BASE_URL}/api/results/student/${userId}`, { headers });
-                const resultsData = await resultsRes.json();
-
-                console.log("📊 [Results Debug] Results Response:", resultsData);
-                console.log("📊 [Results Debug] Is Array?", Array.isArray(resultsData));
-
-                // Validate resultsData is an array before using it
-                const validResults = Array.isArray(resultsData) ? resultsData : [];
-                if (!Array.isArray(resultsData)) {
-                    console.error("⚠️ [Results Error] Expected array but got:", typeof resultsData, resultsData);
-                }
-                setResults(validResults);
-
-                // Fetch Rank - only if we have valid results
-                const ranks = {};
-                if (validResults.length > 0) {
-                    await Promise.all(validResults.map(async (res) => {
-                        try {
-                            const anaRes = await fetch(`${API_BASE_URL}/api/tests/${res.testId}/analytics`, { headers });
-                            const anaData = await anaRes.json();
-                            const myRankEntry = anaData.rankList.find(r => r.userId === userId);
-                            if (myRankEntry) {
-                                ranks[res.testId] = { rank: myRankEntry.rank, total: anaData.totalAttempts };
-                            }
-                        } catch (e) { console.error("Rank fetch failed", e); }
-                    }));
-                }
-                // Fetch Orders
+            // 1. Initial Load from Cache (Instant UI rendering)
+            const loadFromCache = () => {
+                let hasCache = false;
                 try {
-                    const ordersRes = await fetch(`${API_BASE_URL}/api/purchases/my-orders`, { headers });
-                    if (ordersRes.ok) {
-                        const ordersData = await ordersRes.json();
-                        setOrders(ordersData);
-                    }
-                } catch (e) {
-                    console.error("Failed to fetch orders", e);
-                }
+                    const cachedTests = localStorage.getItem(cacheKeys.tests);
+                    if (cachedTests) { setTests(JSON.parse(cachedTests)); hasCache = true; }
 
-            } catch (error) {
-                console.error("Failed to fetch data", error);
-            } finally {
-                setLoading(false);
-            }
+                    const cachedSeries = localStorage.getItem(cacheKeys.series);
+                    if (cachedSeries) { setSeries(JSON.parse(cachedSeries)); hasCache = true; }
+
+                    const cachedResults = localStorage.getItem(cacheKeys.results);
+                    if (cachedResults) { setResults(JSON.parse(cachedResults)); hasCache = true; }
+
+                    const cachedOrders = localStorage.getItem(cacheKeys.orders);
+                    if (cachedOrders) { setOrders(JSON.parse(cachedOrders)); hasCache = true; }
+                } catch (e) { console.warn("Cache read failed", e); }
+
+                if (hasCache) {
+                    setLoading(false); // Disable loading overlay immediately if we have *any* cached data
+                }
+            };
+
+            loadFromCache();
+
+            // 2. Background Fetch (Update data silently)
+            const fetchFreshData = async () => {
+                try {
+                    const token = await user.getIdToken();
+                    const headers = { 'Authorization': `Bearer ${token}` };
+
+                    // Fetch Tests
+                    const testsRes = await fetch(`${API_BASE_URL}/api/tests`, { headers });
+                    const testsData = await testsRes.json();
+                    if (Array.isArray(testsData)) {
+                        setTests(testsData);
+                        localStorage.setItem(cacheKeys.tests, JSON.stringify(testsData));
+                    }
+
+                    // Fetch Series
+                    const seriesRes = await fetch(`${API_BASE_URL}/api/tests/series`, { headers });
+                    const seriesData = await seriesRes.json();
+                    if (Array.isArray(seriesData)) {
+                        setSeries(seriesData);
+                        localStorage.setItem(cacheKeys.series, JSON.stringify(seriesData));
+                    }
+
+                    // Fetch Results
+                    const resultsRes = await fetch(`${API_BASE_URL}/api/results/student/${uid}`, { headers });
+                    const resultsData = await resultsRes.json();
+                    const validResults = Array.isArray(resultsData) ? resultsData : [];
+                    setResults(validResults);
+                    localStorage.setItem(cacheKeys.results, JSON.stringify(validResults));
+
+                    // Fetch Orders
+                    try {
+                        const ordersRes = await fetch(`${API_BASE_URL}/api/purchases/my-orders`, { headers });
+                        if (ordersRes.ok) {
+                            const ordersData = await ordersRes.json();
+                            setOrders(ordersData);
+                            localStorage.setItem(cacheKeys.orders, JSON.stringify(ordersData));
+                        }
+                    } catch (e) { console.error("Cache Orders Error", e) }
+
+                } catch (error) {
+                    console.error("Background fetch failed", error);
+                } finally {
+                    setLoading(false); // Ensure loading is off even if cache was empty and fetch failed
+                }
+            };
+
+            // Trigger background fetch
+            fetchFreshData();
         };
         fetchData();
     }, [user]);
