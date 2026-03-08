@@ -456,13 +456,37 @@ exports.submitTest = async (req, res) => {
                     wrongCount++;
                 }
 
+                // Resolve correctAnswer for storage
+                let correctAnswerForStorage = null;
+                let correctOptionsForStorage = null;
+                if (question.type === 'msq') {
+                    correctOptionsForStorage = question.correctOptions || [];
+                } else if (question.type === 'integer') {
+                    correctAnswerForStorage = question.integerAnswer;
+                } else {
+                    // MCQ: resolve letter format
+                    let resolved = question.correctOption;
+                    const ltIdx = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+                    const lt = String(question.correctOption || '').trim().toUpperCase();
+                    if (ltIdx[lt] !== undefined && question.options) {
+                        resolved = question.options[ltIdx[lt]] || `Option ${ltIdx[lt] + 1}`;
+                    }
+                    correctAnswerForStorage = resolved;
+                }
+
                 attemptData.push({
                     questionId: ans.questionId,
-                    questionText: question.text,
-                    subject: question.subject,
-                    topic: question.topic,
-                    selectedOption: ans.selectedOption,
+                    questionText: question.text || null,
+                    subject: question.subject || null,
+                    topic: question.topic || null,
+                    selectedOption: ans.selectedOption !== undefined ? ans.selectedOption : null,
                     isCorrect,
+                    correctAnswer: correctAnswerForStorage !== undefined ? correctAnswerForStorage : null,
+                    correctOptions: correctOptionsForStorage !== undefined ? correctOptionsForStorage : null,
+                    integerAnswer: question.type === 'integer' ? (question.integerAnswer ?? null) : null,
+                    questionType: question.type || 'mcq',
+                    marks: question.marks ?? null,
+                    negativeMarks: question.negativeMarks ?? null,
                     markedAt: new Date().toISOString()
                 });
             }

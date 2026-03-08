@@ -395,22 +395,30 @@ export default function ResultPage() {
                                     return selectedOption === optVal;
                                 };
 
-                                // Resolve correctOption — handle legacy 'A'/'B'/'C'/'D' letter format from old PDF uploads
+                                // PRIMARY: use correctAnswer stored in attempt_data at submit time
+                                // FALLBACK: resolve from fullTest (handles legacy results before this fix)
                                 const resolveCorrectOption = () => {
+                                    if (attempt?.correctAnswer) return attempt.correctAnswer;
                                     if (!q.correctOption) return null;
                                     const letterMap = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
                                     const letter = String(q.correctOption).trim().toUpperCase();
                                     if (letterMap[letter] !== undefined && q.options) {
-                                        const idx = letterMap[letter];
-                                        return q.options[idx] || `Option ${idx + 1}`;
+                                        const optIdx = letterMap[letter];
+                                        return q.options[optIdx] || `Option ${optIdx + 1}`;
                                     }
-                                    return q.correctOption; // already stored as text
+                                    return q.correctOption;
                                 };
                                 const resolvedCorrectOption = resolveCorrectOption();
 
+                                // Determine effective question type (from attempt or fullTest)
+                                const qType = attempt?.questionType || q.type || 'mcq';
+
+                                // Correct options for MSQ and integer — prefer stored data
+                                const storedCorrectOptions = attempt?.correctOptions || q.correctOptions;
+                                const storedIntegerAnswer = attempt?.integerAnswer ?? q.integerAnswer;
+
                                 const isOptionCorrect = (optVal) => {
-                                    if (!fullTest) return false;
-                                    if (q.type === 'msq' && Array.isArray(q.correctOptions)) return q.correctOptions.includes(optVal);
+                                    if (qType === 'msq' && Array.isArray(storedCorrectOptions)) return storedCorrectOptions.includes(optVal);
                                     return resolvedCorrectOption === optVal;
                                 };
 
@@ -516,7 +524,7 @@ export default function ResultPage() {
                                                 )}
 
                                                 {/* Integer Answer */}
-                                                {fullTest && q.type === 'integer' && (
+                                                {qType === 'integer' && (
                                                     <div className={`p-3 sm:p-4 rounded-lg mb-4 border ${isAttempted ? (isCorrect ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400') : 'bg-gray-50 border-gray-200'}`}>
                                                         <div className="grid grid-cols-2 gap-3">
                                                             <div>
@@ -527,31 +535,29 @@ export default function ResultPage() {
                                                             </div>
                                                             <div>
                                                                 <span className="text-[10px] sm:text-xs block font-bold text-green-700">CORRECT ANSWER</span>
-                                                                <span className="font-mono text-lg sm:text-xl font-bold text-green-600">{q.integerAnswer}</span>
+                                                                <span className="font-mono text-lg sm:text-xl font-bold text-green-600">{storedIntegerAnswer ?? '-'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 )}
 
                                                 {/* Answer Summary (for MCQ/MSQ only; integer has its own block above) */}
-                                                {fullTest && q.type !== 'integer' && (
+                                                {qType !== 'integer' && (
                                                     <div className={`p-3 rounded-xl border-2 mb-3 ${isAttempted ? (isCorrect ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300') : 'bg-yellow-50 border-yellow-300'}`}>
                                                         <div className="flex items-center justify-between gap-3">
                                                             <div className="min-w-0">
                                                                 <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Your Answer</div>
                                                                 <div className={`text-sm font-bold truncate ${isAttempted ? (isCorrect ? 'text-green-700' : 'text-red-700') : 'text-gray-400'}`}>
                                                                     {isAttempted ? (
-                                                                        q.type === 'integer' ? selectedOption :
-                                                                            Array.isArray(selectedOption) ? selectedOption.join(', ') : selectedOption
+                                                                        Array.isArray(selectedOption) ? selectedOption.join(', ') : selectedOption
                                                                     ) : 'Skipped'}
                                                                 </div>
                                                             </div>
                                                             <div className="text-right min-w-0">
                                                                 <div className="text-[10px] font-bold uppercase tracking-widest text-green-700">Correct Answer</div>
                                                                 <div className="text-sm font-bold text-green-600 truncate">
-                                                                    {q.type === 'integer' ? q.integerAnswer :
-                                                                        q.type === 'msq' && Array.isArray(q.correctOptions) ? q.correctOptions.join(', ') :
-                                                                            resolvedCorrectOption || '-'}
+                                                                    {qType === 'msq' && Array.isArray(storedCorrectOptions) ? storedCorrectOptions.join(', ') :
+                                                                        resolvedCorrectOption || '-'}
                                                                 </div>
                                                             </div>
                                                             <div className="text-lg shrink-0">

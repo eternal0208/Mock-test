@@ -369,7 +369,27 @@ router.post('/rescore-all-results', async (req, res) => {
                         wrongCount++;
                     }
 
-                    return { ...att, isCorrect };
+                    // Resolve correctAnswer for storage
+                    let correctAnswerForStorage = null;
+                    let correctOptionsForStorage = null;
+                    if (question.type === 'msq') {
+                        correctOptionsForStorage = question.correctOptions || [];
+                    } else if (question.type === 'integer') {
+                        correctAnswerForStorage = question.integerAnswer;
+                    } else {
+                        correctAnswerForStorage = resolveCorrectOption(question);
+                    }
+
+                    return {
+                        ...att,
+                        isCorrect,
+                        correctAnswer: correctAnswerForStorage !== undefined ? correctAnswerForStorage : null,
+                        correctOptions: correctOptionsForStorage !== undefined ? correctOptionsForStorage : null,
+                        integerAnswer: question.type === 'integer' ? (question.integerAnswer ?? null) : null,
+                        questionType: question.type || att.questionType || 'mcq',
+                        marks: question.marks ?? null,
+                        negativeMarks: question.negativeMarks ?? null,
+                    };
                 });
 
                 const totalQ = questions.length;
