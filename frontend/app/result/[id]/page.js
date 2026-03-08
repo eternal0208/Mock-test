@@ -458,7 +458,7 @@ export default function ResultPage() {
                                                 </div>
 
                                                 {/* MCQ/MSQ Options */}
-                                                {fullTest && q.options && q.options.length > 0 && (
+                                                {fullTest && q.type !== 'integer' && q.options && q.options.length > 0 && (
                                                     <div className="space-y-1.5 mb-4">
                                                         {q.options.map((opt, optIdx) => {
                                                             const effectiveOpt = opt || `Option ${optIdx + 1}`;
@@ -520,8 +520,8 @@ export default function ResultPage() {
                                                     </div>
                                                 )}
 
-                                                {/* Answer Summary */}
-                                                {fullTest && (
+                                                {/* Answer Summary (for MCQ/MSQ only; integer has its own block above) */}
+                                                {fullTest && q.type !== 'integer' && (
                                                     <div className={`p-3 rounded-xl border-2 mb-3 ${isAttempted ? (isCorrect ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300') : 'bg-yellow-50 border-yellow-300'}`}>
                                                         <div className="flex items-center justify-between gap-3">
                                                             <div className="min-w-0">
