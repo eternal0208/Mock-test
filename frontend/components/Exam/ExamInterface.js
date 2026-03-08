@@ -383,8 +383,8 @@ const ExamInterface = ({ test, onSubmit }) => {
         return (
             <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
                 <div className="bg-white max-w-md w-full p-8 rounded-lg shadow-2xl text-center">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Test Completed!</h2>
-                    <p className="text-gray-500 mb-6">Please rate your experience before viewing results.</p>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Test Completed! 🎉</h2>
+                    <p className="text-gray-500 mb-6">Rate your experience (optional) then view your results.</p>
 
                     <div className="flex justify-center space-x-2 mb-6">
                         {[1, 2, 3, 4, 5].map((star) => (
@@ -408,12 +408,11 @@ const ExamInterface = ({ test, onSubmit }) => {
 
                     <button
                         onClick={submitFeedbackAndFinish}
-                        disabled={submittingFeedback || feedback.rating === 0}
+                        disabled={submittingFeedback}
                         className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 transition"
                     >
-                        {submittingFeedback ? 'Submitting...' : 'Submit Feedback & View Result'}
+                        {submittingFeedback ? 'Submitting...' : 'View Result →'}
                     </button>
-                    {feedback.rating === 0 && <p className="text-xs text-red-400 mt-2">Please select a star rating.</p>}
                 </div>
             </div>
         );
