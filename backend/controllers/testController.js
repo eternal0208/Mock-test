@@ -7,6 +7,23 @@ exports.createTest = async (req, res) => {
     try {
         const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts, resultVisibility, resultDeclarationTime } = req.body;
 
+        // Validation: Ensure all MCQ/MSQ/Integer questions have answers
+        if (questions && Array.isArray(questions)) {
+            for (let i = 0; i < questions.length; i++) {
+                const q = questions[i];
+                const qType = q.type || 'mcq';
+                if (qType === 'mcq' && !q.correctOption) {
+                    return res.status(400).json({ message: `Question ${i + 1} (MCQ) is missing a correct option.` });
+                }
+                if (qType === 'msq' && (!q.correctOptions || q.correctOptions.length === 0)) {
+                    return res.status(400).json({ message: `Question ${i + 1} (MSQ) is missing correct options.` });
+                }
+                if (qType === 'integer' && (q.integerAnswer === undefined || q.integerAnswer === '')) {
+                    return res.status(400).json({ message: `Question ${i + 1} (Integer) is missing an answer.` });
+                }
+            }
+        }
+
         const newTest = {
             title,
             duration_minutes: Number(duration),
@@ -31,6 +48,7 @@ exports.createTest = async (req, res) => {
                 solutionImage: q.solutionImage || ''
             })),
             questionCount: (questions || []).length,
+            answerCount: (questions || []).filter(q => q.correctOption || (q.correctOptions && q.correctOptions.length > 0) || (q.integerAnswer !== undefined && q.integerAnswer !== '')).length,
             createdBy: req.user?._id || 'admin',
             createdAt: new Date().toISOString()
         };
@@ -102,7 +120,7 @@ exports.deleteTest = async (req, res) => {
 exports.getAllTests = async (req, res) => {
     try {
         console.log("🔍 [API] GET /api/tests called");
-        const snapshot = await db.collection('tests').select('title', 'duration_minutes', 'total_marks', 'subject', 'category', 'difficulty', 'isVisible', 'startTime', 'endTime', 'expiryDate', 'maxAttempts', 'questionCount').get();
+        const snapshot = await db.collection('tests').select('title', 'duration_minutes', 'total_marks', 'subject', 'category', 'difficulty', 'isVisible', 'startTime', 'endTime', 'expiryDate', 'maxAttempts', 'questionCount', 'answerCount', 'questions').get();
         console.log(`🔍 [DEBUG] Tests found in DB: ${snapshot.size}`);
 
         const tests = [];
@@ -147,7 +165,8 @@ exports.getAllTests = async (req, res) => {
                     endTime: data.endTime,
                     expiryDate: data.expiryDate || null,
                     maxAttempts: data.maxAttempts,
-                    questionCount: data.questionCount || 0
+                    questionCount: data.questionCount || (data.questions || []).length,
+                    answerCount: (data.answerCount > 0) ? data.answerCount : (data.questions || []).filter(q => q.correctOption || (q.correctOptions && q.correctOptions.length > 0) || (q.integerAnswer !== undefined && q.integerAnswer !== '')).length
                 });
                 return;
             }
@@ -183,7 +202,8 @@ exports.getAllTests = async (req, res) => {
                 endTime: data.endTime,
                 expiryDate: data.expiryDate || null,
                 maxAttempts: data.maxAttempts,
-                questionCount: data.questionCount || 0
+                questionCount: data.questionCount || 0,
+                answerCount: data.answerCount || 0
             });
         });
 
@@ -212,9 +232,9 @@ exports.getTestById = async (req, res) => {
 
         // ADMIN: Can access any test — include all question data (they created it)
         if (isAdmin) {
-            const questionsWithIds = (data.questions || []).map(q => ({
+            const questionsWithIds = (data.questions || []).map((q, i) => ({
                 ...q,
-                _id: q._id || Math.random().toString(36).substr(2, 9),
+                _id: q._id || `q_${doc.id}_${i}`, // Use deterministic IDs instead of random ones
             }));
             return res.status(200).json({ _id: doc.id, ...data, questions: questionsWithIds });
         }
@@ -334,6 +354,19 @@ exports.getTestById = async (req, res) => {
 exports.submitTest = async (req, res) => {
     try {
         const { userId, answers } = req.body;
+        console.log(`🚀 [SUBMIT] Received submission for test ${req.params.id} from user ${userId}`);
+
+        if (!Array.isArray(answers)) {
+            console.error("❌ [SUBMIT] answers is not an array:", answers);
+            return res.status(400).json({ message: "Invalid submission data format." });
+        }
+
+        // helper to normalize any answer/value for comparison
+        const normalize = (v) => {
+            if (v === null || v === undefined) return '';
+            return String(v).trim();
+        };
+
         const testRef = db.collection('tests').doc(req.params.id);
         const testDoc = await testRef.get();
 
@@ -342,6 +375,24 @@ exports.submitTest = async (req, res) => {
         }
 
         const test = testDoc.data();
+
+        // Helper to ensure questions have IDs
+        const ensureIds = (qs) => qs.map((q, i) => ({
+            ...q,
+            _id: q._id || `q_${req.params.id}_${i}` // Deterministic Fallback
+        }));
+
+        const dbQuestions = ensureIds(test.questions || []);
+        const answerCount = dbQuestions.filter(q => q.correctOption || (q.correctOptions && q.correctOptions.length > 0) || (q.integerAnswer !== undefined && q.integerAnswer !== '')).length;
+
+        if (answerCount === 0) {
+            console.error(`❌ [SUBMIT] Test ${req.params.id} has NO answers marked in DB.`);
+            return res.status(400).json({
+                message: "This test has no answer keys marked yet. Results cannot be calculated.",
+                isBroken: true
+            });
+        }
+
         let score = 0;
         let correctCount = 0;
         let wrongCount = 0;
@@ -398,13 +449,6 @@ exports.submitTest = async (req, res) => {
         // Ideally, test.questions have stable IDs.
         // I will update the Seed script to add IDs.
 
-        // Helper to ensure questions have IDs
-        const ensureIds = (qs) => qs.map((q, i) => ({
-            ...q,
-            _id: q._id || `q_${req.params.id}_${i}` // Deterministic Fallback
-        }));
-
-        const dbQuestions = ensureIds(test.questions || []);
         const questionMap = new Map(dbQuestions.map(q => [q._id.toString(), q]));
 
         // Loop through answers using the map
@@ -417,42 +461,57 @@ exports.submitTest = async (req, res) => {
                 if (!isNaN(idx)) question = dbQuestions[idx];
             }
 
+            if (!question) {
+                console.warn(`[SUBMIT DEBUG] NO QUESTION FOUND for id="${ans.questionId}". Map keys: ${[...questionMap.keys()].slice(0, 3).join(', ')}`);
+            }
+
             if (question) {
                 let isCorrect = false;
 
                 // SCORING LOGIC BASED ON TYPE
                 if (question.type === 'msq') {
                     const userAns = Array.isArray(ans.selectedOption) ? ans.selectedOption : [ans.selectedOption];
-                    const correctAns = question.correctOptions || [];
-                    // Sort both for comparison
-                    const sortedUser = [...userAns].sort();
-                    const sortedCorrect = [...correctAns].sort();
+                    const correctAnsLetters = question.correctOptions || [];
+
+                    // Resolve MSQ Letters (e.g., ['A', 'B']) to Text/Placeholders
+                    const correctAnsResolved = correctAnsLetters.map(letter => {
+                        const l = normalize(letter).toUpperCase();
+                        const ltIdx = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+                        if (ltIdx[l] !== undefined && question.options) {
+                            return normalize(question.options[ltIdx[l]]) || `Option ${ltIdx[l] + 1}`;
+                        }
+                        return normalize(letter);
+                    });
+
+                    // normalize each entry and sort for comparison
+                    const sortedUser = [...userAns].map(normalize).sort();
+                    const sortedCorrect = [...correctAnsResolved].map(normalize).sort();
 
                     if (sortedUser.length === sortedCorrect.length &&
                         sortedUser.every((val, index) => val === sortedCorrect[index])) {
                         isCorrect = true;
                     }
                 } else if (question.type === 'integer') {
-                    if (String(ans.selectedOption).trim() === String(question.integerAnswer).trim()) {
+                    if (normalize(ans.selectedOption) === normalize(question.integerAnswer)) {
                         isCorrect = true;
                     }
                 } else {
                     // MCQ: handle both legacy letter format ('A','B','C','D') and current text format
                     let correctOptResolved = question.correctOption;
                     const letterToIdx = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
-                    const letter = String(question.correctOption || '').trim().toUpperCase();
+                    const letter = normalize(question.correctOption).toUpperCase();
                     if (letterToIdx[letter] !== undefined && question.options) {
                         const idx = letterToIdx[letter];
-                        correctOptResolved = question.options[idx] || `Option ${idx + 1}`;
+                        correctOptResolved = normalize(question.options[idx]) || `Option ${idx + 1}`;
                     }
-                    isCorrect = correctOptResolved === ans.selectedOption;
+                    isCorrect = normalize(correctOptResolved) === normalize(ans.selectedOption);
                 }
 
                 if (isCorrect) {
-                    score += Number(question.marks);
+                    score += Number(question.marks || 4); // Added fallback to prevent NaN
                     correctCount++;
                 } else if (ans.selectedOption && (Array.isArray(ans.selectedOption) ? ans.selectedOption.length > 0 : true)) {
-                    score -= Number(question.negativeMarks);
+                    score -= Number(question.negativeMarks || 1); // Added fallback to prevent NaN
                     wrongCount++;
                 }
 
@@ -464,14 +523,26 @@ exports.submitTest = async (req, res) => {
                 } else if (question.type === 'integer') {
                     correctAnswerForStorage = question.integerAnswer;
                 } else {
-                    // MCQ: resolve letter format
+                    // MCQ: resolve letter format and normalize for storage
                     let resolved = question.correctOption;
                     const ltIdx = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
-                    const lt = String(question.correctOption || '').trim().toUpperCase();
+                    const lt = normalize(question.correctOption).toUpperCase();
                     if (ltIdx[lt] !== undefined && question.options) {
-                        resolved = question.options[ltIdx[lt]] || `Option ${ltIdx[lt] + 1}`;
+                        resolved = normalize(question.options[ltIdx[lt]]) || `Option ${ltIdx[lt] + 1}`;
                     }
-                    correctAnswerForStorage = resolved;
+                    correctAnswerForStorage = normalize(resolved);
+                }
+
+                // Final Resolve for MSQ Correct Options Storage
+                if (question.type === 'msq') {
+                    const ltIdxMap = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+                    correctOptionsForStorage = (question.correctOptions || []).map(opt => {
+                        const l = normalize(opt).toUpperCase();
+                        if (ltIdxMap[l] !== undefined && question.options) {
+                            return normalize(question.options[ltIdxMap[l]]) || `Option ${ltIdxMap[l] + 1}`;
+                        }
+                        return normalize(opt);
+                    });
                 }
 
                 attemptData.push({
@@ -553,17 +624,46 @@ exports.updateTest = async (req, res) => {
         // Remove undefined fields
         Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
 
+        // Safeguard: Fetch existing test to preserve answers if missing in payload
+        const testRef = db.collection('tests').doc(req.params.id);
+        const doc = await testRef.get();
+        if (!doc.exists) {
+            return res.status(404).json({ message: 'Test not found' });
+        }
+        const existingData = doc.data();
+
         if (questions) {
-            updateData.questions = questions.map((q, i) => ({
-                ...q,
-                _id: q._id || `q_${Date.now()}_${i}`,
-                solution: q.solution || '',
-                solutionImage: q.solutionImage || ''
-            }));
-            updateData.questionCount = questions.length;
+            updateData.questions = questions.map((q, i) => {
+                const existingQ = (existingData.questions || []).find(oldQ => oldQ._id === q._id);
+
+                const mergedQ = {
+                    ...q,
+                    _id: q._id || `q_${req.params.id}_${i}`,
+                    type: q.type || existingQ?.type || 'mcq',
+                    solution: q.solution || existingQ?.solution || '',
+                    solutionImage: q.solutionImage || existingQ?.solutionImage || ''
+                };
+
+                if (mergedQ.type === 'mcq' && !q.correctOption && existingQ?.correctOption) {
+                    mergedQ.correctOption = existingQ.correctOption;
+                }
+                if (mergedQ.type === 'msq' && (!q.correctOptions || q.correctOptions.length === 0) && existingQ?.correctOptions) {
+                    mergedQ.correctOptions = existingQ.correctOptions;
+                }
+                if (mergedQ.type === 'integer' && (q.integerAnswer === undefined || q.integerAnswer === '') && existingQ?.integerAnswer !== undefined) {
+                    mergedQ.integerAnswer = existingQ.integerAnswer;
+                }
+
+                // We no longer reject missing answers here to allow partial saving/drafts.
+                // The frontend handles warnings.
+
+                return mergedQ;
+            });
+            updateData.questionCount = updateData.questions.length;
+            updateData.answerCount = updateData.questions.filter(q => q.correctOption || (q.correctOptions && q.correctOptions.length > 0) || (q.integerAnswer !== undefined && q.integerAnswer !== '')).length;
         }
 
-        await db.collection('tests').doc(req.params.id).update(updateData);
+        await testRef.update(updateData);
 
         res.status(200).json({ _id: req.params.id, ...updateData });
     } catch (error) {

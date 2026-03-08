@@ -1,7 +1,7 @@
 'use client';
 // Admin Dashboard Updated: 2026-02-04
 import { useState, useEffect } from 'react';
-import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X, Download, Loader2, Layers } from 'lucide-react';
+import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X, Download, Loader2, Layers, RefreshCcw, Zap, ChevronUp, ChevronDown, Upload, Info, Combine, AlertTriangle, Edit3 } from 'lucide-react';
 import SubjectToolbar from './SubjectToolbar';
 import MathText from '@/components/ui/MathText';
 import { API_BASE_URL } from '@/lib/config';
@@ -30,6 +30,66 @@ const ImageZoomModal = ({ imageUrl, onClose }) => {
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 bg-white/10 backdrop-blur rounded-full text-white/60 text-xs font-bold pointer-events-none">
                 Click anywhere to close
             </div>
+        </div>
+    );
+};
+
+// -----------------------------------------------------------------------------
+// Rescore helper: triggered by admin UI button
+// -----------------------------------------------------------------------------
+const useRescoreAllResults = (user) => {
+    const [loading, setLoading] = useState(false);
+    const [info, setInfo] = useState(null);
+
+    const run = async () => {
+        if (!confirm('Re‑scoring will recompute marks for every stored result. Continue?')) return;
+        setLoading(true);
+        setInfo(null);
+        try {
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/admin/rescore-all-results`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) setInfo(data);
+            else throw data;
+        } catch (e) {
+            console.error('Rescore error', e);
+            setInfo({ error: e.message || JSON.stringify(e) });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return { loading, info, run };
+};
+
+// small component for UI
+const RescoreSection = ({ user }) => {
+    const { loading, info, run } = useRescoreAllResults(user);
+
+    return (
+        <div className="bg-yellow-50 rounded-lg border border-yellow-200 p-6 mb-6">
+            <h4 className="text-lg font-semibold text-yellow-800 flex items-center gap-2">
+                <RefreshCcw className="text-yellow-600" /> Rescore All Results
+            </h4>
+            <p className="text-sm text-yellow-700 mb-4">
+                Use this button to recompute scores for every stored result based on the latest answer/normalisation logic. Typically run after deploying fixes.
+            </p>
+            <button
+                onClick={run}
+                disabled={loading}
+                className={`px-5 py-2 rounded-md font-bold text-white ${loading ? 'bg-yellow-300' : 'bg-yellow-600 hover:bg-yellow-700'} disabled:opacity-50 transition`}
+            >
+                {loading ? 'Processing…' : 'Rescore Now'}
+            </button>
+            {info && (
+                <div className="mt-3 text-sm text-yellow-800">
+                    {info.error && <span className="text-red-600">Error: {info.error}</span>}
+                    {info.message && <>{info.message} (total {info.total}, updated {info.updated}, skipped {info.skipped}, errors {info.errors})</>}
+                </div>
+            )}
         </div>
     );
 };
@@ -845,15 +905,15 @@ const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Series Title</label>
-                    <input type="text" name="title" value={formData.title} onChange={handleChange} required className="mt-1 block w-full border border-gray-300 rounded p-2" />
+                    <input type="text" name="title" value={formData.title || ''} onChange={handleChange} required className="mt-1 block w-full border border-gray-300 rounded p-2" />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Price (INR)</label>
-                    <input type="number" name="price" value={formData.price} onChange={handleChange} required className="mt-1 block w-full border border-gray-300 rounded p-2" />
+                    <input type="number" name="price" value={formData.price || 0} onChange={handleChange} required className="mt-1 block w-full border border-gray-300 rounded p-2" />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Category</label>
-                    <select name="category" value={formData.category} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white">
+                    <select name="category" value={formData.category || 'JEE Main'} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white">
                         <option value="JEE Main">JEE Main</option>
                         <option value="JEE Advanced">JEE Advanced</option>
                         <option value="NEET">NEET</option>
@@ -885,14 +945,14 @@ const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
             </div>
             <div>
                 <label className="block text-sm font-medium text-gray-700">Description</label>
-                <textarea name="description" value={formData.description} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded p-2" />
+                <textarea name="description" value={formData.description || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded p-2" />
             </div>
             <div>
                 <label className="block text-sm font-medium text-gray-700">Features (Comma separated)</label>
-                <input type="text" name="features" value={formData.features} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded p-2" placeholder="10 Full Mocks, Video Analysis, expert support" />
+                <input type="text" name="features" value={formData.features || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded p-2" placeholder="10 Full Mocks, Video Analysis, expert support" />
             </div>
             <div className="flex items-center">
-                <input type="checkbox" name="isActive" checked={formData.isActive} onChange={handleChange} className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
+                <input type="checkbox" name="isActive" checked={formData.isActive || false} onChange={handleChange} className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
                 <label className="ml-2 block text-sm text-gray-900">Active (Visible to students)</label>
             </div>
             <div>
@@ -964,6 +1024,12 @@ export default function AdminDashboard() {
 
     const [showBulkUpload, setShowBulkUpload] = useState(false);
     const [showPdfModal, setShowPdfModal] = useState(false);
+
+    // States for "Load to Edit" functionality
+    const [isUpdatingExisting, setIsUpdatingExisting] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [showQuickMarkModal, setShowQuickMarkModal] = useState(false);
+    const [quickMarkInput, setQuickMarkInput] = useState('');
 
     // Initial Data Fetching
     useEffect(() => {
@@ -1350,6 +1416,15 @@ export default function AdminDashboard() {
                 }));
             } else if (type === 'option' && index !== null) {
                 handleOptionImageChange(index, downloadURL);
+            } else if (type === 'grid-q') {
+                const newQs = [...questions];
+                newQs[index].image = downloadURL;
+                setQuestions(newQs);
+            } else if (type === 'grid-opt' && typeof index === 'object') {
+                const newQs = [...questions];
+                if (!newQs[index.qIdx].optionImages) newQs[index.qIdx].optionImages = ['', '', '', ''];
+                newQs[index.qIdx].optionImages[index.oIdx] = downloadURL;
+                setQuestions(newQs);
             }
         } catch (error) {
             console.error("Error uploading image:", error);
@@ -1445,13 +1520,30 @@ export default function AdminDashboard() {
     };
 
     const handleSubmitTest = async () => {
-        if (!testDetails.title || questions.length === 0) {
-            alert('Please provide a test title and add at least one question.');
+        if (questions.length === 0) {
+            alert('Please add at least one question to the test.');
+            return;
+        }
+        if (!testDetails.title) {
+            alert('Please enter a test title.');
             return;
         }
         if (testDetails.isLive && (!testDetails.startTime || !testDetails.endTime)) {
             alert('Please specify Start and End times for Live Test.');
             return;
+        }
+
+        // VALIDATION: We now allow saving partial tests (missing answers) to let admins save progress.
+        // We will just warn them if answers are missing, but still allow saving.
+        const missingAnswers = questions.some(q =>
+            (q.type === 'mcq' && !q.correctOption) ||
+            (q.type === 'msq' && (!q.correctOptions || q.correctOptions.length === 0)) ||
+            (q.type === 'integer' && (q.integerAnswer === undefined || q.integerAnswer === ''))
+        );
+
+        if (missingAnswers) {
+            const confirmProceed = window.confirm("Some questions are missing answers! Save anyway as a draft/work-in-progress?");
+            if (!confirmProceed) return false;
         }
 
         setLoading(true);
@@ -1460,18 +1552,20 @@ export default function AdminDashboard() {
                 const m = Number(q.marks);
                 return acc + (isNaN(m) ? 0 : m);
             }, 0);
+
             const payload = {
                 ...testDetails,
-                chapters: (testDetails.chapters || '').toString().split(',').map(c => c.trim()).filter(c => c), // Process chapters (safe)
+                chapters: (testDetails.chapters || '').toString().split(',').map(c => c.trim()).filter(c => c),
                 totalMarks: calculatedTotalMarks,
                 questions
             };
 
-            const url = `${API_BASE_URL}/api/tests`;
-            console.log("🚀 Publishing to URL:", url);
+            const url = isUpdatingExisting ? `${API_BASE_URL}/api/tests/${editingId}` : `${API_BASE_URL}/api/tests`;
+            const method = isUpdatingExisting ? 'PUT' : 'POST';
+
             const token = await user?.getIdToken();
             const res = await fetch(url, {
-                method: 'POST',
+                method: method,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
@@ -1481,10 +1575,14 @@ export default function AdminDashboard() {
 
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to create test on server');
+                throw new Error(errorData.message || `Failed to ${isUpdatingExisting ? 'update' : 'create'} test on server`);
             }
 
-            alert('Test Created Successfully!');
+            alert(isUpdatingExisting ? 'Test Updated Successfully!' : 'Test Created Successfully!');
+
+            // RESET EVERYTHING
+            setIsUpdatingExisting(false);
+            setEditingId(null);
             setActiveTab('manage');
             setQuestions([]);
             setTestDetails({
@@ -1494,6 +1592,7 @@ export default function AdminDashboard() {
                 calculator: false,
                 chapters: ''
             });
+            fetchTests(); // Refresh list
         } catch (error) {
             console.error('Publish test error details:', error);
             alert(`Publishing Error: ${error.message}`);
@@ -1849,6 +1948,47 @@ export default function AdminDashboard() {
                                                             >
                                                                 Split
                                                             </button>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    setLoading(true);
+                                                                    try {
+                                                                        const token = await user?.getIdToken();
+                                                                        const res = await fetch(`${API_BASE_URL}/api/tests/${test._id}`, {
+                                                                            headers: { 'Authorization': `Bearer ${token}` }
+                                                                        });
+                                                                        if (!res.ok) throw new Error("Could not fetch test details");
+                                                                        const fullTest = await res.json();
+
+                                                                        // LOAD INTO CREATE TAB
+                                                                        setQuestions(fullTest.questions || []);
+                                                                        setTestDetails({
+                                                                            title: fullTest.title || '',
+                                                                            duration: fullTest.duration_minutes || fullTest.duration || 180,
+                                                                            category: fullTest.category || 'JEE Main',
+                                                                            subject: fullTest.subject || 'Full Mock',
+                                                                            difficulty: fullTest.difficulty || 'medium',
+                                                                            instructions: fullTest.instructions || '',
+                                                                            isLive: !!fullTest.startTime,
+                                                                            startTime: fullTest.startTime || '',
+                                                                            endTime: fullTest.endTime || '',
+                                                                            isVisible: fullTest.isVisible !== false,
+                                                                            chapters: (fullTest.chapters || []).join(', ')
+                                                                        });
+                                                                        setIsUpdatingExisting(true);
+                                                                        setEditingId(test._id);
+                                                                        setActiveTab('create');
+                                                                        alert("Test loaded into 'Create' tab. You can now fix questions and update.");
+                                                                    } catch (e) {
+                                                                        alert("Failed to load test: " + e.message);
+                                                                    } finally {
+                                                                        setLoading(false);
+                                                                    }
+                                                                }}
+                                                                className="text-emerald-600 hover:text-emerald-900 text-sm font-bold border border-emerald-200 px-2 py-0.5 rounded bg-emerald-50"
+                                                                title="Load to mark answers or fix questions"
+                                                            >
+                                                                Mark Ans
+                                                            </button>
                                                             <button onClick={() => handleDeleteTest(test._id)} className="text-red-500 hover:text-red-700 text-sm font-bold">Delete</button>
                                                         </td>
                                                     </tr>
@@ -2012,13 +2152,13 @@ export default function AdminDashboard() {
                                     type="text"
                                     placeholder="Search by name or email..."
                                     className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    value={studentSearch}
+                                    value={studentSearch || ''}
                                     onChange={(e) => setStudentSearch(e.target.value)}
                                 />
                             </div>
                             <select
                                 className="border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                                value={studentFieldFilter}
+                                value={studentFieldFilter || 'All'}
                                 onChange={(e) => setStudentFieldFilter(e.target.value)}
                             >
                                 <option value="All">All Fields</option>
@@ -2238,7 +2378,7 @@ export default function AdminDashboard() {
                                 <div className="flex gap-2">
                                     <input
                                         type="text"
-                                        value={syllabusLink}
+                                        value={syllabusLink || ''}
                                         onChange={(e) => setSyllabusLink(e.target.value)}
                                         placeholder="Paste Google Drive or PDF link here..."
                                         className="flex-1 border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -2272,6 +2412,9 @@ export default function AdminDashboard() {
                         </div>
                     </div>
 
+                    {/* Rescore results utility */}
+                    <RescoreSection user={user} />
+
                     {/* Percentile Config */}
                     <PercentileConfig user={user} />
                 </div>
@@ -2279,847 +2422,1339 @@ export default function AdminDashboard() {
 
             {/* Create Tab */}
             {activeTab === 'create' && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Left Column: Form */}
-                    <div className="lg:col-span-2 space-y-6">
-                        {/* Test Details */}
-                        <div className="bg-white p-6 rounded-lg shadow">
-                            <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-700">Test Details</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-medium text-gray-700">Title</label><input type="text" name="title" value={testDetails.title} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2" /></div>
-                                <div><label className="block text-sm font-medium text-gray-700">Category</label><select name="category" value={testDetails.category} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white"><option value="JEE Main">JEE Main</option><option value="JEE Advanced">JEE Advanced</option><option value="NEET">NEET</option><option value="CAT">CAT</option><option value="Board Exam">Board Exam</option><option value="Others">Others</option></select></div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Subject</label>
-                                    <div className="flex flex-col gap-2">
-                                        <select
-                                            name="subject"
-                                            value={['Full Mock', 'Physics', 'Chemistry', 'Maths', 'Biology', 'English', 'Reasoning', 'General Knowledge'].includes(testDetails.subject) ? testDetails.subject : 'custom'}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                if (val === 'custom') {
-                                                    setTestDetails({ ...testDetails, subject: '' });
-                                                } else {
-                                                    setTestDetails({ ...testDetails, subject: val });
-                                                }
-                                            }}
-                                            className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white"
-                                        >
-                                            <option value="Full Mock">Full Mock</option>
-                                            <option value="Physics">Physics</option>
-                                            <option value="Chemistry">Chemistry</option>
-                                            <option value="Maths">Maths</option>
-                                            <option value="Biology">Biology</option>
-                                            <option value="English">English</option>
-                                            <option value="Reasoning">Reasoning</option>
-                                            <option value="General Knowledge">General Knowledge</option>
-                                            <option value="custom">Other / Custom...</option>
-                                        </select>
-                                        {!['Full Mock', 'Physics', 'Chemistry', 'Maths', 'Biology', 'English', 'Reasoning', 'General Knowledge'].includes(testDetails.subject) && (
-                                            <input
-                                                type="text"
-                                                value={testDetails.subject}
-                                                onChange={(e) => setTestDetails({ ...testDetails, subject: e.target.value })}
-                                                className="block w-full border border-blue-300 rounded p-2 bg-blue-50"
-                                                placeholder="Enter Custom Subject Name"
-                                                autoFocus
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-                                <div><label className="block text-sm font-medium text-gray-700">Duration (Min)</label><input type="number" name="duration" value={testDetails.duration} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2" /></div>
+                <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto pb-24">
 
-                                {/* New Granular Fields */}
-                                <div>
-                                    <select name="accessType" value={testDetails.accessType} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white">
-                                        <option value="free">Free</option>
-                                        <option value="paid">Paid</option>
-                                    </select>
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700">Add to Series (Optional)</label>
-                                    <select name="seriesId" value={testDetails.seriesId || ''} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white">
-                                        <option value="">-- Select Series --</option>
-                                        {seriesList.filter(s => s.category === testDetails.category).map(s => (
-                                            <option key={s.id} value={s.id}>{s.title}</option>
-                                        ))}
-                                    </select>
-                                    <p className="text-xs text-gray-500">Only showing {testDetails.category} series.</p>
-                                </div>
-                                <div className="mt-4 flex items-center md:col-span-2">
-                                    <input
-                                        type="checkbox"
-                                        id="calculator"
-                                        checked={testDetails.calculator}
-                                        onChange={(e) => setTestDetails({ ...testDetails, calculator: e.target.checked })}
-                                        className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                                    />
-                                    <label htmlFor="calculator" className="ml-2 block text-sm font-bold text-gray-700 select-none">
-                                        Enable Scientific Calculator (On-Screen)
-                                    </label>
-                                </div>
-                                <div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Format</label>
-                                        <select name="format" value={testDetails.format} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white">
-                                            <option value="full-mock">Full Mock</option>
-                                            <option value="chapter-wise">Chapter Wise</option>
-                                            <option value="part-test">Part Test</option>
-                                        </select>
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700">Chapters (Comma separated, for Chapter-wise/Part tests)</label>
-                                        <input type="text" name="chapters" value={testDetails.chapters} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2" placeholder="Kinematics, Laws of Motion" />
-                                    </div>
-                                </div>
-
-                                <div className="mt-4">
-                                    <label className="block text-sm font-medium text-gray-700">Instructions (Markdown supported)</label>
-                                    <textarea name="instructions" value={testDetails.instructions} onChange={handleTestChange} rows={4} className="mt-1 block w-full border border-gray-300 rounded p-2 font-mono text-sm" placeholder="1. All questions are compulsory..." />
-                                </div>
-
-                                {/* Live Test Toggle */}
-                                <div className="mt-4 p-4 bg-yellow-50 rounded border border-yellow-200">
-                                    <label className="flex items-center space-x-2">
-                                        <input type="checkbox" name="isLive" checked={testDetails.isLive} onChange={handleTestChange} className="rounded text-indigo-600" />
-                                        <span className="font-bold text-gray-700">Schedule as Application/Live Test?</span>
-                                    </label>
-                                    {testDetails.isLive && (
-                                        <div className="grid grid-cols-2 gap-4 mt-3">
-                                            <div><label className="block text-xs font-bold text-gray-500">Start Time</label><input type="datetime-local" name="startTime" value={testDetails.startTime} onChange={handleTestChange} className="w-full border p-1 rounded" /></div>
-                                            <div><label className="block text-xs font-bold text-gray-500">End Time</label><input type="datetime-local" name="endTime" value={testDetails.endTime} onChange={handleTestChange} className="w-full border p-1 rounded" /></div>
-                                        </div>
-
-                                    )}
-                                </div>
-
-                                {/* Max Attempts Control */}
-                                <div className="mt-4">
-                                    <label className="block text-sm font-medium text-gray-700">Attempt Limit</label>
-                                    <div className="flex items-center gap-4 mt-1">
-                                        <input
-                                            type="number"
-                                            name="maxAttempts"
-                                            value={testDetails.maxAttempts || ''}
-                                            onChange={handleTestChange}
-                                            placeholder="Empty = Unlimited"
-                                            className="block w-40 border border-gray-300 rounded p-2"
-                                        />
-                                        <span className="text-sm text-gray-500">Leave empty or 0 for unlimited attempts. (1 = Single Attempt)</span>
-                                    </div>
-                                </div>
-
-                                {/* Expiry Date for Standard Tests */}
-                                <div className="mt-4">
-                                    <label className="block text-sm font-medium text-gray-700">Validity/Expiry Date</label>
-                                    <input type="date" name="expiryDate" value={testDetails.expiryDate || ''} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2" />
-                                    <p className="text-xs text-gray-500">Test will be inactive after this date.</p>
-                                </div>
-
-                                {/* Solution PDF Link */}
-                                <input type="text" name="solutionPdf" value={testDetails.solutionPdf || ''} onChange={handleTestChange} className="mt-1 block w-full border border-gray-300 rounded p-2" placeholder="https://drive.google.com/..." />
+                    {/* Header Details */}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/60 backdrop-blur-xl border border-slate-200/60 p-6 rounded-3xl shadow-sm">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                                <BookOpen size={24} />
                             </div>
-
-                            {/* Result Visibility Control */}
-                            <div className="mt-4 md:col-span-2 p-4 bg-blue-50 rounded border border-blue-200">
-                                <label className="block text-sm font-bold text-blue-800 mb-2">Result & Solution Visibility</label>
-                                <p className="text-xs text-gray-600 mb-3">Control when students can see their results and solutions</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-700 mb-1">Visibility Mode</label>
-                                        <select name="resultVisibility" value={testDetails.resultVisibility || 'immediate'} onChange={handleTestChange} className="block w-full border border-gray-300 rounded p-2 bg-white">
-                                            <option value="immediate">Immediate (Right after submission)</option>
-                                            <option value="scheduled">Scheduled (Specific date & time)</option>
-                                            <option value="afterTestEnds">After Test Ends (For live tests)</option>
-                                        </select>
-                                    </div>
-                                    {testDetails.resultVisibility === 'scheduled' && (
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Result Declaration Time</label>
-                                            <input type="datetime-local" name="resultDeclarationTime" value={testDetails.resultDeclarationTime || ''} onChange={handleTestChange} className="block w-full border border-gray-300 rounded p-2" />
-                                            <p className="text-xs text-gray-500 mt-1">Students will see results/solutions after this time.</p>
-                                        </div>
-                                    )}
-                                    {testDetails.resultVisibility === 'afterTestEnds' && (
-                                        <div className="bg-yellow-50 p-2 rounded border border-yellow-200">
-                                            <p className="text-xs text-yellow-800">
-                                                <strong>Note:</strong> Results will be visible after the test end time set above.
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-8 pt-6 border-t border-gray-100 flex justify-between items-center">
                             <div>
-                                <h4 className="font-bold text-gray-800">Bulk Actions</h4>
-                                <p className="text-xs text-gray-500">Add many questions at once</p>
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setShowBulkUpload(true)}
-                                    className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 font-bold flex items-center gap-2 hover:bg-indigo-100 transition"
-                                >
-                                    <UploadCloud size={20} /> Bulk Upload (Excel)
-                                </button>
-                                <button
-                                    onClick={() => setShowPdfModal(true)}
-                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-md font-bold flex items-center gap-2 hover:bg-indigo-700 transition"
-                                >
-                                    <ImageIcon size={20} /> Create by PDF
-                                </button>
+                                <h1 className="text-2xl font-black text-slate-900 tracking-tight">Create New Assessment</h1>
+                                <p className="text-sm font-medium text-slate-500 mt-0.5">Design, configure, and publish tests beautifully.</p>
                             </div>
                         </div>
-
-                        {/* Add Question */}
-                        <div className="bg-white p-6 rounded-lg shadow border-2 border-blue-100 mt-6">
-                            <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-700">Add Question</h3>
-
-                            {/* Type & Metadata */}
-                            <div className="grid grid-cols-3 gap-4 mb-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500">Question Type</label>
-                                    <select name="type" value={currentQuestion.type} onChange={handleQuestionChange} className="w-full border p-2 rounded bg-white">
-                                        <option value="mcq">MCQ</option>
-                                        <option value="msq">MSQ</option>
-                                        <option value="integer">Integer</option>
-                                    </select>
+                        {isUpdatingExisting && (
+                            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200/60 px-5 py-3 rounded-2xl shadow-sm">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-600">
+                                    <Save size={16} />
                                 </div>
                                 <div>
-                                    <select
-                                        name="subject"
-                                        value={['Physics', 'Chemistry', 'Maths', 'Biology', 'English', 'Reasoning', 'General Knowledge'].includes(currentQuestion.subject) ? currentQuestion.subject : 'custom'}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            if (val === 'custom') {
-                                                setCurrentQuestion({ ...currentQuestion, subject: '' });
-                                            } else {
-                                                setCurrentQuestion({ ...currentQuestion, subject: val });
-                                            }
-                                        }}
-                                        className="w-full border p-2 rounded bg-white mb-1"
-                                    >
-                                        <option value="Physics">Physics</option>
-                                        <option value="Chemistry">Chemistry</option>
-                                        <option value="Maths">Maths</option>
-                                        <option value="Biology">Biology</option>
-                                        <option value="English">English</option>
-                                        <option value="Reasoning">Reasoning</option>
-                                        <option value="General Knowledge">General Knowledge</option>
-                                        <option value="custom">Other...</option>
-                                    </select>
-                                    {!['Physics', 'Chemistry', 'Maths', 'Biology', 'English', 'Reasoning', 'General Knowledge'].includes(currentQuestion.subject) && (
-                                        <input
-                                            type="text"
-                                            value={currentQuestion.subject || ''}
-                                            onChange={(e) => setCurrentQuestion({ ...currentQuestion, subject: e.target.value })}
-                                            className="w-full border p-2 rounded bg-blue-50 border-blue-200 text-sm"
-                                            placeholder="Type Custom Subject Name..."
-                                        />
-                                    )}
+                                    <p className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">Update Mode Active</p>
+                                    <p className="text-xs font-bold text-emerald-900 truncate max-w-[200px]">{testDetails.title}</p>
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500">Marks</label>
-                                    <input type="number" name="marks" value={currentQuestion.marks} onChange={handleQuestionChange} className="w-full border p-2 rounded" placeholder="Marks" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-red-500">Negative Marks</label>
-                                    <input
-                                        type="number"
-                                        name="negativeMarks"
-                                        value={currentQuestion.negativeMarks !== undefined ? currentQuestion.negativeMarks : 0}
-                                        onChange={handleQuestionChange}
-                                        className="w-full border p-2 rounded border-red-200 bg-red-50 text-red-700 font-bold"
-                                        placeholder="e.g. 1 (Positive Value)"
-                                    />
-                                    <p className="text-[10px] text-gray-400 mt-1">Deducted on wrong ans</p>
-                                </div>
+                                <button
+                                    onClick={() => {
+                                        setIsUpdatingExisting(false);
+                                        setEditingId(null);
+                                        setQuestions([]);
+                                        setTestDetails({
+                                            title: '', duration: 180, subject: 'Full Mock', category: 'JEE Main',
+                                            difficulty: 'medium', totalMarks: 0, isLive: false, startTime: '', endTime: '', instructions: '',
+                                            isVisible: true, calculator: false, chapters: ''
+                                        });
+                                    }}
+                                    className="ml-2 w-8 h-8 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all border border-slate-100 shadow-sm"
+                                    title="Exit Update Mode"
+                                >
+                                    <X size={14} />
+                                </button>
                             </div>
-
-                            <div className="mb-4">
-                                <label className="block text-xs font-bold text-gray-500">Topic (e.g., Rotational Motion)</label>
-                                <input type="text" name="topic" value={currentQuestion.topic} onChange={handleQuestionChange} className="w-full border p-2 rounded" placeholder="Enter topic tag" />
-                            </div>
-
-                            {/* Question Content */}
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Question Text (Math Enabled)</label>
-                                <div className="border border-gray-300 rounded mb-2 bg-white">
-                                    <SubjectToolbar onInsert={(latex) => insertMath('text', latex)} />
-                                    <textarea
-                                        name="text"
-                                        value={currentQuestion.text}
-                                        onChange={handleQuestionChange}
-                                        rows={3}
-                                        className="block w-full p-2 outline-none border-b border-gray-100 min-h-[80px]"
-                                        placeholder="Enter text... (Click buttons to add Math)"
-                                        onPaste={(e) => handlePaste(e, 'question')}
-                                    />
-                                    <div className="p-2 bg-gray-50 text-sm border-t border-gray-100">
-                                        <p className="text-xs text-gray-400 font-bold uppercase mb-1">Preview:</p>
-                                        <MathText text={currentQuestion.text || 'Preview appears here...'} className="text-gray-800" />
-                                    </div>
-                                </div>
-
-                                <div className="mt-2">
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Upload Question Image</label>
-                                    <input key={fileInputKey} type="file" onChange={(e) => uploadImage(e.target.files[0], 'question')} className="text-sm text-gray-500" />
-                                    {uploadingImage && <span className="text-xs text-blue-500">Uploading...</span>}
-                                    {currentQuestion.image && <img src={currentQuestion.image} alt="Q Preview" className="max-h-80 w-auto mt-2 object-contain border rounded bg-gray-50" />}
-                                </div>
-                            </div>
-
-                            {/* Options Area */}
-                            {currentQuestion.type !== 'integer' && (
-                                <div className="space-y-3 mb-4">
-                                    <label className="block text-sm font-medium text-gray-700">Options</label>
-                                    {currentQuestion.options.map((opt, idx) => (
-                                        <div key={idx} className="flex flex-col gap-1 border-b pb-2">
-                                            <div className="flex items-center gap-2">
-                                                {(!currentQuestion.optionImages[idx] || currentQuestion.options[idx]) && (
-                                                    <span className="font-mono">{String.fromCharCode(65 + idx)}</span>
-                                                )}
-                                                <input
-                                                    type="text"
-                                                    value={opt}
-                                                    onChange={(e) => handleOptionChange(idx, e.target.value)}
-                                                    className="flex-1 border p-1 rounded"
-                                                    placeholder="Text (Optional)"
-                                                    onPaste={(e) => handlePaste(e, 'option', idx)}
-                                                />
-                                                <input key={`${fileInputKey}-opt-${idx}`} type="file" onChange={(e) => uploadImage(e.target.files[0], 'option', idx)} className="text-xs w-24" />
-                                            </div>
-                                            {currentQuestion.optionImages[idx] && <img src={currentQuestion.optionImages[idx]} alt="Opt Img" className="h-32 w-auto object-contain ml-6 border rounded bg-gray-50" />}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Answer Section */}
-                            <div className="mb-6 p-4 bg-green-50 rounded">
-                                <label className="block text-sm font-bold text-green-800 mb-2">Mark Correct Answer</label>
-
-                                {currentQuestion.type === 'mcq' && (
-                                    <select name="correctOption" value={currentQuestion.correctOption} onChange={handleQuestionChange} className="block w-full border p-2 rounded bg-white">
-                                        <option value="">Select Correct Answer</option>
-                                        {currentQuestion.options.map((opt, idx) => (
-                                            <option key={idx} value={opt || `Option ${idx + 1}`}>{String.fromCharCode(65 + idx)}</option>
-                                        ))}
-                                    </select>
-                                )}
-
-                                {currentQuestion.type === 'msq' && (
-                                    <div className="flex gap-4">
-                                        {currentQuestion.options.map((opt, idx) => (
-                                            <label key={idx} className="flex items-center space-x-1 cursor-pointer">
-                                                <input type="checkbox" checked={currentQuestion.correctOptions.includes(opt || `Option ${idx + 1}`)} onChange={() => handleMSQCheck(opt || `Option ${idx + 1}`)} />
-                                                <span>{String.fromCharCode(65 + idx)}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {currentQuestion.type === 'integer' && (
-                                    <input type="text" name="integerAnswer" value={currentQuestion.integerAnswer} onChange={handleQuestionChange} className="block w-full border p-2 rounded" placeholder="Enter Integer Answer" />
-                                )}
-                            </div>
-
-                            {/* Solution Section */}
-                            <div className="mb-6 p-4 bg-purple-50 rounded border border-purple-200">
-                                <label className="block text-sm font-bold text-purple-800 mb-2">Solution (Optional)</label>
-                                <p className="text-xs text-gray-600 mb-3">Provide detailed explanation for this question</p>
-
-                                {/* Solution Text */}
-                                <div className="mb-3">
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Solution Explanation</label>
-                                    <div className="border border-gray-300 rounded mb-2 bg-white">
-                                        <SubjectToolbar onInsert={(latex) => insertMath('solution', latex)} />
-                                        <textarea
-                                            name="solution"
-                                            value={currentQuestion.solution || ''}
-                                            onChange={handleQuestionChange}
-                                            className="block w-full p-2 outline-none border-b border-gray-100 min-h-[100px]"
-                                            placeholder="Enter detailed solution explanation here..."
-                                            onPaste={(e) => handlePaste(e, 'solution')}
-                                        />
-                                        <div className="p-2 bg-gray-50 text-sm border-t border-gray-100">
-                                            <p className="text-xs text-gray-400 font-bold uppercase mb-1">Preview:</p>
-                                            <MathText text={currentQuestion.solution || 'Preview...'} className="text-gray-800" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Solution Image */}
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Solution Image (Optional)</label>
-                                    <input
-                                        key={`${fileInputKey}-sol`}
-                                        type="file"
-                                        onChange={(e) => uploadImage(e.target.files[0], 'solution')}
-                                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
-                                        accept="image/*"
-                                    />
-                                    {/* Display Multiple Solution Images */}
-                                    <div className="mt-2 grid grid-cols-2 gap-2">
-                                        {(currentQuestion.solutionImages || []).map((img, idx) => (
-                                            <div key={idx} className="relative group bg-gray-50 border rounded p-1">
-                                                <img src={img} alt={`Sol ${idx}`} className="h-48 w-full object-contain" />
-                                                <button
-                                                    onClick={() => {
-                                                        const newImages = currentQuestion.solutionImages.filter((_, i) => i !== idx);
-                                                        setCurrentQuestion({ ...currentQuestion, solutionImages: newImages });
-                                                    }}
-                                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
-                                                >
-                                                    <Trash size={12} />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button onClick={addQuestion} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 flex justify-center items-center font-bold">
-                                <Plus size={18} className="mr-2" /> Add Question
-                            </button>
-                        </div>
+                        )}
                     </div>
 
-                    {/* Preview (Right Col) */}
-                    <div className="bg-white p-6 rounded-lg shadow h-full flex flex-col">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-semibold">Queue: {questions.length}</h3>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setShowMergeModal(true)}
-                                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-indigo-700 transition"
-                                >
-                                    <List size={20} />
-                                    Merge Tests
-                                </button>
-                                <button onClick={() => setShowBulkUpload(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2">
-                                    <List size={20} />
-                                    Bulk Upload
-                                </button>
-                            </div>
-                            {questions.length > 0 && (
-                                <button onClick={handleExportQueue} className="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center gap-1">
-                                    <Download size={14} /> Export CSV
-                                </button>
-                            )}
-                        </div>
-                        <div className="flex-1 overflow-y-auto max-h-[600px] space-y-4 mb-4">
-                            {questions.map((q, idx) => (
-                                <div key={idx} className="border p-2 rounded bg-gray-50 relative">
-                                    <div className="absolute top-1 right-1 cursor-pointer text-red-500" onClick={() => removeQuestion(idx)}><Trash size={14} /></div>
-                                    <div className="text-xs font-bold text-blue-600 mb-1">{q.type.toUpperCase()} | {q.subject} {q.topic && `| ${q.topic}`}</div>
-                                    <div className="flex gap-4 items-start">
-                                        <div className="text-sm flex-1">
-                                            <MathText text={q.text} />
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        {/* Main Settings & Builder */}
+                        <div className="lg:col-span-12 space-y-8">
+
+                            {/* Premium Test Details Card */}
+                            <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col group transition-all hover:shadow-md">
+                                <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-zinc-50/50">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-slate-900 text-white p-2 rounded-xl shadow-md"><Edit2 size={16} /></div>
+                                        <div>
+                                            <h3 className="text-base font-black text-slate-900 tracking-tight">Assessment Configuration</h3>
+                                            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Metadata & Permissions</p>
                                         </div>
-                                        {q.image && (
-                                            <img
-                                                src={q.image}
-                                                alt="Thumb"
-                                                className="w-12 h-12 rounded object-contain border bg-white cursor-zoom-in hover:border-blue-400"
-                                                onClick={() => setZoomedImg(q.image)}
-                                            />
+                                    </div>
+                                </div>
+                                <div className="p-8">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+
+                                        <div className="md:col-span-2 xl:col-span-2 group">
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1 group-focus-within:text-indigo-600 transition-colors">Assessment Title</label>
+                                            <input type="text" name="title" value={testDetails.title || ''} onChange={handleTestChange} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" placeholder="e.g., Target JEE Main Mock Test #1" />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Target Category</label>
+                                            <select name="category" value={testDetails.category || 'JEE Main'} onChange={handleTestChange} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer">
+                                                <option value="JEE Main">JEE Main</option><option value="JEE Advanced">JEE Advanced</option><option value="NEET">NEET</option><option value="CAT">CAT</option><option value="Board Exam">Board Exam</option><option value="Others">Others</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Core Subject</label>
+                                            <select name="subject" value={['Full Mock', 'Physics', 'Chemistry', 'Maths', 'Biology', 'English', 'Reasoning', 'General Knowledge'].includes(testDetails.subject) ? testDetails.subject : 'custom'} onChange={(e) => { const val = e.target.value; if (val === 'custom') { setTestDetails({ ...testDetails, subject: '' }); } else { setTestDetails({ ...testDetails, subject: val }); } }} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer">
+                                                <option value="Full Mock">Full Mock (All)</option><option value="Physics">Physics</option><option value="Chemistry">Chemistry</option><option value="Maths">Maths</option><option value="Biology">Biology</option><option value="English">English</option><option value="Reasoning">Reasoning</option><option value="General Knowledge">General Knowledge</option><option value="custom">Other / Custom...</option>
+                                            </select>
+                                            {!['Full Mock', 'Physics', 'Chemistry', 'Maths', 'Biology', 'English', 'Reasoning', 'General Knowledge'].includes(testDetails.subject) && (
+                                                <input type="text" value={testDetails.subject || ''} onChange={(e) => setTestDetails({ ...testDetails, subject: e.target.value })} className="mt-3 block w-full bg-indigo-50/50 border border-indigo-200 rounded-2xl px-4 py-3 text-sm font-bold text-indigo-900 focus:bg-white outline-none transition-all" placeholder="Enter Custom Subject..." autoFocus />
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Duration (Mins)</label>
+                                            <div className="relative">
+                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400"><Clock size={16} /></div>
+                                                <input type="number" name="duration" value={testDetails.duration || 180} onChange={handleTestChange} className="block w-full pl-11 bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Access Tier</label>
+                                            <select name="accessType" value={testDetails.accessType || 'free'} onChange={handleTestChange} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer">
+                                                <option value="free">Free Access</option>
+                                                <option value="paid">Premium (Paid)</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Test Format</label>
+                                            <select name="format" value={testDetails.format || 'full-mock'} onChange={handleTestChange} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer">
+                                                <option value="full-mock">Full Mock Test</option>
+                                                <option value="chapter-wise">Chapter Wise</option>
+                                                <option value="part-test">Part Test</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="md:col-span-3 xl:col-span-2">
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Assign to Series (Optional)</label>
+                                            <select name="seriesId" value={testDetails.seriesId || ''} onChange={handleTestChange} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer">
+                                                <option value="">— Standalone Test (No Series) —</option>
+                                                {seriesList.filter(s => s.category === testDetails.category).map(s => (
+                                                    <option key={s.id} value={s.id}>{s.title}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="xl:col-span-2">
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Chapter Tags</label>
+                                            <input type="text" name="chapters" value={testDetails.chapters || ''} onChange={handleTestChange} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" placeholder="e.g. Kinematics, Optics..." />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Max Attempts</label>
+                                            <input type="number" name="maxAttempts" value={testDetails.maxAttempts || ''} onChange={handleTestChange} placeholder="Unlimited" className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Expiry Date</label>
+                                            <input type="date" name="expiryDate" value={testDetails.expiryDate || ''} onChange={handleTestChange} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" />
+                                        </div>
+
+                                        <div className="md:col-span-3 xl:col-span-4">
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Candidate Instructions</label>
+                                            <textarea name="instructions" value={testDetails.instructions || ''} onChange={handleTestChange} rows={2} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3.5 text-sm font-mono text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all resize-none" placeholder="1. All questions are compulsory..." />
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-8 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                                        <div className="flex flex-col gap-3 p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100/60 transition-colors hover:bg-indigo-50">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs font-black text-indigo-900 uppercase tracking-widest cursor-pointer select-none" onClick={() => setTestDetails({ ...testDetails, calculator: !testDetails.calculator })}>Scientific Calculator</label>
+                                                <button type="button" onClick={() => setTestDetails({ ...testDetails, calculator: !testDetails.calculator })} className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out ${testDetails.calculator ? 'bg-indigo-600 shadow-inner' : 'bg-slate-300'}`}>
+                                                    <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transform transition-transform duration-300 ease-in-out ${testDetails.calculator ? 'translate-x-5' : 'translate-x-0'}`} />
+                                                </button>
+                                            </div>
+                                            <p className="text-[10px] font-medium text-indigo-700/70 leading-snug">Allow students to use on-screen advanced calculator during exam.</p>
+                                        </div>
+
+                                        <div className="flex flex-col gap-3 p-5 rounded-2xl bg-amber-50/50 border border-amber-100/60 transition-colors hover:bg-amber-50">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs font-black text-amber-900 uppercase tracking-widest cursor-pointer select-none" onClick={() => setTestDetails({ ...testDetails, isLive: !testDetails.isLive })}>Live Exam Mode</label>
+                                                <button type="button" onClick={() => setTestDetails({ ...testDetails, isLive: !testDetails.isLive })} className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out ${testDetails.isLive ? 'bg-amber-500 shadow-inner' : 'bg-slate-300'}`}>
+                                                    <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transform transition-transform duration-300 ease-in-out ${testDetails.isLive ? 'translate-x-5' : 'translate-x-0'}`} />
+                                                </button>
+                                            </div>
+                                            <p className="text-[10px] font-medium text-amber-700/70 leading-snug">Enforce strict start/end times & sync execution for all students.</p>
+                                        </div>
+
+                                        <div className="lg:col-span-2">
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Result Publishing Rule</label>
+                                            <select name="resultVisibility" value={testDetails.resultVisibility || 'immediate'} onChange={handleTestChange} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer h-14">
+                                                <option value="immediate">Publish Immediately After Submission</option>
+                                                <option value="afterTestEnds">Publish Only When Live Window Ends</option>
+                                                <option value="scheduled">Schedule Custom Date & Time...</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {(testDetails.isLive || testDetails.resultVisibility === 'scheduled') && (
+                                        <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-top-4 duration-300">
+                                            {testDetails.isLive && (
+                                                <div className="flex items-center gap-4 p-5 rounded-2xl bg-amber-50 border border-amber-200/60">
+                                                    <div className="flex flex-col flex-1">
+                                                        <label className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Live Start Time</label>
+                                                        <input type="datetime-local" name="startTime" value={testDetails.startTime || ''} onChange={handleTestChange} className="bg-white border text-sm font-bold text-slate-800 border-amber-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-amber-500" />
+                                                    </div>
+                                                    <div className="flex flex-col flex-1">
+                                                        <label className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Live End Time</label>
+                                                        <input type="datetime-local" name="endTime" value={testDetails.endTime || ''} onChange={handleTestChange} className="bg-white border text-sm font-bold text-slate-800 border-amber-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-amber-500" />
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {testDetails.resultVisibility === 'scheduled' && (
+                                                <div className="flex flex-col flex-1 p-5 rounded-2xl bg-indigo-50 border border-indigo-200/60">
+                                                    <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Result Release Datetime</label>
+                                                    <input type="datetime-local" name="resultDeclarationTime" value={testDetails.resultDeclarationTime || ''} onChange={handleTestChange} className="bg-white border text-sm font-bold text-slate-800 border-indigo-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Bulk Actions Command Center */}
+                        <div className="lg:col-span-12">
+                            <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 shadow-xl">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                                <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+
+                                <div className="relative px-8 py-6 flex flex-col md:flex-row justify-between items-center gap-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-3 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-md">
+                                            <Zap size={24} className="text-amber-400" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-black text-white text-lg tracking-tight">Bulk Actions Command Center</h4>
+                                            <p className="text-sm font-medium text-slate-400 mt-0.5">Rapidly add or process multiple questions at once.</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <button
+                                            onClick={() => setShowBulkUpload(true)}
+                                            className="px-5 py-3 bg-white/5 text-white rounded-2xl border border-white/10 font-bold flex items-center gap-2 hover:bg-white/10 transition-all text-sm backdrop-blur-md hover:-translate-y-0.5"
+                                        >
+                                            <UploadCloud size={18} className="text-indigo-400" /> Excel / CSV Upload
+                                        </button>
+                                        <button
+                                            onClick={() => setShowPdfModal(true)}
+                                            className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white rounded-2xl shadow-lg shadow-indigo-500/25 font-bold flex items-center gap-2 hover:shadow-indigo-500/40 transition-all text-sm hover:-translate-y-0.5 border border-indigo-400/50"
+                                        >
+                                            <ImageIcon size={18} /> Smart PDF Extractor
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Workspace Split */}
+                        <div className="lg:col-span-12 grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+
+                            {/* Left Column: Authoring Studio */}
+                            <div className="xl:col-span-7 2xl:col-span-8 flex flex-col space-y-6">
+                                <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md">
+                                    <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-zinc-50/50">
+                                        <div className="flex items-center gap-3">
+                                            <div className="bg-indigo-50 text-indigo-600 p-2 rounded-xl border border-indigo-100/50"><Plus size={16} /></div>
+                                            <div>
+                                                <h3 className="text-base font-black text-slate-900 tracking-tight">Question Authoring Studio</h3>
+                                                <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Draft new questions</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-8 space-y-8">
+                                        {/* Row 1: Settings */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                            <div>
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Type</label>
+                                                <select name="type" value={currentQuestion.type || 'mcq'} onChange={handleQuestionChange} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer">
+                                                    <option value="mcq">Single Choice (MCQ)</option>
+                                                    <option value="msq">Multi Choice (MSQ)</option>
+                                                    <option value="integer">Numerical (Integer)</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Marks (+)</label>
+                                                <input type="number" name="marks" value={currentQuestion.marks || 4} onChange={handleQuestionChange} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2 ml-1">Penalty (-)</label>
+                                                <input type="number" name="negativeMarks" value={currentQuestion.negativeMarks !== undefined ? currentQuestion.negativeMarks : 0} onChange={handleQuestionChange} className="block w-full bg-rose-50 border border-rose-200/60 rounded-2xl px-4 py-3 text-sm font-bold text-rose-700 focus:bg-white focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none transition-all" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Topic Tag</label>
+                                                <input type="text" name="topic" value={currentQuestion.topic || ''} onChange={handleQuestionChange} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" placeholder="e.g. Optics" />
+                                            </div>
+                                        </div>
+
+                                        {/* Row 2: Question Body */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Question Content</label>
+                                                <div className="relative overflow-hidden inline-block group cursor-pointer">
+                                                    <input key={fileInputKey} type="file" onChange={(e) => uploadImage(e.target.files[0], 'question')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 group-hover:bg-indigo-100 transition-colors">
+                                                        {uploadingImage ? <><Loader2 size={12} className="animate-spin" /> Uploading...</> : <><ImageIcon size={12} /> Attach Image</>}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="border border-slate-200 rounded-2xl overflow-hidden focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all shadow-sm">
+                                                {/* Toolbar styled like minimal OS window */}
+                                                <div className="bg-slate-100 border-b border-slate-200 px-3 py-2 flex items-center gap-2">
+                                                    <div className="flex gap-1.5 mr-2">
+                                                        <div className="w-2.5 h-2.5 rounded-full bg-rose-400/80"></div>
+                                                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400/80"></div>
+                                                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/80"></div>
+                                                    </div>
+                                                    <div className="flex-1 opacity-80"><SubjectToolbar onInsert={(latex) => insertMath('text', latex)} /></div>
+                                                </div>
+                                                {/* Editor area */}
+                                                <textarea name="text" value={currentQuestion.text || ''} onChange={handleQuestionChange} rows={5} className="block w-full p-5 text-sm font-medium text-slate-800 outline-none bg-white min-h-[140px] resize-y" placeholder="Draft your question here. Markdown & LaTeX supported ($$ x^2 $$)..." onPaste={(e) => handlePaste(e, 'question')} />
+                                                {/* Live Preview area */}
+                                                {(currentQuestion.text || currentQuestion.image) && (
+                                                    <div className="p-5 bg-slate-50 border-t border-slate-100">
+                                                        <p className="text-[9px] font-black text-slate-400 uppercase mb-3 tracking-widest flex items-center gap-1"><Eye size={10} /> Live Output Preview</p>
+                                                        <div className="prose prose-sm max-w-none text-slate-800">
+                                                            <MathText text={currentQuestion.text || '...'} />
+                                                        </div>
+                                                        {currentQuestion.image && (
+                                                            <div className="mt-4 inline-block relative group rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white p-2">
+                                                                <img src={currentQuestion.image} alt="Ref" className="max-h-64 object-contain rounded-lg" />
+                                                                <button onClick={() => setCurrentQuestion({ ...currentQuestion, image: '' })} className="absolute top-3 right-3 bg-rose-500/90 text-white rounded-lg p-1.5 opacity-0 group-hover:opacity-100 transition shadow-lg hover:bg-rose-600"><Trash size={14} /></button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Row 3: Options Array */}
+                                        {currentQuestion.type !== 'integer' && (
+                                            <div className="space-y-4">
+                                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Answer Options</label>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    {currentQuestion.options.map((opt, idx) => {
+                                                        const letter = String.fromCharCode(65 + idx);
+                                                        const isCorrectMCQ = currentQuestion.type === 'mcq' && currentQuestion.correctOption === (opt || `Option ${idx + 1}`);
+                                                        const isCorrectMSQ = currentQuestion.type === 'msq' && (currentQuestion.correctOptions.includes(opt || `Option ${idx + 1}`) || currentQuestion.correctOptions.includes(letter) || currentQuestion.correctOptions.includes(letter.toLowerCase()));
+                                                        const isCorrect = isCorrectMCQ || isCorrectMSQ;
+
+                                                        return (
+                                                            <div key={idx} className={`group relative bg-white border ${isCorrect ? 'border-emerald-400 shadow-md shadow-emerald-500/10' : 'border-slate-200'} rounded-2xl p-5 transition-all outline-none focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500`}>
+
+                                                                {/* Correct Answer Quick Toggle Corner */}
+                                                                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            if (currentQuestion.type === 'mcq') {
+                                                                                handleQuestionChange({ target: { name: 'correctOption', value: opt || `Option ${idx + 1}` } });
+                                                                            } else {
+                                                                                handleMSQCheck(opt || `Option ${idx + 1}`);
+                                                                            }
+                                                                        }}
+                                                                        className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border transition-all ${isCorrect ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200'}`}
+                                                                    >
+                                                                        {isCorrect ? 'Marked Correct' : 'Mark Correct'}
+                                                                    </button>
+                                                                </div>
+
+                                                                <div className="flex items-start gap-4">
+                                                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-black transition-colors ${isCorrect ? 'bg-emerald-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 group-focus-within:bg-indigo-600 group-focus-within:text-white'}`}>
+                                                                        {letter}
+                                                                    </div>
+                                                                    <div className="flex-1 space-y-3 pt-0.5">
+                                                                        <textarea value={opt} onChange={(e) => handleOptionChange(idx, e.target.value)} rows={1} className="w-full text-sm font-medium text-slate-800 outline-none bg-transparent resize-none placeholder-slate-300" placeholder="Enter option..." onPaste={(e) => handlePaste(e, 'option', idx)} />
+
+                                                                        {(opt || currentQuestion.optionImages[idx]) && (
+                                                                            <div className="pt-2 border-t border-slate-100">
+                                                                                <MathText text={opt} className="text-xs text-slate-600 break-words" />
+                                                                            </div>
+                                                                        )}
+
+                                                                        <div className="flex items-center gap-2 mt-2">
+                                                                            <div className="relative overflow-hidden inline-block cursor-pointer">
+                                                                                <input key={`${fileInputKey}-opt-${idx}`} type="file" onChange={(e) => uploadImage(e.target.files[0], 'option', idx)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                                                                <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200 hover:bg-slate-100 transition-colors">
+                                                                                    <ImageIcon size={10} /> Add Image
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {currentQuestion.optionImages[idx] && (
+                                                                            <div className="relative inline-block mt-2">
+                                                                                <img src={currentQuestion.optionImages[idx]} alt="Opt" className="h-24 w-auto object-contain border border-slate-200 rounded-lg bg-slate-50 p-1 shadow-sm" />
+                                                                                <button onClick={() => { const newImg = [...currentQuestion.optionImages]; newImg[idx] = null; setCurrentQuestion({ ...currentQuestion, optionImages: newImg }); }} className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-md hover:bg-rose-600 transition"><X size={10} /></button>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Answer Section (Explicit) */}
+                                        <div className="relative overflow-hidden bg-emerald-50/80 border border-emerald-200/60 rounded-3xl p-8">
+                                            <div className="flex items-center gap-3 mb-6 relative z-10">
+                                                <div className="bg-emerald-100 text-emerald-600 p-2 rounded-xl"><CheckCircle size={18} /></div>
+                                                <div>
+                                                    <h4 className="text-sm font-black text-emerald-900 tracking-tight">Answer Key Selection</h4>
+                                                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mt-0.5">Define Correct Evaluation</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="relative z-10">
+                                                {currentQuestion.type === 'mcq' && (
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                        {currentQuestion.options.map((opt, idx) => {
+                                                            const isSelected = currentQuestion.correctOption === (opt || `Option ${idx + 1}`);
+                                                            return (
+                                                                <button key={idx} onClick={() => handleQuestionChange({ target: { name: 'correctOption', value: opt || `Option ${idx + 1}` } })} className={`px-4 py-4 rounded-2xl border-2 text-base font-black transition-all transform active:scale-95 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 -translate-y-1' : 'bg-white border-emerald-100 text-emerald-700 hover:border-emerald-300 hover:shadow-md'}`}>
+                                                                    {String.fromCharCode(65 + idx)}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                {currentQuestion.type === 'msq' && (
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                        {currentQuestion.options.map((opt, idx) => {
+                                                            const effectiveOpt = opt || `Option ${idx + 1}`;
+                                                            const letter = String.fromCharCode(65 + idx);
+                                                            const isChecked = currentQuestion.correctOptions.includes(effectiveOpt) || currentQuestion.correctOptions.includes(letter) || currentQuestion.correctOptions.includes(letter.toLowerCase());
+                                                            return (
+                                                                <button key={idx} onClick={() => handleMSQCheck(effectiveOpt)} className={`px-4 py-4 rounded-2xl border-2 text-base font-black transition-all transform active:scale-95 ${isChecked ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 -translate-y-1' : 'bg-white border-emerald-100 text-emerald-700 hover:border-emerald-300 hover:shadow-md'}`}>
+                                                                    {letter}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                {currentQuestion.type === 'integer' && (
+                                                    <div className="max-w-xs">
+                                                        <input type="text" name="integerAnswer" value={currentQuestion.integerAnswer || ''} onChange={handleQuestionChange} className="block w-full bg-white border-2 border-emerald-200 rounded-2xl px-6 py-4 text-xl font-black focus:border-emerald-500 outline-none transition-all text-center text-slate-800 shadow-sm" placeholder="e.g. 42" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Optional Solution */}
+                                        <div className="border border-slate-200/80 rounded-3xl overflow-hidden transition-all bg-white shadow-sm">
+                                            <details className="group marker:content-['']">
+                                                <summary className="flex items-center justify-between px-8 py-5 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-colors w-full select-none">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="bg-slate-200/50 text-slate-600 p-2 rounded-xl group-open:bg-indigo-100 group-open:text-indigo-600 transition-colors"><Info size={16} /></div>
+                                                        <div>
+                                                            <h4 className="text-sm font-black text-slate-800 tracking-tight">Detailed Solution</h4>
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Optional Explanation</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-slate-400 group-open:rotate-180 transition-transform duration-300 bg-white p-2 rounded-full border border-slate-200 shadow-sm"><ChevronDown size={14} /></div>
+                                                </summary>
+
+                                                <div className="p-8 border-t border-slate-100 bg-white space-y-6">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Explanation Content</label>
+                                                        <div className="relative overflow-hidden inline-block group cursor-pointer">
+                                                            <input key={`${fileInputKey}-sol`} type="file" onChange={(e) => uploadImage(e.target.files[0], 'solution')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 group-hover:bg-indigo-100 transition-colors">
+                                                                <ImageIcon size={12} /> Attach Image
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="border border-slate-200 rounded-2xl overflow-hidden focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all shadow-sm">
+                                                        <div className="bg-slate-100 border-b border-slate-200 px-3 py-2 flex items-center gap-2">
+                                                            <div className="flex gap-1.5 mr-2">
+                                                                <div className="w-2.5 h-2.5 rounded-full bg-rose-400/80"></div>
+                                                                <div className="w-2.5 h-2.5 rounded-full bg-amber-400/80"></div>
+                                                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/80"></div>
+                                                            </div>
+                                                            <div className="flex-1 opacity-80"><SubjectToolbar onInsert={(latex) => insertMath('solution', latex)} /></div>
+                                                        </div>
+                                                        <textarea name="solution" value={currentQuestion.solution || ''} onChange={handleQuestionChange} className="block w-full p-5 text-sm font-medium text-slate-800 outline-none bg-white min-h-[140px] resize-y" placeholder="Explain the concept, formulas, and steps used to derive the answer..." onPaste={(e) => handlePaste(e, 'solution')} />
+                                                    </div>
+
+                                                    {(currentQuestion.solutionImages || []).length > 0 && (
+                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                                                            {(currentQuestion.solutionImages || []).map((img, idx) => (
+                                                                <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white aspect-video flex items-center justify-center p-1">
+                                                                    <img src={img} alt={`Sol ${idx}`} className="w-full h-full object-contain rounded-lg" />
+                                                                    <button onClick={() => { const newImages = currentQuestion.solutionImages.filter((_, i) => i !== idx); setCurrentQuestion({ ...currentQuestion, solutionImages: newImages }); }} className="absolute m-1 top-0 right-0 bg-rose-500/90 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow-lg hover:bg-rose-600"><Trash size={12} /></button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </details>
+                                        </div>
+
+                                        {/* Action Button */}
+                                        <div className="pt-4 border-t border-slate-100">
+                                            <button onClick={addQuestion} className="w-full group relative overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-600 text-white py-4 rounded-2xl shadow-xl shadow-indigo-500/20 transition-all hover:shadow-indigo-500/40 hover:-translate-y-1 active:scale-95 active:translate-y-0">
+                                                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out"></div>
+                                                <div className="relative flex justify-center items-center font-black text-base tracking-wide">
+                                                    <Plus size={20} className="mr-2" /> Append to Queue
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Right Column: Queue Inspector */}
+                            <div className="xl:col-span-5 2xl:col-span-4 flex flex-col h-full max-h-[calc(100vh-12rem)] sticky top-6">
+                                <div className="bg-slate-900 rounded-3xl shadow-xl overflow-hidden flex flex-col h-full border border-slate-800">
+
+                                    {/* Queue Header */}
+                                    <div className="relative overflow-hidden px-8 py-6 bg-slate-900 border-b border-slate-800 flex justify-between items-center z-10 shrink-0">
+                                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-violet-500/10 pointer-events-none"></div>
+                                        <div className="flex items-center gap-4 relative z-10">
+                                            <div className="bg-white/10 text-white p-2.5 rounded-xl backdrop-blur-md border border-white/5"><List size={18} className="text-indigo-300" /></div>
+                                            <div>
+                                                <h3 className="text-white font-black text-lg tracking-tight flex items-center gap-2">
+                                                    Draft Queue
+                                                    <span className="bg-indigo-500 text-white text-xs px-2.5 py-0.5 rounded-full font-bold shadow-sm">{questions.length}</span>
+                                                </h3>
+                                                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest mt-0.5">Ready for publication</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 relative z-10">
+                                            <button onClick={() => setShowMergeModal(true)} className="p-2.5 bg-white/5 text-slate-300 rounded-xl hover:bg-white/10 hover:text-white transition-colors border border-white/5" title="Merge Tests"><Combine size={18} /></button>
+                                            <button onClick={() => setShowQuickMarkModal(true)} className="p-2.5 bg-white/5 text-emerald-400 rounded-xl hover:bg-emerald-500/20 hover:text-emerald-300 transition-colors border border-white/5" title="Quick Mark Answers"><CheckCircle size={18} /></button>
+                                            {questions.length > 0 && (
+                                                <button onClick={handleExportQueue} className="p-2.5 bg-white/5 text-blue-400 rounded-xl hover:bg-blue-500/20 hover:text-blue-300 transition-colors border border-white/5" title="Export CSV"><Download size={18} /></button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Queue List */}
+                                    <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-slate-900/50">
+                                        {questions.length === 0 ? (
+                                            <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-4 opacity-60">
+                                                <div className="w-20 h-20 rounded-full border-2 border-dashed border-slate-700 flex items-center justify-center bg-slate-800/50 mb-2">
+                                                    <List size={32} className="text-slate-600" />
+                                                </div>
+                                                <p className="font-bold text-sm">Queue is empty</p>
+                                                <p className="text-xs text-center max-w-[200px]">Questions you add will appear here for review before publishing.</p>
+                                            </div>
+                                        ) : (
+                                            questions.map((q, idx) => (
+                                                <div key={idx} className="group relative bg-slate-800 border border-slate-700 rounded-2xl p-5 hover:border-indigo-500/50 transition-all shadow-sm hover:shadow-lg hover:shadow-indigo-500/10">
+                                                    <div className="absolute -top-3 -right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                                        <button onClick={() => { setCurrentQuestion({ ...q }); removeQuestion(idx); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="bg-indigo-500 text-white p-2 rounded-xl shadow-lg hover:bg-indigo-600 transition-transform hover:-translate-y-0.5"><Edit3 size={14} /></button>
+                                                        <button onClick={() => removeQuestion(idx)} className="bg-rose-500 text-white p-2 rounded-xl shadow-lg hover:bg-rose-600 transition-transform hover:-translate-y-0.5"><Trash size={14} /></button>
+                                                    </div>
+
+                                                    <div className="flex items-center justify-between mb-3 border-b border-slate-700/50 pb-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="px-2 py-1 bg-slate-700 text-slate-300 text-[9px] font-black tracking-widest uppercase rounded-md border border-slate-600">Q{idx + 1}</span>
+                                                            <span className={`px-2 py-1 text-[9px] font-black tracking-widest uppercase rounded-md border ${q.type === 'mcq' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : q.type === 'msq' ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>{q.type}</span>
+                                                        </div>
+                                                        <div className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded-md border border-slate-800">
+                                                            <span className="text-emerald-400">+{q.marks}</span> / <span className="text-rose-400">-{q.negativeMarks}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-3">
+                                                        <div className="text-sm font-medium text-slate-200 line-clamp-3 leading-relaxed">
+                                                            <MathText text={q.text || 'No question text...'} />
+                                                        </div>
+
+                                                        {q.image && (
+                                                            <div className="inline-block relative rounded-lg overflow-hidden border border-slate-700 bg-slate-900 p-1 cursor-zoom-in group/img" onClick={() => setZoomedImg(q.image)}>
+                                                                <img src={q.image} alt="Thumb" className="h-16 w-auto object-contain rounded opacity-80 group-hover/img:opacity-100 transition-opacity" />
+                                                                <div className="absolute inset-0 bg-indigo-500/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm"><Eye size={16} className="text-white" /></div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Missing Answer Warning */}
+                                                        {((q.type === 'mcq' && !q.correctOption) || (q.type === 'msq' && (!q.correctOptions || q.correctOptions.length === 0)) || (q.type === 'integer' && (q.integerAnswer === undefined || q.integerAnswer === ''))) && (
+                                                            <div className="mt-3 flex items-start gap-2 text-[10px] font-bold text-rose-400 bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20">
+                                                                <AlertTriangle size={14} className="shrink-0 mt-0.5 hidden" />
+                                                                <span><AlertCircle size={12} className="inline mr-1 mb-0.5" />Missing Answer Key</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+
+                                    {/* Action Footer */}
+                                    <div className="p-6 bg-slate-900 border-t border-slate-800 shrink-0 relative z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+                                        <button
+                                            onClick={handleSubmitTest}
+                                            disabled={loading || questions.length === 0}
+                                            className={`w-full relative group overflow-hidden py-4 rounded-2xl font-black text-white transition-all transform hover:-translate-y-1 active:scale-95 active:translate-y-0 flex items-center justify-center gap-3 ${loading || questions.length === 0 ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700' : isUpdatingExisting ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/40' : 'bg-gradient-to-br from-indigo-500 to-blue-600 shadow-xl shadow-indigo-500/20 hover:shadow-indigo-500/40'}`}
+                                        >
+                                            {!(loading || questions.length === 0) && <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out"></div>}
+                                            <div className="relative flex items-center gap-2">
+                                                {loading ? (
+                                                    <><Loader2 className="animate-spin text-indigo-400" size={20} /> <span className="text-slate-300">Processing...</span></>
+                                                ) : (
+                                                    <><Save size={20} /> {isUpdatingExisting ? 'SAVE CHANGES' : 'PUBLISH ASSESSMENT'}</>
+                                                )}
+                                            </div>
+                                        </button>
+
+                                        {!isUpdatingExisting && questions.length > 0 && (
+                                            <p className="text-center text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-4">
+                                                {questions.length} question{questions.length !== 1 ? 's' : ''} ready for deployment
+                                            </p>
                                         )}
                                     </div>
                                 </div>
-                            ))}
+                            </div>
                         </div>
-                        <button onClick={handleSubmitTest} disabled={loading || questions.length === 0} className="w-full bg-green-600 text-white py-3 rounded font-bold shadow hover:bg-green-700 disabled:opacity-50">
-                            {loading ? 'Publishing...' : 'Publish Test'}
-                        </button>
                     </div>
                 </div>
             )}
             {/* Edit Series Modal */}
-            {editingSeries && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold">Edit Series: {editingSeries.title}</h3>
-                            <button onClick={() => setEditingSeries(null)}><X size={24} /></button>
+            {
+                editingSeries && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                        <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-bold">Edit Series: {editingSeries.title}</h3>
+                                <button onClick={() => setEditingSeries(null)}><X size={24} /></button>
+                            </div>
+                            <CreateSeriesForm
+                                initialData={editingSeries}
+                                onSuccess={() => {
+                                    setEditingSeries(null);
+                                    fetchSeries();
+                                }}
+                            />
                         </div>
-                        <CreateSeriesForm
-                            initialData={editingSeries}
-                            onSuccess={() => {
-                                setEditingSeries(null);
-                                fetchSeries();
-                            }}
-                        />
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Edit Test Modal */}
-            {editingTest && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold">Edit Test: {editingTest.title}</h3>
-                            <button onClick={() => setEditingTest(null)}><X size={24} className="text-gray-500 hover:text-gray-800" /></button>
-                        </div>
-                        <form
-                            onSubmit={async (e) => {
-                                e.preventDefault();
-                                try {
-                                    const token = await user?.getIdToken();
-                                    const res = await fetch(`${API_BASE_URL}/api/tests/${editingTest._id}`, {
-                                        method: 'PUT',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                            'Authorization': `Bearer ${token}`
-                                        },
-                                        body: JSON.stringify(editingTest)
-                                    });
-                                    if (res.ok) {
-                                        alert('Test updated successfully!');
-                                        setEditingTest(null);
-                                        fetchTests();
-                                    } else {
-                                        alert('Failed to update test');
+            {
+                editingTest && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                        <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-xl font-bold">Edit Test: {editingTest.title}</h3>
+                                <button onClick={() => setEditingTest(null)}><X size={24} className="text-gray-500 hover:text-gray-800" /></button>
+                            </div>
+                            <form
+                                onSubmit={async (e) => {
+                                    e.preventDefault();
+
+                                    // VALIDATION: We now allow saving partial tests (missing answers) to let admins save progress.
+                                    if (editingTest.questions && Array.isArray(editingTest.questions)) {
+                                        const missingAnswers = editingTest.questions.some(q =>
+                                            (q.type === 'mcq' && !q.correctOption) ||
+                                            (q.type === 'msq' && (!q.correctOptions || q.correctOptions.length === 0)) ||
+                                            (q.type === 'integer' && (q.integerAnswer === undefined || q.integerAnswer === ''))
+                                        );
+
+                                        if (missingAnswers) {
+                                            const confirmProceed = window.confirm("Some questions are missing answers! Save changes anyway?");
+                                            if (!confirmProceed) return;
+                                        }
                                     }
-                                } catch (error) {
-                                    console.error('Update test error:', error);
-                                    alert('Error updating test');
-                                }
-                            }}
-                            className="space-y-4"
-                        >
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Test Title</label>
-                                    <input
-                                        type="text"
-                                        value={editingTest.title || ''}
-                                        onChange={(e) => setEditingTest({ ...editingTest, title: e.target.value })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Duration (Minutes)</label>
-                                    <input
-                                        type="number"
-                                        value={editingTest.duration_minutes || editingTest.duration || ''}
-                                        onChange={(e) => setEditingTest({ ...editingTest, duration: Number(e.target.value) })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Subject / Type</label>
-                                    <input
-                                        type="text"
-                                        value={editingTest.subject || ''}
-                                        onChange={(e) => setEditingTest({ ...editingTest, subject: e.target.value })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Category</label>
-                                    <select
-                                        value={editingTest.category || 'JEE Main'}
-                                        onChange={(e) => setEditingTest({ ...editingTest, category: e.target.value })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white"
-                                    >
-                                        <option value="JEE Main">JEE Main</option>
-                                        <option value="JEE Advanced">JEE Advanced</option>
-                                        <option value="NEET">NEET</option>
-                                        <option value="CAT">CAT</option>
-                                        <option value="Board Exam">Board Exam</option>
-                                        <option value="Others">Others</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Total Marks</label>
-                                    <input
-                                        type="number"
-                                        value={editingTest.total_marks || editingTest.totalMarks || ''}
-                                        onChange={(e) => setEditingTest({ ...editingTest, totalMarks: Number(e.target.value) })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Max Attempts</label>
-                                    <input
-                                        type="number"
-                                        value={editingTest.maxAttempts === null ? '' : editingTest.maxAttempts}
-                                        onChange={(e) => setEditingTest({ ...editingTest, maxAttempts: e.target.value })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                        placeholder="Leave empty for unlimited"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Result Visibility</label>
-                                    <select
-                                        value={editingTest.resultVisibility || 'immediate'}
-                                        onChange={(e) => setEditingTest({ ...editingTest, resultVisibility: e.target.value })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white"
-                                    >
-                                        <option value="immediate">Immediate (After Submit)</option>
-                                        <option value="scheduled">Scheduled Time</option>
-                                        <option value="afterTestEnds">After Test Ends</option>
-                                    </select>
-                                </div>
-                                {editingTest.resultVisibility === 'scheduled' && (
+
+                                    try {
+                                        const token = await user?.getIdToken();
+                                        const res = await fetch(`${API_BASE_URL}/api/tests/${editingTest._id}`, {
+                                            method: 'PUT',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Authorization': `Bearer ${token}`
+                                            },
+                                            body: JSON.stringify(editingTest)
+                                        });
+                                        if (res.ok) {
+                                            alert('Test updated successfully!');
+                                            setEditingTest(null);
+                                            fetchTests();
+                                        } else {
+                                            alert('Failed to update test');
+                                        }
+                                    } catch (error) {
+                                        console.error('Update test error:', error);
+                                        alert('Error updating test');
+                                    }
+                                }}
+                                className="space-y-4"
+                            >
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Result Time</label>
+                                        <label className="block text-sm font-medium text-gray-700">Test Title</label>
                                         <input
-                                            type="datetime-local"
-                                            value={editingTest.resultDeclarationTime ? new Date(new Date(editingTest.resultDeclarationTime).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
-                                            onChange={(e) => setEditingTest({ ...editingTest, resultDeclarationTime: new Date(e.target.value).toISOString() })}
+                                            type="text"
+                                            value={editingTest.title || ''}
+                                            onChange={(e) => setEditingTest({ ...editingTest, title: e.target.value })}
                                             className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                            required
                                         />
                                     </div>
-                                )}
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Instructions</label>
-                                <textarea
-                                    value={editingTest.instructions || ''}
-                                    onChange={(e) => setEditingTest({ ...editingTest, instructions: e.target.value })}
-                                    className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                    rows="4"
-                                ></textarea>
-                            </div>
-                            <div className="flex justify-end gap-3 pt-4 border-t">
-                                <button type="button" onClick={() => setEditingTest(null)} className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700">Save Changes</button>
-                            </div>
-                        </form>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Duration (Minutes)</label>
+                                        <input
+                                            type="number"
+                                            value={editingTest.duration_minutes || editingTest.duration || ''}
+                                            onChange={(e) => setEditingTest({ ...editingTest, duration: Number(e.target.value) })}
+                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Subject / Type</label>
+                                        <input
+                                            type="text"
+                                            value={editingTest.subject || ''}
+                                            onChange={(e) => setEditingTest({ ...editingTest, subject: e.target.value })}
+                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Category</label>
+                                        <select
+                                            value={editingTest.category || 'JEE Main'}
+                                            onChange={(e) => setEditingTest({ ...editingTest, category: e.target.value })}
+                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white"
+                                        >
+                                            <option value="JEE Main">JEE Main</option>
+                                            <option value="JEE Advanced">JEE Advanced</option>
+                                            <option value="NEET">NEET</option>
+                                            <option value="CAT">CAT</option>
+                                            <option value="Board Exam">Board Exam</option>
+                                            <option value="Others">Others</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Total Marks</label>
+                                        <input
+                                            type="number"
+                                            value={editingTest.total_marks || editingTest.totalMarks || ''}
+                                            onChange={(e) => setEditingTest({ ...editingTest, totalMarks: Number(e.target.value) })}
+                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Max Attempts</label>
+                                        <input
+                                            type="number"
+                                            value={editingTest.maxAttempts === null || editingTest.maxAttempts === undefined ? '' : editingTest.maxAttempts}
+                                            onChange={(e) => setEditingTest({ ...editingTest, maxAttempts: e.target.value })}
+                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                            placeholder="Leave empty for unlimited"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Result Visibility</label>
+                                        <select
+                                            value={editingTest.resultVisibility || 'immediate'}
+                                            onChange={(e) => setEditingTest({ ...editingTest, resultVisibility: e.target.value })}
+                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white"
+                                        >
+                                            <option value="immediate">Immediate (After Submit)</option>
+                                            <option value="scheduled">Scheduled Time</option>
+                                            <option value="afterTestEnds">After Test Ends</option>
+                                        </select>
+                                    </div>
+                                    {editingTest.resultVisibility === 'scheduled' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Result Time</label>
+                                            <input
+                                                type="datetime-local"
+                                                value={editingTest.resultDeclarationTime ? new Date(new Date(editingTest.resultDeclarationTime).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
+                                                onChange={(e) => setEditingTest({ ...editingTest, resultDeclarationTime: new Date(e.target.value).toISOString() })}
+                                                className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Instructions</label>
+                                    <textarea
+                                        value={editingTest.instructions || ''}
+                                        onChange={(e) => setEditingTest({ ...editingTest, instructions: e.target.value })}
+                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                        rows="4"
+                                    ></textarea>
+                                </div>
+                                <div className="flex justify-end gap-3 pt-4 border-t">
+                                    <button type="button" onClick={() => setEditingTest(null)} className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
+                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700">Save Changes</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Global Image Zoom Modal */}
             {zoomedImg && <ImageZoomModal imageUrl={zoomedImg} onClose={() => setZoomedImg(null)} />}
 
             {/* Split Test Modal */}
             {previewingTest && <TestPreviewModal test={previewingTest} onClose={() => setPreviewingTest(null)} />}
-            {splittingTest && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-2xl">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold text-gray-800">Split by Subject</h3>
-                            <button onClick={() => setSplittingTest(null)}><X size={24} className="text-gray-400 hover:text-gray-600" /></button>
-                        </div>
+            {
+                splittingTest && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                        <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-2xl">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-bold text-gray-800">Split by Subject</h3>
+                                <button onClick={() => setSplittingTest(null)}><X size={24} className="text-gray-400 hover:text-gray-600" /></button>
+                            </div>
 
-                        <p className="text-sm text-gray-600 mb-6 font-medium">
-                            Detected subjects in <strong>{splittingTest.title}</strong>.
-                            Select which subjects to extract into new independent tests:
-                        </p>
+                            <p className="text-sm text-gray-600 mb-6 font-medium">
+                                Detected subjects in <strong>{splittingTest.title}</strong>.
+                                Select which subjects to extract into new independent tests:
+                            </p>
 
-                        <div className="space-y-3 mb-6">
-                            {Array.from(new Set((splittingTest.questions || []).map(q => q.subject || 'Uncategorized'))).map(sub => (
-                                <div key={sub} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                                    <div className="flex-1">
-                                        <span className="font-bold text-gray-700">{sub}</span>
-                                        <div className="text-[10px] text-gray-400 font-bold uppercase">
-                                            {splittingTest.questions.filter(q => (q.subject || 'Uncategorized') === sub).length} Questions
+                            <div className="space-y-3 mb-6">
+                                {Array.from(new Set((splittingTest.questions || []).map(q => q.subject || 'Uncategorized'))).map(sub => (
+                                    <div key={sub} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                        <div className="flex-1">
+                                            <span className="font-bold text-gray-700">{sub}</span>
+                                            <div className="text-[10px] text-gray-400 font-bold uppercase">
+                                                {splittingTest.questions.filter(q => (q.subject || 'Uncategorized') === sub).length} Questions
+                                            </div>
                                         </div>
+                                        <button
+                                            onClick={() => {
+                                                const extractedQuestions = splittingTest.questions.filter(q => (q.subject || 'Uncategorized') === sub);
+                                                setQuestions(extractedQuestions);
+                                                setTestDetails({
+                                                    ...splittingTest,
+                                                    _id: undefined,
+                                                    id: undefined,
+                                                    title: splittingTest.title,
+                                                    category: splittingTest.category,
+                                                    subject: sub,
+                                                    duration: splittingTest.duration,
+                                                    difficulty: splittingTest.difficulty || 'medium',
+                                                    instructions: splittingTest.instructions || '',
+                                                    calculator: splittingTest.calculator || false,
+                                                    visibility: 'private',
+                                                    totalMarks: extractedQuestions.reduce((acc, q) => acc + Number(q.marks), 0)
+                                                });
+                                                setActiveTab('create');
+                                                setSplittingTest(null);
+                                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                            }}
+                                            className="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-indigo-700 transition"
+                                        >
+                                            Extract & Edit
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => {
-                                            const extractedQuestions = splittingTest.questions.filter(q => (q.subject || 'Uncategorized') === sub);
-                                            setQuestions(extractedQuestions);
-                                            setTestDetails({
-                                                ...splittingTest,
-                                                _id: undefined,
-                                                id: undefined,
-                                                title: splittingTest.title,
-                                                category: splittingTest.category,
-                                                subject: sub,
-                                                duration: splittingTest.duration,
-                                                difficulty: splittingTest.difficulty || 'medium',
-                                                instructions: splittingTest.instructions || '',
-                                                calculator: splittingTest.calculator || false,
-                                                visibility: 'private',
-                                                totalMarks: extractedQuestions.reduce((acc, q) => acc + Number(q.marks), 0)
-                                            });
-                                            setActiveTab('create');
-                                            setSplittingTest(null);
-                                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                                        }}
-                                        className="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-indigo-700 transition"
-                                    >
-                                        Extract & Edit
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
 
-                        <div className="flex justify-between items-center pt-4 border-t">
-                            <button
-                                onClick={() => {
-                                    setQuestions(splittingTest.questions);
-                                    setTestDetails({
-                                        ...splittingTest,
-                                        _id: undefined,
-                                        id: undefined,
-                                        title: splittingTest.title,
-                                        category: splittingTest.category,
-                                        duration: splittingTest.duration,
-                                        difficulty: splittingTest.difficulty || 'medium',
-                                        instructions: splittingTest.instructions || '',
-                                        calculator: splittingTest.calculator || false,
-                                        visibility: 'private',
-                                        totalMarks: splittingTest.questions.reduce((acc, q) => acc + Number(q.marks), 0)
-                                    });
-                                    setActiveTab('create');
-                                    setSplittingTest(null);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }}
-                                className="text-xs text-indigo-600 font-bold hover:underline"
-                            >
-                                Edit Full Test Instead
-                            </button>
-                            <button onClick={() => setSplittingTest(null)} className="text-gray-500 text-sm font-bold">Cancel</button>
+                            <div className="flex justify-between items-center pt-4 border-t">
+                                <button
+                                    onClick={() => {
+                                        setQuestions(splittingTest.questions);
+                                        setTestDetails({
+                                            ...splittingTest,
+                                            _id: undefined,
+                                            id: undefined,
+                                            title: splittingTest.title,
+                                            category: splittingTest.category,
+                                            duration: splittingTest.duration,
+                                            difficulty: splittingTest.difficulty || 'medium',
+                                            instructions: splittingTest.instructions || '',
+                                            calculator: splittingTest.calculator || false,
+                                            visibility: 'private',
+                                            totalMarks: splittingTest.questions.reduce((acc, q) => acc + Number(q.marks), 0)
+                                        });
+                                        setActiveTab('create');
+                                        setSplittingTest(null);
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
+                                    className="text-xs text-indigo-600 font-bold hover:underline"
+                                >
+                                    Edit Full Test Instead
+                                </button>
+                                <button onClick={() => setSplittingTest(null)} className="text-gray-500 text-sm font-bold">Cancel</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Merge Tests Modal */}
-            {showMergeModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold text-gray-800">Merge Existing Tests</h3>
-                            <button onClick={() => setShowMergeModal(false)}><X size={24} className="text-gray-400 hover:text-gray-600" /></button>
-                        </div>
+            {
+                showMergeModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                        <div className="bg-white rounded-lg p-6 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-xl font-bold text-gray-800">Merge Existing Tests</h3>
+                                <button onClick={() => setShowMergeModal(false)}><X size={24} className="text-gray-400 hover:text-gray-600" /></button>
+                            </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">New Test Title</label>
-                                    <input
-                                        type="text"
-                                        id="mergeTitle"
-                                        className="w-full border rounded-lg p-2 text-sm"
-                                        placeholder="e.g. Combined JEE Mock Test"
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">Duration (Min)</label>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">New Test Title</label>
                                         <input
-                                            type="number"
-                                            id="mergeDuration"
+                                            type="text"
+                                            id="mergeTitle"
                                             className="w-full border rounded-lg p-2 text-sm"
-                                            defaultValue="180"
+                                            placeholder="e.g. Combined JEE Mock Test"
                                         />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">Category</label>
-                                        <select id="mergeCategory" className="w-full border rounded-lg p-2 text-sm bg-white">
-                                            <option value="JEE Main">JEE Main</option>
-                                            <option value="JEE Advanced">JEE Advanced</option>
-                                            <option value="NEET">NEET</option>
-                                            <option value="Others">Others</option>
-                                        </select>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 mb-1">Duration (Min)</label>
+                                            <input
+                                                type="number"
+                                                id="mergeDuration"
+                                                className="w-full border rounded-lg p-2 text-sm"
+                                                defaultValue="180"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 mb-1">Category</label>
+                                            <select id="mergeCategory" className="w-full border rounded-lg p-2 text-sm bg-white">
+                                                <option value="JEE Main">JEE Main</option>
+                                                <option value="JEE Advanced">JEE Advanced</option>
+                                                <option value="NEET">NEET</option>
+                                                <option value="Others">Others</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Select Tests to Merge</label>
+                                    <div className="border rounded-lg max-h-[200px] overflow-y-auto p-2 space-y-1 bg-gray-50">
+                                        {tests.map(t => (
+                                            <label key={t._id} className="flex items-center gap-3 p-2 hover:bg-white rounded border border-transparent hover:border-gray-200 cursor-pointer transition">
+                                                <input type="checkbox" name="mergeTestSelect" value={t._id} className="w-4 h-4 rounded text-indigo-600" />
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-bold text-gray-800 truncate">{t.title}</div>
+                                                    <div className="text-[10px] text-gray-400 font-bold uppercase">{t.category} • {t.questionCount || 0} Qs</div>
+                                                </div>
+                                            </label>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
 
+                            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
+                                <div className="flex gap-3">
+                                    <div className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold mt-0.5">!</div>
+                                    <p className="text-xs text-blue-800 leading-relaxed font-medium">
+                                        <strong>Grouping & Shuffling Logic:</strong> Questions from all selected tests will be combined.
+                                        Subject groups will be maintained, but questions <strong>within each subject</strong> will be shuffled.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4 border-t">
+                                <button onClick={() => setShowMergeModal(false)} className="px-6 py-2 text-gray-500 font-bold hover:bg-gray-50 rounded-lg transition">Cancel</button>
+                                <button
+                                    onClick={async () => {
+                                        const selectedIds = Array.from(document.querySelectorAll('input[name="mergeTestSelect"]:checked')).map(el => el.value);
+                                        const title = document.getElementById('mergeTitle').value;
+                                        const duration = document.getElementById('mergeDuration').value;
+                                        const category = document.getElementById('mergeCategory').value;
+
+                                        if (selectedIds.length < 1) return alert("Select at least one test");
+                                        if (!title) return alert("Please enter a title");
+
+                                        setLoading(true);
+                                        try {
+                                            const token = await user?.getIdToken();
+                                            const allFetchedQuestions = [];
+
+                                            // Fetch questions for all selected tests
+                                            for (const tid of selectedIds) {
+                                                const res = await fetch(`${API_BASE_URL}/api/tests/${tid}`, {
+                                                    headers: { 'Authorization': `Bearer ${token}` }
+                                                });
+                                                if (res.ok) {
+                                                    const testData = await res.json();
+                                                    if (testData.questions) {
+                                                        allFetchedQuestions.push(...testData.questions);
+                                                    }
+                                                } else {
+                                                    const error = await res.json();
+                                                    throw new Error(`Failed to fetch test ${tid}: ${error.message || res.statusText}`);
+                                                }
+                                            }
+
+                                            if (allFetchedQuestions.length === 0) {
+                                                alert("No questions found in selected tests.");
+                                                return;
+                                            }
+
+                                            // Group and Load into Create form
+                                            setQuestions(allFetchedQuestions);
+                                            setTestDetails({
+                                                ...testDetails,
+                                                title: title,
+                                                duration: Number(duration) || 180,
+                                                category: category,
+                                                totalMarks: allFetchedQuestions.reduce((acc, q) => acc + Number(q.marks), 0)
+                                            });
+
+                                            setShowMergeModal(false);
+                                            setActiveTab('create');
+                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                                        } catch (e) {
+                                            console.error("Merge logic error:", e);
+                                            alert("Error preparing merge: " + (e.message || "Unknown error"));
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                    className="bg-indigo-600 text-white px-8 py-2 rounded-lg font-bold hover:bg-indigo-700 shadow-md transition"
+                                >
+                                    Merge & Customize
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Quick Marking Modal (Now Full Screen) */}
+            {
+                showQuickMarkModal && (
+                    <div className="fixed inset-0 bg-white z-[70] flex flex-col overflow-hidden animate-in fade-in duration-200">
+                        <div className="p-4 sm:p-6 border-b flex justify-between items-center bg-gray-50 shadow-sm shrink-0">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Select Tests to Merge</label>
-                                <div className="border rounded-lg max-h-[200px] overflow-y-auto p-2 space-y-1 bg-gray-50">
-                                    {tests.map(t => (
-                                        <label key={t._id} className="flex items-center gap-3 p-2 hover:bg-white rounded border border-transparent hover:border-gray-200 cursor-pointer transition">
-                                            <input type="checkbox" name="mergeTestSelect" value={t._id} className="w-4 h-4 rounded text-indigo-600" />
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-bold text-gray-800 truncate">{t.title}</div>
-                                                <div className="text-[10px] text-gray-400 font-bold uppercase">{t.category} • {t.questionCount || 0} Qs</div>
-                                            </div>
-                                        </label>
-                                    ))}
+                                <h3 className="text-2xl font-black text-gray-800 flex items-center gap-3">
+                                    <Edit2 className="text-blue-600" size={28} />
+                                    Full-Page Test Editor & Marking Grid
+                                </h3>
+                                <p className="text-sm text-gray-500 font-bold mt-1">Edit questions, change types, and mark answers all in one place.</p>
+                            </div>
+                            <button onClick={() => setShowQuickMarkModal(false)} className="p-3 bg-white border shadow-sm hover:bg-red-50 hover:text-red-600 hover:border-red-200 rounded-xl transition-all text-gray-400 flex items-center gap-2 font-bold">
+                                <X size={20} /> Close Editor
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-hidden flex flex-col sm:flex-row">
+                            {/* Sequential Grid */}
+                            <div className="flex-1 overflow-y-auto p-4 border-r bg-white">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="sticky top-0 bg-gray-100 z-10 shadow-sm">
+                                        <tr>
+                                            <th className="p-3 text-xs font-black uppercase text-gray-500 border w-[60px] text-center">#</th>
+                                            <th className="p-3 text-xs font-black uppercase text-gray-500 border w-1/2">Question & Options</th>
+                                            <th className="p-3 text-xs font-black uppercase text-gray-500 border w-[120px]">Type</th>
+                                            <th className="p-3 text-xs font-black uppercase text-gray-500 border w-[200px]">Answer</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {questions.map((q, idx) => (
+                                            <tr key={q._id || idx} className="hover:bg-blue-50/30 transition-colors">
+                                                <td className="p-3 border text-center bg-gray-50/50">
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <span className="font-black text-lg text-gray-700">{idx + 1}</span>
+                                                        <div className="flex gap-1">
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (idx === 0) return;
+                                                                    const newQs = [...questions];
+                                                                    [newQs[idx - 1], newQs[idx]] = [newQs[idx], newQs[idx - 1]];
+                                                                    setQuestions(newQs);
+                                                                }}
+                                                                disabled={idx === 0}
+                                                                className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                                                            ><ChevronUp size={16} /></button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (idx === questions.length - 1) return;
+                                                                    const newQs = [...questions];
+                                                                    [newQs[idx + 1], newQs[idx]] = [newQs[idx], newQs[idx + 1]];
+                                                                    setQuestions(newQs);
+                                                                }}
+                                                                disabled={idx === questions.length - 1}
+                                                                className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                                                            ><ChevronDown size={16} /></button>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-3 border">
+                                                    <div className="flex flex-col gap-3">
+                                                        {/* Question Visual & Edit */}
+                                                        <div className="flex flex-col gap-2 bg-gray-50 p-2 rounded border border-gray-200">
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Question Content</span>
+                                                                <label className="text-[10px] bg-white border px-2 py-0.5 rounded cursor-pointer hover:bg-gray-100 flex items-center gap-1">
+                                                                    <Upload size={10} /> {q.image ? 'Change Img' : 'Upload Img'}
+                                                                    <input type="file" className="hidden" onChange={(e) => {
+                                                                        const file = e.target.files[0];
+                                                                        if (file) uploadImage(file, 'grid-q', idx);
+                                                                    }} />
+                                                                </label>
+                                                            </div>
+                                                            <div className="flex gap-3 items-start">
+                                                                {q.image && (
+                                                                    <div className="relative group shrink-0">
+                                                                        <img src={q.image} alt="Q" className="w-20 h-20 object-contain rounded border bg-white cursor-zoom-in hover:scale-105 transition-transform" onClick={() => setZoomedImg(q.image)} />
+                                                                        <button onClick={() => { const newQs = [...questions]; newQs[idx].image = ''; setQuestions(newQs); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100"><X size={12} /></button>
+                                                                    </div>
+                                                                )}
+                                                                <div className="flex flex-col gap-2 flex-1 min-w-0">
+                                                                    {q.text && (
+                                                                        <div className="text-xs leading-relaxed text-gray-700 bg-white p-2 border rounded max-h-[100px] overflow-y-auto shadow-sm">
+                                                                            <MathText text={q.text} />
+                                                                        </div>
+                                                                    )}
+                                                                    <textarea
+                                                                        className="w-full text-xs p-2 border hover:border-indigo-300 focus:border-indigo-600 rounded bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none resize-y min-h-[60px] font-mono shadow-inner"
+                                                                        value={q.text || ''}
+                                                                        placeholder="Type or paste question text (LaTeX supported)..."
+                                                                        onChange={(e) => {
+                                                                            const newQs = [...questions];
+                                                                            newQs[idx].text = e.target.value;
+                                                                            setQuestions(newQs);
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Option Visuals */}
+                                                        {q.type !== 'integer' && (
+                                                            <div className="flex flex-col gap-1 b border p-2 bg-white rounded">
+                                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Options</span>
+                                                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                                                                    {[0, 1, 2, 3].map((optIdx) => (
+                                                                        <div key={optIdx} className="flex flex-col gap-2 border border-gray-200 p-2 rounded bg-white relative group/optbox shadow-sm hover:border-indigo-300 transition-colors">
+                                                                            <span className="absolute -top-2 -left-2 bg-gray-900 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm z-10">{String.fromCharCode(65 + optIdx)}</span>
+
+                                                                            {/* Image Controls */}
+                                                                            <div className="flex justify-end gap-2 px-1 absolute top-1 right-1 z-10">
+                                                                                <label className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer hover:bg-indigo-100 opacity-0 group-hover/optbox:opacity-100 transition-opacity">
+                                                                                    {q.optionImages?.[optIdx] ? 'Swap Img' : '+ Img'}
+                                                                                    <input type="file" className="hidden" onChange={(e) => {
+                                                                                        const file = e.target.files[0];
+                                                                                        if (file) uploadImage(file, 'grid-opt', { qIdx: idx, oIdx: optIdx });
+                                                                                    }} />
+                                                                                </label>
+                                                                                {q.optionImages?.[optIdx] && (
+                                                                                    <button onClick={() => { const newQs = [...questions]; newQs[idx].optionImages[optIdx] = ''; setQuestions(newQs); }} className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded hover:bg-red-100 opacity-0 group-hover/optbox:opacity-100 transition-opacity">Del Img</button>
+                                                                                )}
+                                                                            </div>
+
+                                                                            <div className="flex gap-2 items-start mt-4">
+                                                                                {q.optionImages?.[optIdx] && (
+                                                                                    <img src={q.optionImages[optIdx]} alt={`O${optIdx}`} className="h-16 w-16 object-contain rounded border cursor-zoom-in shrink-0" onClick={() => setZoomedImg(q.optionImages[optIdx])} />
+                                                                                )}
+                                                                                <div className="flex flex-col gap-1 flex-1 min-w-0">
+                                                                                    {q.options?.[optIdx] && (
+                                                                                        <div className="text-[11px] leading-tight text-gray-700 bg-gray-50 p-1.5 rounded border border-gray-100 overflow-x-auto">
+                                                                                            <MathText text={q.options[optIdx]} />
+                                                                                        </div>
+                                                                                    )}
+                                                                                    <textarea
+                                                                                        className="w-full text-[11px] p-1.5 border hover:border-indigo-300 focus:border-indigo-600 rounded bg-white outline-none resize-y min-h-[40px] font-mono"
+                                                                                        placeholder="Option text..."
+                                                                                        value={q.options?.[optIdx] || ''}
+                                                                                        onChange={(e) => {
+                                                                                            const newQs = [...questions];
+                                                                                            if (!newQs[idx].options) newQs[idx].options = ['', '', '', ''];
+                                                                                            newQs[idx].options[optIdx] = e.target.value;
+                                                                                            setQuestions(newQs);
+                                                                                        }}
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="p-3 border text-center align-top pt-4">
+                                                    <select
+                                                        className={`w-full text-xs font-bold p-1.5 rounded outline-none border cursor-pointer ${q.type === 'integer' ? 'bg-amber-50 border-amber-200 text-amber-700' : q.type === 'msq' ? 'bg-purple-50 border-purple-200 text-purple-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}
+                                                        value={q.type}
+                                                        onChange={(e) => {
+                                                            const newQs = [...questions];
+                                                            newQs[idx].type = e.target.value;
+                                                            // Reset answers on type change to prevent invalid states
+                                                            newQs[idx].correctOption = '';
+                                                            newQs[idx].correctOptions = [];
+                                                            newQs[idx].integerAnswer = '';
+                                                            setQuestions(newQs);
+                                                        }}
+                                                    >
+                                                        <option value="mcq">MCQ</option>
+                                                        <option value="msq">MSQ</option>
+                                                        <option value="integer">INTEGER</option>
+                                                    </select>
+                                                </td>
+                                                <td className="p-3 border align-top pt-4">
+                                                    {q.type === 'integer' ? (
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Inter value..."
+                                                            className="w-full p-1.5 text-sm border-2 border-gray-200 rounded focus:border-blue-500 outline-none font-bold"
+                                                            value={q.integerAnswer || ''}
+                                                            onChange={(e) => {
+                                                                const newQs = [...questions];
+                                                                newQs[idx].integerAnswer = e.target.value;
+                                                                setQuestions(newQs);
+                                                            }}
+                                                        />
+                                                    ) : q.type === 'msq' ? (
+                                                        <div className="flex gap-1">
+                                                            {['A', 'B', 'C', 'D'].map(opt => {
+                                                                const isSelected = (q.correctOptions || []).includes(opt);
+                                                                return (
+                                                                    <button
+                                                                        key={opt}
+                                                                        onClick={() => {
+                                                                            const newQs = [...questions];
+                                                                            const currentOpts = q.correctOptions || [];
+                                                                            newQs[idx].correctOptions = isSelected
+                                                                                ? currentOpts.filter(o => o !== opt)
+                                                                                : [...currentOpts, opt].sort();
+                                                                            setQuestions(newQs);
+                                                                        }}
+                                                                        className={`w-8 h-8 rounded font-black text-xs border-2 transition-all ${isSelected ? 'bg-purple-600 border-purple-600 text-white shadow-md scale-110' : 'bg-white border-gray-200 text-gray-400 hover:border-purple-300'}`}
+                                                                    >
+                                                                        {opt}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex gap-1">
+                                                            {['A', 'B', 'C', 'D'].map(opt => (
+                                                                <button
+                                                                    key={opt}
+                                                                    onClick={() => {
+                                                                        const newQs = [...questions];
+                                                                        newQs[idx].correctOption = opt;
+                                                                        setQuestions(newQs);
+                                                                    }}
+                                                                    className={`w-8 h-8 rounded font-black text-xs border-2 transition-all ${q.correctOption === opt ? 'bg-blue-600 border-blue-600 text-white shadow-md scale-110' : 'bg-white border-gray-200 text-gray-400 hover:border-blue-300'}`}
+                                                                >
+                                                                    {opt}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Bulk Entry Side Panel */}
+                            <div className="w-full sm:w-72 bg-gray-50 p-6 flex flex-col gap-4 border-t sm:border-t-0">
+                                <div className="space-y-1">
+                                    <h4 className="text-sm font-black text-gray-800 uppercase tracking-tighter flex items-center gap-2">
+                                        <Zap size={16} className="text-yellow-500 fill-yellow-500" /> Bulk String Entry
+                                    </h4>
+                                    <span className="text-[10px] text-gray-500 leading-tight block">Paste your answer key here and we'll parse it.</span>
+                                </div>
+                                <textarea
+                                    className="flex-1 p-3 text-sm font-mono border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none shadow-inner resize-none min-h-[150px]"
+                                    placeholder="Examples:&#10;1A 2B 3C&#10;1.D 2.A&#10;1:B 2:D"
+                                    value={quickMarkInput || ''}
+                                    onChange={(e) => setQuickMarkInput(e.target.value)}
+                                />
+                                <button
+                                    onClick={() => {
+                                        if (!quickMarkInput.trim()) return;
+                                        const newQs = [...questions];
+                                        // Robust pattern matching for Number + Answer (A/B/C/D)
+                                        const pairs = quickMarkInput.match(/(\d+)[.\s:-]*([ABCD])/gi);
+                                        if (pairs) {
+                                            pairs.forEach(pair => {
+                                                const match = pair.match(/(\d+)[.\s:-]*([ABCD])/i);
+                                                if (match) {
+                                                    const qNum = parseInt(match[1]);
+                                                    const ans = match[2].toUpperCase();
+                                                    if (qNum > 0 && qNum <= newQs.length) {
+                                                        const qIdx = qNum - 1;
+                                                        if (newQs[qIdx].type === 'mcq' || !newQs[qIdx].type) {
+                                                            newQs[qIdx].correctOption = ans;
+                                                        } else if (newQs[qIdx].type === 'msq') {
+                                                            if (!(newQs[qIdx].correctOptions || []).includes(ans)) {
+                                                                newQs[qIdx].correctOptions = [...(newQs[qIdx].correctOptions || []), ans];
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            });
+                                            setQuestions(newQs);
+                                            setQuickMarkInput('');
+                                            alert("Bulk answers applied successfully!");
+                                        } else {
+                                            alert("No valid answer patterns found (e.g. 1A 2B)");
+                                        }
+                                    }}
+                                    className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 shadow-md transition-all active:scale-95"
+                                >
+                                    Parse & Apply
+                                </button>
+                                <div className="mt-auto p-3 bg-white rounded-lg border border-indigo-100 border-dashed">
+                                    <p className="text-[10px] text-indigo-700 font-bold uppercase italic text-center">Changes are synced to draft. Remember to click "Update Test" to save permanently.</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
-                            <div className="flex gap-3">
-                                <div className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold mt-0.5">!</div>
-                                <p className="text-xs text-blue-800 leading-relaxed font-medium">
-                                    <strong>Grouping & Shuffling Logic:</strong> Questions from all selected tests will be combined.
-                                    Subject groups will be maintained, but questions <strong>within each subject</strong> will be shuffled.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end gap-3 pt-4 border-t">
-                            <button onClick={() => setShowMergeModal(false)} className="px-6 py-2 text-gray-500 font-bold hover:bg-gray-50 rounded-lg transition">Cancel</button>
+                        <div className="p-4 bg-gray-100 border-t flex justify-end gap-3">
                             <button
-                                onClick={async () => {
-                                    const selectedIds = Array.from(document.querySelectorAll('input[name="mergeTestSelect"]:checked')).map(el => el.value);
-                                    const title = document.getElementById('mergeTitle').value;
-                                    const duration = document.getElementById('mergeDuration').value;
-                                    const category = document.getElementById('mergeCategory').value;
-
-                                    if (selectedIds.length < 1) return alert("Select at least one test");
-                                    if (!title) return alert("Please enter a title");
-
-                                    setLoading(true);
-                                    try {
-                                        const token = await user?.getIdToken();
-                                        const allFetchedQuestions = [];
-
-                                        // Fetch questions for all selected tests
-                                        for (const tid of selectedIds) {
-                                            const res = await fetch(`${API_BASE_URL}/api/tests/${tid}`, {
-                                                headers: { 'Authorization': `Bearer ${token}` }
-                                            });
-                                            if (res.ok) {
-                                                const testData = await res.json();
-                                                if (testData.questions) {
-                                                    allFetchedQuestions.push(...testData.questions);
-                                                }
-                                            } else {
-                                                const error = await res.json();
-                                                throw new Error(`Failed to fetch test ${tid}: ${error.message || res.statusText}`);
-                                            }
-                                        }
-
-                                        if (allFetchedQuestions.length === 0) {
-                                            alert("No questions found in selected tests.");
-                                            return;
-                                        }
-
-                                        // Group and Load into Create form
-                                        setQuestions(allFetchedQuestions);
-                                        setTestDetails({
-                                            ...testDetails,
-                                            title: title,
-                                            duration: Number(duration) || 180,
-                                            category: category,
-                                            totalMarks: allFetchedQuestions.reduce((acc, q) => acc + Number(q.marks), 0)
-                                        });
-
-                                        setShowMergeModal(false);
-                                        setActiveTab('create');
-                                        window.scrollTo({ top: 0, behavior: 'smooth' });
-
-                                    } catch (e) {
-                                        console.error("Merge logic error:", e);
-                                        alert("Error preparing merge: " + (e.message || "Unknown error"));
-                                    } finally {
-                                        setLoading(false);
+                                onClick={() => {
+                                    if (confirm("Are you sure you want to clear ALL answers in the current draft?")) {
+                                        const newQs = questions.map(q => ({
+                                            ...q,
+                                            correctOption: '',
+                                            correctOptions: [],
+                                            integerAnswer: ''
+                                        }));
+                                        setQuestions(newQs);
                                     }
                                 }}
-                                className="bg-indigo-600 text-white px-8 py-2 rounded-lg font-bold hover:bg-indigo-700 shadow-md transition"
+                                className="text-red-600 font-bold px-4 py-2 hover:bg-red-50 rounded-lg transition"
                             >
-                                Merge & Customize
+                                Clear All Draft Answers
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    const res = await handleSubmitTest();
+                                    if (res !== false) {
+                                        setShowQuickMarkModal(false);
+                                    }
+                                }}
+                                className="bg-emerald-600 text-white px-8 py-2 rounded-lg font-black hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition flex items-center gap-2"
+                            >
+                                <Save size={18} /> SAVE & SYNC TO DB
+                            </button>
+                            <button
+                                onClick={() => setShowQuickMarkModal(false)}
+                                className="bg-slate-800 text-white px-8 py-2 rounded-lg font-black hover:bg-slate-900 shadow-lg shadow-slate-200 transition"
+                            >
+                                Done
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

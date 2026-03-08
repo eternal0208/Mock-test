@@ -105,11 +105,19 @@ export default function ExamPage() {
             // Exit fullscreen before redirect
             if (document.fullscreenElement) document.exitFullscreen();
 
+            // Check if submission was successful
+            if (!res.ok || !data._id) {
+                console.error("Submission failed:", data);
+                alert(`Submission Failed: ${data.message || 'Unknown Error'}`);
+                return;
+            }
+
             // Redirect to Result Page
             clearTest(id);
             router.push(`/result/${data._id}`);
         } catch (err) {
-            alert('Error submitting test');
+            console.error("Submit error:", err);
+            alert('Error submitting test: ' + err.message);
         }
     };
 

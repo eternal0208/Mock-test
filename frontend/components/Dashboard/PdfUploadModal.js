@@ -726,17 +726,17 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                                 return prev;
                                             });
                                         }}
-                                        className={`absolute pointer-events-auto rounded-sm flex items-start justify-start p-1 transition-colors ${isOption ? 'cursor-pointer hover:bg-indigo-400/20' : 'pointer-events-none'
+                                        className={`absolute pointer-events-auto rounded-sm flex items-start justify-start p-1 transition-all overflow-hidden ${isOption ? 'cursor-pointer hover:bg-indigo-400/20 hover:scale-[1.01]' : 'pointer-events-none'
                                             } border-2 ${isCorrect
-                                                ? 'border-emerald-500 bg-emerald-500/20 z-20 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                                                ? 'border-emerald-500 bg-emerald-500/10 z-20 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
                                                 : isOption
-                                                    ? 'border-indigo-400/70 bg-indigo-400/10 hover:border-indigo-400'
+                                                    ? 'border-indigo-400/70 bg-indigo-400/5 hover:border-emerald-400'
                                                     : 'border-indigo-400/70 bg-indigo-400/10'
                                             }`}
                                         style={{ left: h.x, top: h.y, width: h.width, height: h.height }}
                                     >
                                         <div className="flex items-center gap-1">
-                                            <span className={`text-white text-[8px] px-1.5 py-0.5 rounded font-black uppercase shadow-md leading-none ${isCorrect ? 'bg-emerald-600' : 'bg-indigo-500'}`}>
+                                            <span className={`text-white text-[8px] px-1.5 py-0.5 rounded font-black uppercase shadow-md leading-none transition-colors ${isCorrect ? 'bg-emerald-600' : 'bg-indigo-500'}`}>
                                                 {h.slot === 'question' ? 'Q' : optionLetter}
                                             </span>
                                             {isCorrect && (
@@ -745,6 +745,14 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                                 </span>
                                             )}
                                         </div>
+                                        {/* Hover Overlay for Options */}
+                                        {isOption && (
+                                            <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity backdrop-blur-[1px]">
+                                                <span className="bg-emerald-600 text-white text-[10px] font-black uppercase px-2 py-1 rounded shadow-lg pointer-events-none">
+                                                    {isCorrect ? 'Correct Answer' : 'Set as Answer'}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -997,29 +1005,56 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                         { id: 'optB', label: 'Option B', key: '2', img: currentQuestionData.optionImages[1] },
                                         { id: 'optC', label: 'Option C', key: '3', img: currentQuestionData.optionImages[2] },
                                         { id: 'optD', label: 'Option D', key: '4', img: currentQuestionData.optionImages[3] },
-                                    ].map(slot => (
-                                        <div
-                                            key={slot.id}
-                                            onClick={() => setActiveSlot(slot.id)}
-                                            className={`cursor-pointer border rounded-xl p-2 transition-all ${activeSlot === slot.id ? 'ring-2 ring-indigo-500 bg-indigo-50 border-indigo-300' : 'hover:border-indigo-200 hover:bg-gray-50 border-gray-200'}`}
-                                        >
-                                            <div className="flex items-center justify-between mb-1">
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className={`text-[8px] w-4 h-4 flex items-center justify-center rounded font-black ${activeSlot === slot.id ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}`}>{slot.key}</span>
-                                                    <span className={`text-[10px] font-bold ${activeSlot === slot.id ? 'text-indigo-700' : 'text-gray-500'}`}>{slot.label}</span>
+                                    ].map(slot => {
+                                        const optLetter = slot.id.replace('opt', '');
+                                        const isCorrectMCQ = currentQuestionData.type === 'mcq' && currentQuestionData.correctOption === optLetter;
+                                        const isCorrectMSQ = currentQuestionData.type === 'msq' && currentQuestionData.correctOptions.includes(optLetter);
+                                        const isCorrect = isCorrectMCQ || isCorrectMSQ;
+
+                                        return (
+                                            <div
+                                                key={slot.id}
+                                                onClick={() => setActiveSlot(slot.id)}
+                                                className={`cursor-pointer border rounded-xl p-2 transition-all relative ${activeSlot === slot.id ? 'ring-2 ring-indigo-500 bg-indigo-50 border-indigo-300' : 'hover:border-indigo-200 hover:bg-gray-50 border-gray-200'} ${isCorrect ? 'ring-2 ring-emerald-500 bg-emerald-50 border-emerald-300' : ''}`}
+                                            >
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className={`text-[8px] w-4 h-4 flex items-center justify-center rounded font-black ${activeSlot === slot.id ? 'bg-indigo-600 text-white' : isCorrect ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-500'}`}>{slot.key}</span>
+                                                        <span className={`text-[10px] font-bold ${activeSlot === slot.id ? 'text-indigo-700' : isCorrect ? 'text-emerald-700' : 'text-gray-500'}`}>{slot.label}</span>
+                                                    </div>
+                                                    {slot.img ? <CheckCircle size={11} className={`${isCorrect ? 'text-emerald-600' : 'text-emerald-400'}`} /> : <div className="w-2.5 h-2.5 rounded-full border border-gray-300" />}
                                                 </div>
-                                                {slot.img ? <CheckCircle size={11} className="text-emerald-500" /> : <div className="w-2.5 h-2.5 rounded-full border border-gray-300" />}
+                                                {slot.img ? (
+                                                    <div className="relative group/img h-14 w-full flex items-center justify-center bg-white border rounded overflow-hidden">
+                                                        <img src={slot.img} alt={slot.id} className="max-h-full max-w-full object-contain cursor-zoom-in hover:brightness-95 transition" onClick={(e) => { e.stopPropagation(); if (onZoom) onZoom(slot.img); else window.open(slot.img, '_blank'); }} />
+                                                        <button onClick={(e) => handleDeleteImage(slot.id, slot.img, e)} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl opacity-0 group-hover/img:opacity-100 hover:bg-red-600 transition z-10"><X size={10} /></button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const optLetter = slot.id.replace('opt', '');
+                                                                setCurrentQuestionData(prev => {
+                                                                    if (prev.type === 'mcq') {
+                                                                        return { ...prev, correctOption: prev.correctOption === optLetter ? '' : optLetter };
+                                                                    } else if (prev.type === 'msq') {
+                                                                        const newOpts = prev.correctOptions.includes(optLetter)
+                                                                            ? prev.correctOptions.filter(o => o !== optLetter)
+                                                                            : [...prev.correctOptions, optLetter];
+                                                                        return { ...prev, correctOptions: newOpts };
+                                                                    }
+                                                                    return prev;
+                                                                });
+                                                            }}
+                                                            className={`absolute inset-x-0 bottom-0 py-1 text-[9px] font-bold uppercase tracking-wider text-white transition-all transform ${isCorrect ? 'bg-emerald-500' : 'bg-black/60 translate-y-full group-hover/img:translate-y-0 hover:bg-emerald-500'}`}
+                                                        >
+                                                            {isCorrect ? 'Correct Answer' : 'Set as Answer'}
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="h-14 flex items-center justify-center text-[8px] text-gray-400 border border-dashed border-gray-200 rounded italic bg-gray-50">Capture</div>
+                                                )}
                                             </div>
-                                            {slot.img ? (
-                                                <div className="relative group/img">
-                                                    <img src={slot.img} alt={slot.id} className="h-8 w-full object-contain border bg-white cursor-zoom-in hover:brightness-95 transition rounded" onClick={(e) => { e.stopPropagation(); if (onZoom) onZoom(slot.img); else window.open(slot.img, '_blank'); }} />
-                                                    <button onClick={(e) => handleDeleteImage(slot.id, slot.img, e)} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded opacity-0 group-hover/img:opacity-100 hover:bg-red-600 transition z-10"><X size={8} /></button>
-                                                </div>
-                                            ) : (
-                                                <div className="h-5 flex items-center justify-center text-[8px] text-gray-400 border border-dashed border-gray-200 rounded italic bg-gray-50">Capture</div>
-                                            )}
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
 

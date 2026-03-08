@@ -305,16 +305,22 @@ router.get('/revenue', async (req, res) => {
 // Re-scores all existing results using the fixed correctOption comparison logic
 router.post('/rescore-all-results', async (req, res) => {
     try {
-        // Helper: resolve letter-format correctOption to actual text
+        // normalize helper used throughout
+        const normalize = (v) => {
+            if (v === null || v === undefined) return '';
+            return String(v).trim();
+        };
+
+        // Helper: resolve letter-format correctOption to actual text (normalized)
         const resolveCorrectOption = (question) => {
             if (!question.correctOption) return null;
             const letterToIdx = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
-            const letter = String(question.correctOption).trim().toUpperCase();
+            const letter = normalize(question.correctOption).toUpperCase();
             if (letterToIdx[letter] !== undefined && question.options) {
                 const idx = letterToIdx[letter];
-                return question.options[idx] || `Option ${idx + 1}`;
+                return normalize(normalize(question.options[idx]) || `Option ${idx + 1}`);
             }
-            return question.correctOption;
+            return normalize(question.correctOption);
         };
 
         const resultsSnap = await db.collection('results').get();
@@ -323,7 +329,9 @@ router.post('/rescore-all-results', async (req, res) => {
         for (const resultDoc of resultsSnap.docs) {
             try {
                 const result = resultDoc.data();
-                const testId = result.testId;
+                let testId = result.testId;
+                if (testId && typeof testId === 'object') testId = testId._id;
+
                 if (!testId) { skipped++; continue; }
 
                 // Fetch original test
@@ -340,44 +348,86 @@ router.post('/rescore-all-results', async (req, res) => {
 
                 // Re-score each attempt
                 let score = 0, correctCount = 0, wrongCount = 0;
-                const newAttemptData = (result.attempt_data || []).map(att => {
-                    const question = questionMap.get(att.questionId);
-                    if (!question) return att; // Keep as-is if question not found
+                const newAttemptData = (result.attempt_data || []).map((att, idx) => {
+                    // STRATEGY 1: Match by ID
+                    let question = questionMap.get(att.questionId);
+
+                    // STRATEGY 2: Match by Text if ID fails
+                    if (!question && att.questionText) {
+                        const normText = normalize(att.questionText);
+                        question = questions.find(q => normalize(q.text) === normText);
+                    }
+
+                    // STRATEGY 3: Match by Index as last resort
+                    if (!question) {
+                        question = questions[idx];
+                    }
+
+                    if (!question) return att; // Keep as-is if still not found
 
                     let isCorrect = false;
                     if (question.type === 'msq') {
                         const userAns = Array.isArray(att.selectedOption) ? att.selectedOption : [att.selectedOption];
-                        const correctAns = question.correctOptions || [];
-                        const sortedUser = [...userAns].sort();
-                        const sortedCorrect = [...correctAns].sort();
+                        const correctAnsLetters = question.correctOptions || [];
+
+                        // Resolve MSQ Letters to Text/Placeholders
+                        const correctAnsResolved = correctAnsLetters.map(letter => {
+                            const l = normalize(letter).toUpperCase();
+                            const ltIdx = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+                            if (ltIdx[l] !== undefined && question.options) {
+                                return normalize(question.options[ltIdx[l]]) || `Option ${ltIdx[l] + 1}`;
+                            }
+                            return normalize(letter);
+                        });
+
+                        const sortedUser = [...userAns].map(normalize).sort();
+                        const sortedCorrect = [...correctAnsResolved].map(normalize).sort();
                         isCorrect = sortedUser.length === sortedCorrect.length &&
                             sortedUser.every((val, i) => val === sortedCorrect[i]);
                     } else if (question.type === 'integer') {
-                        isCorrect = String(att.selectedOption).trim() === String(question.integerAnswer).trim();
+                        isCorrect = normalize(att.selectedOption) === normalize(question.integerAnswer);
                     } else {
                         // MCQ — resolve letter format
                         const correctOptResolved = resolveCorrectOption(question);
-                        isCorrect = correctOptResolved === att.selectedOption;
+                        isCorrect = normalize(correctOptResolved) === normalize(att.selectedOption);
                     }
 
                     const isAttempted = att.selectedOption !== null && att.selectedOption !== undefined && att.selectedOption !== '';
-                    if (isCorrect) {
+
+                    // Check if answer keys exist
+                    const hasAnswerKey = question.type === 'msq'
+                        ? (question.correctOptions && question.correctOptions.length > 0)
+                        : (question.type === 'integer'
+                            ? (question.integerAnswer !== undefined && question.integerAnswer !== '')
+                            : (question.correctOption !== undefined && question.correctOption !== null));
+
+                    if (isCorrect && hasAnswerKey) {
                         score += Number(question.marks || 4);
                         correctCount++;
-                    } else if (isAttempted) {
+                    } else if (isAttempted && hasAnswerKey) {
                         score -= Number(question.negativeMarks || 1);
                         wrongCount++;
+                    } else if (isAttempted && !hasAnswerKey) {
+                        // Log or mark as ungradable
+                        console.warn(`[RESCORE] Question missing answer key for test ${testId}, question ${att.questionId}`);
                     }
 
                     // Resolve correctAnswer for storage
                     let correctAnswerForStorage = null;
                     let correctOptionsForStorage = null;
                     if (question.type === 'msq') {
-                        correctOptionsForStorage = question.correctOptions || [];
+                        const ltIdxMap = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+                        correctOptionsForStorage = (question.correctOptions || []).map(opt => {
+                            const l = normalize(opt).toUpperCase();
+                            if (ltIdxMap[l] !== undefined && question.options) {
+                                return normalize(question.options[ltIdxMap[l]]) || `Option ${ltIdxMap[l] + 1}`;
+                            }
+                            return normalize(opt);
+                        });
                     } else if (question.type === 'integer') {
                         correctAnswerForStorage = question.integerAnswer;
                     } else {
-                        correctAnswerForStorage = resolveCorrectOption(question);
+                        correctAnswerForStorage = normalize(resolveCorrectOption(question));
                     }
 
                     return {

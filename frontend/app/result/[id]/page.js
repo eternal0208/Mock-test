@@ -12,6 +12,23 @@ import ImageViewer from '@/components/ui/ImageViewer';
 // HELPERS
 // ─────────────────────────────────────────────────────────────
 
+/** normalize strings for comparisons/display */
+const normalize = (v) => {
+    if (v === null || v === undefined) return '';
+    return String(v).trim();
+};
+
+/** Converts "Option 1" style strings to 'A', 'B', etc. for cleaner UI in PDF tests */
+const formatPlaceholder = (text) => {
+    const t = normalize(text);
+    const match = t.match(/^Option (\d+)$/i);
+    if (match) {
+        const num = parseInt(match[1]);
+        if (num >= 1 && num <= 26) return String.fromCharCode(64 + num);
+    }
+    return t;
+};
+
 /** Returns true if the student actually answered this question */
 const isAnswered = (sel) => {
     if (sel === undefined || sel === null || sel === '') return false;
@@ -26,15 +43,40 @@ const isAnswered = (sel) => {
  *  2. q.correctOption from fullTest, resolving 'A'/'B'/'C'/'D' letters to text if needed
  */
 const resolveCorrectOption = (attempt, q) => {
-    if (attempt?.correctAnswer) return String(attempt.correctAnswer);
-    if (!q?.correctOption) return null;
-    const raw = String(q.correctOption).trim();
-    // If it's a single letter A/B/C/D, resolve to option text
-    const letterIdx = { A: 0, B: 1, C: 2, D: 3 }[raw.toUpperCase()];
-    if (letterIdx !== undefined && Array.isArray(q.options)) {
-        return q.options[letterIdx] || `Option ${letterIdx + 1}`;
+    // 1. Use stored correct answer from attempt (most reliable)
+    let stored = normalize(attempt?.correctAnswer);
+
+    // If it's a raw letter (A, B, C, D) -> try to resolve to "Option X" text
+    const letterIdxMap = { A: 0, B: 1, C: 2, D: 3 };
+    if (stored.length === 1 && letterIdxMap[stored.toUpperCase()] !== undefined) {
+        const idx = letterIdxMap[stored.toUpperCase()];
+        if (Array.isArray(q?.options)) {
+            const optText = normalize(q.options[idx]);
+            stored = optText ? optText : `Option ${idx + 1}`;
+        } else {
+            stored = `Option ${idx + 1}`;
+        }
     }
-    return raw;
+
+    if (stored !== "") return stored;
+
+    // 2. Fallback: use q.correctOption from fullTest
+    const raw = normalize(q?.correctOption);
+    if (raw !== "") {
+        const letterIdx = letterIdxMap[raw.toUpperCase()];
+        if (letterIdx !== undefined && Array.isArray(q.options)) {
+            const optText = normalize(q.options[letterIdx]);
+            return optText ? optText : `Option ${letterIdx + 1}`;
+        }
+        return raw;
+    }
+
+    // 3. Fallback: if student correct, their answer IS correct
+    if (attempt?.isCorrect && attempt?.selectedOption) {
+        return attempt.selectedOption;
+    }
+
+    return null;
 };
 
 /**
@@ -42,8 +84,8 @@ const resolveCorrectOption = (attempt, q) => {
  * Priority: attempt.integerAnswer → q.integerAnswer
  */
 const resolveIntegerAnswer = (attempt, q) => {
-    if (attempt?.integerAnswer !== null && attempt?.integerAnswer !== undefined) return String(attempt.integerAnswer);
-    if (q?.integerAnswer !== null && q?.integerAnswer !== undefined) return String(q.integerAnswer);
+    if (attempt?.integerAnswer !== null && attempt?.integerAnswer !== undefined) return normalize(attempt.integerAnswer);
+    if (q?.integerAnswer !== null && q?.integerAnswer !== undefined) return normalize(q.integerAnswer);
     return null;
 };
 
@@ -52,9 +94,25 @@ const resolveIntegerAnswer = (attempt, q) => {
  * Priority: attempt.correctOptions → q.correctOptions
  */
 const resolveCorrectOptions = (attempt, q) => {
-    if (Array.isArray(attempt?.correctOptions) && attempt.correctOptions.length > 0) return attempt.correctOptions;
-    if (Array.isArray(q?.correctOptions) && q.correctOptions.length > 0) return q.correctOptions;
-    return [];
+    let opts = [];
+    if (Array.isArray(attempt?.correctOptions) && attempt.correctOptions.length > 0) {
+        opts = attempt.correctOptions;
+    } else if (Array.isArray(q?.correctOptions) && q.correctOptions.length > 0) {
+        opts = q.correctOptions;
+    }
+
+    const letterIdxMap = { A: 0, B: 1, C: 2, D: 3 };
+    return opts.map(opt => {
+        const n = normalize(opt);
+        if (n.length === 1 && letterIdxMap[n.toUpperCase()] !== undefined) {
+            const idx = letterIdxMap[n.toUpperCase()];
+            if (Array.isArray(q?.options)) {
+                return normalize(q.options[idx]) || `Option ${idx + 1}`;
+            }
+            return `Option ${idx + 1}`;
+        }
+        return n;
+    });
 };
 
 /** Get question type. Priority: attempt.questionType → q.type → 'mcq' */
@@ -282,6 +340,29 @@ export default function ResultPage() {
                     )}
                 </div>
 
+                {/* ── Data Integrity Warning ── */}
+                {(() => {
+                    const totalQ = questions.length;
+                    const ansCount = questions.filter(q => q.correctOption || (q.correctOptions && q.correctOptions.length > 0) || (q.integerAnswer !== undefined && q.integerAnswer !== '')).length;
+                    const isBroken = totalQ > 0 && ansCount === 0;
+
+                    if (!isBroken) return null;
+
+                    return (
+                        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex gap-4 items-start shadow-sm">
+                            <div className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shrink-0 font-bold mt-0.5 whitespace-nowrap">!</div>
+                            <div>
+                                <h3 className="text-red-800 font-bold text-sm sm:text-base">Answer Key Missing</h3>
+                                <p className="text-red-600 text-xs sm:text-sm mt-1 leading-relaxed">
+                                    The administration has not yet uploaded the answer key for this test.
+                                    <strong> Your score and highlights will not be accurate </strong> until the answers are marked.
+                                    Please check back later.
+                                </p>
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 {/* ── Stats Chips ── */}
                 <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     <div className="bg-green-50 border border-green-200 rounded-xl p-3 sm:p-4 text-center">
@@ -386,8 +467,11 @@ export default function ResultPage() {
 
                                 // Is a given option the correct answer?
                                 const isOptCorrect = (optVal) => {
-                                    if (qType === 'msq') return correctOpts.includes(optVal);
-                                    return correctOptText === optVal;
+                                    const normVal = normalize(optVal);
+                                    if (qType === 'msq') return correctOpts.map(normalize).includes(normVal);
+                                    if (correctOptText) return normalize(correctOptText) === normVal;
+                                    // If no correct answer known but student got this right, their selection is correct
+                                    if (isCorrect && attempted) return normalize(optVal) === normalize(selectedOpt);
                                 };
 
                                 return (
@@ -516,7 +600,9 @@ export default function ResultPage() {
                                                                 <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Your Answer</div>
                                                                 <div className={`text-sm font-bold truncate ${attempted ? (isCorrect ? 'text-green-700' : 'text-red-700') : 'text-gray-400'}`}>
                                                                     {attempted
-                                                                        ? (Array.isArray(selectedOpt) ? selectedOpt.join(', ') : String(selectedOpt))
+                                                                        ? (Array.isArray(selectedOpt)
+                                                                            ? selectedOpt.map(formatPlaceholder).join(', ')
+                                                                            : formatPlaceholder(selectedOpt))
                                                                         : 'Skipped'}
                                                                 </div>
                                                             </div>
@@ -524,8 +610,11 @@ export default function ResultPage() {
                                                                 <div className="text-[10px] font-bold uppercase tracking-widest text-green-700">Correct Answer</div>
                                                                 <div className="text-sm font-bold text-green-600 truncate">
                                                                     {qType === 'msq'
-                                                                        ? (correctOpts.length > 0 ? correctOpts.join(', ') : '—')
-                                                                        : (correctOptText || '—')}
+                                                                        ? (correctOpts.length > 0 ? correctOpts.map(formatPlaceholder).join(', ') : '—')
+                                                                        : (correctOptText
+                                                                            ? formatPlaceholder(correctOptText)
+                                                                            : (isCorrect && attempted ? formatPlaceholder(selectedOpt) : '—'))
+                                                                    }
                                                                 </div>
                                                             </div>
                                                             <div className="text-lg shrink-0">

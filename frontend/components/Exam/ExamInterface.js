@@ -316,8 +316,23 @@ const ExamInterface = ({ test, onSubmit }) => {
     const handleSubmitTest = (force = false) => {
         console.log("handleSubmitTest triggered", { force });
         if (!force && !confirm("Are you sure you want to submit?")) return;
-        setMode('feedback');
-        console.log("Mode set to feedback");
+
+        if (force) {
+            // Direct submission (Timer end / Tab close)
+            const formattedAnswers = Object.entries(answers).map(([qId, opt]) => ({
+                questionId: qId,
+                selectedOption: opt
+            }));
+
+            onSubmit({
+                answers: formattedAnswers,
+                timeTaken: (test.duration_minutes * 60) - timeLeft,
+                feedback: { rating: 0, comment: 'Auto-submitted' }
+            });
+        } else {
+            setMode('feedback');
+            console.log("Mode set to feedback");
+        }
     };
 
     const submitFeedbackAndFinish = () => {
