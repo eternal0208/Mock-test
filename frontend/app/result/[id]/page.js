@@ -395,10 +395,23 @@ export default function ResultPage() {
                                     return selectedOption === optVal;
                                 };
 
+                                // Resolve correctOption — handle legacy 'A'/'B'/'C'/'D' letter format from old PDF uploads
+                                const resolveCorrectOption = () => {
+                                    if (!q.correctOption) return null;
+                                    const letterMap = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+                                    const letter = String(q.correctOption).trim().toUpperCase();
+                                    if (letterMap[letter] !== undefined && q.options) {
+                                        const idx = letterMap[letter];
+                                        return q.options[idx] || `Option ${idx + 1}`;
+                                    }
+                                    return q.correctOption; // already stored as text
+                                };
+                                const resolvedCorrectOption = resolveCorrectOption();
+
                                 const isOptionCorrect = (optVal) => {
                                     if (!fullTest) return false;
                                     if (q.type === 'msq' && Array.isArray(q.correctOptions)) return q.correctOptions.includes(optVal);
-                                    return q.correctOption === optVal;
+                                    return resolvedCorrectOption === optVal;
                                 };
 
                                 // Status icon
@@ -538,7 +551,7 @@ export default function ResultPage() {
                                                                 <div className="text-sm font-bold text-green-600 truncate">
                                                                     {q.type === 'integer' ? q.integerAnswer :
                                                                         q.type === 'msq' && Array.isArray(q.correctOptions) ? q.correctOptions.join(', ') :
-                                                                            q.correctOption || '-'}
+                                                                            resolvedCorrectOption || '-'}
                                                                 </div>
                                                             </div>
                                                             <div className="text-lg shrink-0">

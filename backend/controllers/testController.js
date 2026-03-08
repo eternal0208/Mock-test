@@ -437,8 +437,15 @@ exports.submitTest = async (req, res) => {
                         isCorrect = true;
                     }
                 } else {
-                    // MCQ
-                    isCorrect = question.correctOption === ans.selectedOption;
+                    // MCQ: handle both legacy letter format ('A','B','C','D') and current text format
+                    let correctOptResolved = question.correctOption;
+                    const letterToIdx = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+                    const letter = String(question.correctOption || '').trim().toUpperCase();
+                    if (letterToIdx[letter] !== undefined && question.options) {
+                        const idx = letterToIdx[letter];
+                        correctOptResolved = question.options[idx] || `Option ${idx + 1}`;
+                    }
+                    isCorrect = correctOptResolved === ans.selectedOption;
                 }
 
                 if (isCorrect) {

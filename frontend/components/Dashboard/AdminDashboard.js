@@ -527,11 +527,15 @@ const BulkUploadModal = ({ onUpload, onClose }) => {
                 const sol = await getCellData(18, 'solutions');
                 const solImg = await getCellData(19, 'solutions');
 
-                // Determine correct option
+                // Determine correct option — store as the actual option text to match exam format
                 let correctOption = '';
                 if (type === 'mcq') {
-                    const map = { 1: 'A', 2: 'B', 3: 'C', 4: 'D', 'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D' };
-                    if (map[correctRaw]) correctOption = map[correctRaw];
+                    const letterToIdx = { 'A': 0, 'B': 1, 'C': 2, 'D': 3, '1': 0, '2': 1, '3': 2, '4': 3 };
+                    const opts = [optA, optB, optC, optD];
+                    const idx = letterToIdx[String(correctRaw).trim().toUpperCase()];
+                    if (idx !== undefined) {
+                        correctOption = opts[idx] || `Option ${idx + 1}`;
+                    }
                 }
 
                 if (text || qImg) {
