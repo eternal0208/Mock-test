@@ -12,6 +12,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import PdfUploadModal from './PdfUploadModal';
 import PercentileConfig from './PercentileConfig';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import InteractiveMascot from './InteractiveMascot';
 
 const ImageZoomModal = ({ imageUrl, onClose }) => {
     if (!imageUrl) return null;
@@ -2178,11 +2179,7 @@ export default function AdminDashboard() {
             {['users', 'revenue', 'content'].includes(activeTab) && !isMasterUnlocked && (
                 <div className="flex items-center justify-center py-20">
                     <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-8 max-w-md w-full text-center">
-                        <div className="mx-auto w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6 border border-red-100 shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
-                        </div>
+                        <InteractiveMascot isPasswordHidden={!showPassword} />
                         <h2 className="text-2xl font-black text-gray-900 mb-2">Restricted Access</h2>
                         <p className="text-gray-500 mb-8 text-sm leading-relaxed">Please enter the master password to view sensitive student, content, and revenue data.</p>
 
