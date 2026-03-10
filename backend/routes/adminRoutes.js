@@ -3,10 +3,76 @@ const router = express.Router();
 const { db } = require('../config/firebaseAdmin');
 const TestSeries = require('../models/TestSeries');
 const { getPercentileData, updatePercentileData } = require('../models/PercentileData');
+const { protect } = require('../middleware/authMiddleware');
 
-// --- Middleware to Check Admin Role (Simplified for now, assumes middleware used in index.js or check here) ---
-// For this task, we'll assume the /api/admin/* routes are protected or we trust the frontend checking role for now.
-// Ideally: Use authMiddleware and check if user.role === 'admin'.
+// Protect all admin routes
+router.use(protect);
+
+// --- Admin Team Leaderboard ---
+// GET /api/admin/team-stats - Get all admins and their stats
+router.get('/team-stats', async (req, res) => {
+    try {
+        // 1. Fetch all admins
+        const usersSnapshot = await db.collection('users').where('role', '==', 'admin').get();
+        const admins = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // 2. Fetch all tests to count uploads and reviews
+        const testsSnapshot = await db.collection('tests').get();
+        const tests = testsSnapshot.docs.map(doc => doc.data());
+
+        // 3. Calculate stats for each admin
+        const teamStats = admins.map(admin => {
+            const uid = admin.id;
+
+            // Uploads: test createdBy matches this admin
+            const uploads = tests.filter(t => t.createdBy === uid).length;
+
+            // Reviews: test updatedBy matches this admin, and they are not the creator 
+            // OR they published it (we can just count any update where updatedBy === uid)
+            const reviews = tests.filter(t => t.updatedBy === uid && t.createdBy !== uid).length;
+
+            // Simple scoring: 10 pts per upload, 5 pts per review
+            const score = (uploads * 10) + (reviews * 5);
+
+            let badge = 'Rookie';
+            if (score >= 100) badge = 'Master Admin 👑';
+            else if (score >= 50) badge = 'Expert Reviewer 🌟';
+            else if (score >= 20) badge = 'Active Contributor ⭐';
+
+            return {
+                id: uid,
+                name: admin.name || admin.displayName || (admin.email ? admin.email.split('@')[0] : 'Unknown'),
+                email: admin.email,
+                level: Number(admin.adminLevel) || 1, // Ensure number type for strict checks
+                photoURL: admin.photoURL || null,
+                uploads,
+                reviews,
+                score,
+                badge
+            };
+        });
+
+        // 4. Separate Level 1 admins from the rest
+        const level1Admins = teamStats.filter(admin => admin.level === 1);
+        const regularAdmins = teamStats.filter(admin => admin.level !== 1);
+
+        // 5. Sort regular admins by score descending to get ranks
+        regularAdmins.sort((a, b) => b.score - a.score);
+
+        // Assign numeric rank only to regular admins
+        regularAdmins.forEach((admin, index) => {
+            admin.rank = index + 1;
+        });
+
+        res.json({
+            superAdmins: level1Admins,
+            leaderboard: regularAdmins
+        });
+    } catch (error) {
+        console.error("Team Stats Error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // --- Test Series Management ---
 
@@ -145,12 +211,43 @@ router.put('/students/:id/role', async (req, res) => {
             return res.status(400).json({ error: 'Invalid role' });
         }
 
+        const callerAdminLevel = req.user.adminLevel || (req.user.role === 'admin' ? 1 : 0);
+        if (callerAdminLevel !== 1) {
+            return res.status(403).json({ error: 'Only Level 1 Super Admins can change user roles' });
+        }
+
         await db.collection('users').doc(id).update({
             role,
             updatedAt: new Date().toISOString()
         });
 
         res.json({ success: true, message: `User role updated to ${role}` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// PUT /api/admin/students/:id/adminLevel - Update Admin Level (1, 2, or 3)
+router.put('/students/:id/adminLevel', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { adminLevel } = req.body;
+
+        if (![1, 2, 3].includes(adminLevel)) {
+            return res.status(400).json({ error: 'Invalid admin level' });
+        }
+
+        const callerAdminLevel = req.user.adminLevel || (req.user.role === 'admin' ? 1 : 0);
+        if (callerAdminLevel !== 1) {
+            return res.status(403).json({ error: 'Only Level 1 Super Admins can change admin levels' });
+        }
+
+        await db.collection('users').doc(id).update({
+            adminLevel,
+            updatedAt: new Date().toISOString()
+        });
+
+        res.json({ success: true, message: `User admin level updated to ${adminLevel}` });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

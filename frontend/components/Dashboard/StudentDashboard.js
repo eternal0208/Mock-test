@@ -224,18 +224,130 @@ export default function StudentDashboard() {
     }
 
     const processDemoPayment = async (item, type = 'series') => {
-        // ... (Payment logic remains same for now)
-        const price = item.price || 0;
-        const isFree = price === 0;
-        const confirmMsg = isFree ? `Enroll in ${item.title} for FREE?` : `Purchase ${item.title} for ₹${price}?`;
-        if (!confirm(confirmMsg)) return;
+        const price = item.price ?? 0;
+        const isFree = price === 0 || item.isPaid === false;
+        const uid = user.uid || user._id;
 
+        // ── FREE ENROLLMENT ────────────────────────────────────────────────
+        if (isFree) {
+            if (!window.confirm(`Enroll in "${item.title}" for FREE?`)) return;
+            try {
+                const token = await user.getIdToken();
+                const res = await fetch(`${API_BASE_URL}/api/purchases/enroll-free`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ testId: item.id || item._id, userId: uid })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    const newOrder = {
+                        id: `enroll_${item.id}_${Date.now()}`,
+                        seriesId: item.id || item._id,
+                        testTitle: item.title,
+                        amount: 0,
+                        status: 'paid',
+                        createdAt: new Date().toISOString()
+                    };
+                    setOrders(prev => [newOrder, ...prev]);
+                    try {
+                        const cached = JSON.parse(localStorage.getItem(`apex_cache_orders_${uid}`) || '[]');
+                        localStorage.setItem(`apex_cache_orders_${uid}`, JSON.stringify([newOrder, ...cached]));
+                    } catch (_) { }
+                    alert(`✅ Enrolled in "${item.title}"! Check "My Enrolled Courses".`);
+                } else {
+                    alert(data.message || 'Enrollment failed. Please try again.');
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+            return;
+        }
+
+        // ── PAID CHECKOUT (Razorpay) ────────────────────────────────────────
         try {
-            // ... (Simple existing logic)
-            alert(isFree ? "Enrolled Successfully!" : "Service temporarily in demo mode. Contact Admin.");
-            window.location.reload();
-        } catch (error) {
-            alert("Process Failed");
+            const token = await user.getIdToken();
+
+            // Step 1: Create Razorpay order on backend
+            const orderRes = await fetch(`${API_BASE_URL}/api/purchases/create-order`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ testId: item.id || item._id, userId: uid })
+            });
+            const orderData = await orderRes.json();
+            if (!orderRes.ok) {
+                alert(orderData.message || 'Failed to initiate payment. Please try again.');
+                return;
+            }
+
+            // Step 2: Load Razorpay SDK if not already loaded
+            if (!window.Razorpay) {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.body.appendChild(script);
+                });
+            }
+
+            // Step 3: Open Razorpay checkout
+            const rzp = new window.Razorpay({
+                key: 'rzp_test_SJcYLXcZeoHY4r',
+                amount: orderData.order.amount,
+                currency: orderData.order.currency || 'INR',
+                name: 'Apex Mock Tests',
+                description: item.title,
+                order_id: orderData.order.id,
+                prefill: {
+                    name: user.name || user.displayName || '',
+                    email: user.email || ''
+                },
+                theme: { color: '#4f46e5' },
+                handler: async (response) => {
+                    // Step 4: Verify payment on backend
+                    try {
+                        const verifyRes = await fetch(`${API_BASE_URL}/api/purchases/verify-payment`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                            body: JSON.stringify({
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_signature: response.razorpay_signature,
+                                testId: item.id || item._id,
+                                userId: uid
+                            })
+                        });
+                        const verifyData = await verifyRes.json();
+                        if (verifyRes.ok && verifyData.success) {
+                            const newOrder = {
+                                id: response.razorpay_order_id,
+                                seriesId: item.id || item._id,
+                                testTitle: item.title,
+                                amount: price,
+                                status: 'paid',
+                                razorpayOrderId: response.razorpay_order_id,
+                                createdAt: new Date().toISOString()
+                            };
+                            setOrders(prev => [newOrder, ...prev]);
+                            try {
+                                const cached = JSON.parse(localStorage.getItem(`apex_cache_orders_${uid}`) || '[]');
+                                localStorage.setItem(`apex_cache_orders_${uid}`, JSON.stringify([newOrder, ...cached]));
+                            } catch (_) { }
+                            alert(`✅ Payment successful! You are now enrolled in "${item.title}".`);
+                        } else {
+                            alert(verifyData.message || 'Payment verification failed. Contact support.');
+                        }
+                    } catch (err) {
+                        alert('Verification error: ' + err.message);
+                    }
+                },
+                modal: {
+                    ondismiss: () => console.log('Payment modal closed')
+                }
+            });
+            rzp.open();
+        } catch (err) {
+            alert('Payment error: ' + err.message);
         }
     };
 

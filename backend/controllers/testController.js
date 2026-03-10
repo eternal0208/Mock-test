@@ -24,6 +24,11 @@ exports.createTest = async (req, res) => {
             }
         }
 
+        const adminLevel = req.user?.adminLevel || 3;
+        const forceDraft = adminLevel === 3 || req.body.isDraft;
+        const finalStatus = forceDraft ? 'draft' : 'published';
+        const finalVisible = forceDraft ? false : (isVisible !== undefined ? isVisible : true);
+
         const newTest = {
             title,
             duration_minutes: Number(duration),
@@ -31,7 +36,8 @@ exports.createTest = async (req, res) => {
             subject,
             category: category || 'JEE Main',
             difficulty,
-            isVisible: isVisible !== undefined ? isVisible : true,
+            isVisible: finalVisible,
+            status: finalStatus,
             instructions,
             startTime: startTime || null,
             endTime: endTime || null,
@@ -49,7 +55,8 @@ exports.createTest = async (req, res) => {
             })),
             questionCount: (questions || []).length,
             answerCount: (questions || []).filter(q => q.correctOption || (q.correctOptions && q.correctOptions.length > 0) || (q.integerAnswer !== undefined && q.integerAnswer !== '')).length,
-            createdBy: req.user?._id || 'admin',
+            createdBy: req.user?._id || req.user?.uid || 'admin',
+            createdByName: req.body.createdByName || req.user?.name || (req.user?.email ? req.user.email.split('@')[0] : 'Admin'),
             createdAt: new Date().toISOString()
         };
 
@@ -120,7 +127,7 @@ exports.deleteTest = async (req, res) => {
 exports.getAllTests = async (req, res) => {
     try {
         console.log("🔍 [API] GET /api/tests called");
-        const snapshot = await db.collection('tests').select('title', 'duration_minutes', 'total_marks', 'subject', 'category', 'difficulty', 'isVisible', 'startTime', 'endTime', 'expiryDate', 'maxAttempts', 'questionCount', 'answerCount', 'questions').get();
+        const snapshot = await db.collection('tests').select('title', 'duration_minutes', 'total_marks', 'subject', 'category', 'difficulty', 'isVisible', 'status', 'createdBy', 'createdByName', 'startTime', 'endTime', 'expiryDate', 'maxAttempts', 'questionCount', 'answerCount', 'questions').get();
         console.log(`🔍 [DEBUG] Tests found in DB: ${snapshot.size}`);
 
         const tests = [];
@@ -161,6 +168,11 @@ exports.getAllTests = async (req, res) => {
                     category: data.category || 'JEE Main',
                     difficulty: data.difficulty,
                     isVisible: data.isVisible !== undefined ? data.isVisible : true,
+                    status: data.status || (data.isVisible === false ? 'hidden' : 'active'),
+                    createdBy: data.createdBy,
+                    createdByName: data.createdByName,
+                    updatedBy: data.updatedBy,
+                    updatedByName: data.updatedByName,
                     startTime: data.startTime,
                     endTime: data.endTime,
                     expiryDate: data.expiryDate || null,
@@ -183,9 +195,9 @@ exports.getAllTests = async (req, res) => {
                 return;
             }
 
-            // Filter 2: Only show visible tests
-            if (data.isVisible === false) {
-                // console.log(`❌ Skipping Test ${data.title}: Not Visible`);
+            // Filter 2: Only show visible tests and NOT drafts
+            if (data.isVisible === false || data.status === 'draft') {
+                // console.log(`❌ Skipping Test ${data.title}: Not Visible or Draft`);
                 return;
             }
 
@@ -258,7 +270,7 @@ exports.getTestById = async (req, res) => {
         const categoryMatch = userCategory && userCategory === testCategory;
 
         // Filter 2: Test must be visible
-        const isVisible = data.isVisible !== false;
+        const isVisible = data.isVisible !== false && data.status !== 'draft';
 
         // AUTH CHECK:
         // A user can access the test if:
@@ -603,6 +615,9 @@ exports.updateTest = async (req, res) => {
     try {
         const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts, resultVisibility, resultDeclarationTime, expiryDate } = req.body;
 
+        const adminLevel = req.user?.adminLevel || 3;
+        const forceDraft = adminLevel === 3 || req.body.isDraft;
+
         const updateData = {
             title,
             duration_minutes: duration !== undefined ? Number(duration) : undefined,
@@ -613,11 +628,14 @@ exports.updateTest = async (req, res) => {
             instructions,
             startTime,
             endTime,
-            isVisible,
+            isVisible: forceDraft ? false : isVisible,
+            status: forceDraft ? 'draft' : req.body.status,
             maxAttempts: maxAttempts !== undefined ? Number(maxAttempts) : undefined,
             expiryDate,
             resultVisibility,
             resultDeclarationTime,
+            updatedBy: req.user?._id || req.user?.uid || 'admin',
+            updatedByName: req.body.updatedByName || req.user?.name || (req.user?.email ? req.user.email.split('@')[0] : 'Admin'),
             updatedAt: new Date().toISOString()
         };
 
@@ -858,11 +876,17 @@ exports.getSeriesById = async (req, res) => {
                 const batch = seriesData.testIds.slice(i, i + batchSize);
                 const testsSnapshot = await db.collection('tests')
                     .where('__name__', 'in', batch)
-                    .select('title', 'duration_minutes', 'total_marks', 'subject', 'category', 'difficulty', 'questionCount')
+                    .select('title', 'duration_minutes', 'total_marks', 'subject', 'category', 'difficulty', 'questionCount', 'isVisible', 'status')
                     .get();
 
                 testsSnapshot.forEach(tDoc => {
                     const tData = tDoc.data();
+
+                    // Filter drafts & hidden tests for non-admins
+                    if (req.user?.role !== 'admin') {
+                        if (tData.isVisible === false || tData.status === 'draft') return;
+                    }
+
                     tests.push({
                         _id: tDoc.id,
                         title: tData.title,
@@ -871,7 +895,9 @@ exports.getSeriesById = async (req, res) => {
                         subject: tData.subject,
                         category: tData.category || 'General',
                         difficulty: tData.difficulty,
-                        questionCount: tData.questionCount || 0
+                        questionCount: tData.questionCount || 0,
+                        status: tData.status || 'published',
+                        isVisible: tData.isVisible !== undefined ? tData.isVisible : true
                     });
                 });
             }

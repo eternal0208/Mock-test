@@ -1,7 +1,7 @@
 'use client';
 // Admin Dashboard Updated: 2026-02-04
 import { useState, useEffect } from 'react';
-import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X, Download, Loader2, Layers, RefreshCcw, Zap, ChevronUp, ChevronDown, Upload, Info, Combine, AlertTriangle, Edit3 } from 'lucide-react';
+import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X, Download, Loader2, Layers, RefreshCcw, Zap, ChevronUp, ChevronDown, Upload, Info, Combine, AlertTriangle, Edit3, Award } from 'lucide-react';
 import SubjectToolbar from './SubjectToolbar';
 import MathText from '@/components/ui/MathText';
 import { API_BASE_URL } from '@/lib/config';
@@ -724,7 +724,7 @@ const BulkUploadModal = ({ onUpload, onClose }) => {
     );
 };
 
-const StudentReportModal = ({ student, onClose }) => {
+const StudentReportModal = ({ student, user, onClose }) => {
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -734,17 +734,21 @@ const StudentReportModal = ({ student, onClose }) => {
                 // Ensure student.id matches what backend expects (firebase UID or _id)
                 // Backend resultController user getStudentResults uses req.params.userId
                 // results stored with userId field.
-                const res = await fetch(`${API_BASE_URL}/api/results/student/${student.id || student._id}`);
+                const token = await user?.getIdToken();
+                const res = await fetch(`${API_BASE_URL}/api/results/student/${student.id || student._id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 const data = await res.json();
-                setResults(data);
+                setResults(Array.isArray(data) ? data : []);
             } catch (error) {
                 console.error("Failed to fetch student results", error);
+                setResults([]);
             } finally {
                 setLoading(false);
             }
         };
         if (student) fetchResults();
-    }, [student]);
+    }, [student, user]);
 
     return (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
@@ -1009,8 +1013,10 @@ export default function AdminDashboard() {
     // const [showAnalytics, setShowAnalytics] = useState(null); // REMOVED (URL Driven)
     // const [activeTab, setActiveTab] = useState('manage'); // REMOVED (URL Driven)
     const [tests, setTests] = useState([]);
+    const [sortTestsBy, setSortTestsBy] = useState('newest');
     const [usersList, setUsersList] = useState([]);
     const [seriesList, setSeriesList] = useState([]);
+    const [teamStats, setTeamStats] = useState([]);
     const [revenueStats, setRevenueStats] = useState(null);
     const [loading, setLoading] = useState(false);
     const [viewingStudent, setViewingStudent] = useState(null); // Report Modal State
@@ -1049,6 +1055,7 @@ export default function AdminDashboard() {
             if (activeTab === 'users' && isMasterUnlocked) fetchStudents();
             if (activeTab === 'series') fetchSeries();
             if (activeTab === 'revenue' && isMasterUnlocked) fetchRevenue();
+            if (activeTab === 'profile') fetchTeamStats();
         }
     }, [activeTab, user, isMasterUnlocked]);
 
@@ -1113,7 +1120,7 @@ export default function AdminDashboard() {
             });
             const data = await res.json();
             if (Array.isArray(data)) {
-                setTests(data.sort((a, b) => (a.title || '').localeCompare(b.title || '')));
+                setTests(data); // Raw order — sorting is handled by sortTestsBy in UI
             } else {
                 setTests([]);
             }
@@ -1149,15 +1156,24 @@ export default function AdminDashboard() {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
-            if (Array.isArray(data)) {
-                setSeriesList(data.sort((a, b) => (a.title || '').localeCompare(b.title || '')));
-            } else {
-                console.error("Invalid series data:", data);
-                setSeriesList([]);
-            }
+            if (Array.isArray(data)) setSeriesList(data);
         } catch (error) {
             console.error("Error fetching series:", error);
-            setSeriesList([]);
+        }
+    };
+
+    const fetchTeamStats = async () => {
+        try {
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/admin/team-stats`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setTeamStats(data);
+            }
+        } catch (error) {
+            console.error("Error fetching team stats:", error);
         }
     };
 
@@ -1264,6 +1280,30 @@ export default function AdminDashboard() {
         } catch (error) {
             console.error("Role Update Error:", error);
             alert("Error updating role");
+        }
+    };
+
+    const handleUpdateAdminLevel = async (userId, newLevel) => {
+        if (!confirm(`Are you sure you want to change this admin's level to ${newLevel}?`)) return;
+        try {
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/admin/students/${userId}/adminLevel`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ adminLevel: Number(newLevel) })
+            });
+            if (res.ok) {
+                setUsersList(prev => prev.map(u => u.id === userId ? { ...u, adminLevel: Number(newLevel) } : u));
+                alert(`Admin level updated to ${newLevel}`);
+            } else {
+                alert("Failed to update admin level");
+            }
+        } catch (error) {
+            console.error("Admin Level Update Error:", error);
+            alert("Error updating admin level");
         }
     };
 
@@ -1595,7 +1635,9 @@ export default function AdminDashboard() {
                 ...testDetails,
                 chapters: (testDetails.chapters || '').toString().split(',').map(c => c.trim()).filter(c => c),
                 totalMarks: calculatedTotalMarks,
-                questions
+                questions,
+                createdByName: user?.name || user?.displayName || (user?.email ? user.email.split('@')[0] : 'Admin'),
+                updatedByName: user?.name || user?.displayName || (user?.email ? user.email.split('@')[0] : 'Admin')
             };
 
             const url = isUpdatingExisting ? `${API_BASE_URL}/api/tests/${editingId}` : `${API_BASE_URL}/api/tests`;
@@ -1616,7 +1658,11 @@ export default function AdminDashboard() {
                 throw new Error(errorData.message || `Failed to ${isUpdatingExisting ? 'update' : 'create'} test on server`);
             }
 
-            alert(isUpdatingExisting ? 'Test Updated Successfully!' : 'Test Created Successfully!');
+            const isDraft = user?.adminLevel === 3;
+            alert(isUpdatingExisting
+                ? (isDraft ? 'Draft Updated! Pending review.' : 'Test Updated Successfully!')
+                : (isDraft ? '✅ Draft Saved! Awaiting review by Level 1/2 Admin before publishing.' : 'Test Published Successfully!')
+            );
 
             // RESET EVERYTHING
             setIsUpdatingExisting(false);
@@ -1683,8 +1729,10 @@ export default function AdminDashboard() {
     // Filter tests for Modal (Ensure logic works even if series not loaded yet, though normally is)
     // Tests already in series
     const seriesTests = managingSeries ? tests.filter(t => (managingSeries.testIds || []).includes(t._id)) : [];
-    // Tests available to add (Admins should be able to add ANY test to a series)
-    const availableTests = managingSeries ? tests.filter(t => !managingSeries.testIds?.includes(t._id)) : [];
+    // Collect all used test IDs across all series to prevent a test from being added to multiple series
+    const allUsedTestIds = new Set(seriesList.flatMap(s => s.testIds || []));
+    // Tests available to add (Tests that are NOT in any series at all AND are Active)
+    const availableTests = managingSeries ? tests.filter(t => !allUsedTestIds.has(t._id) && t.status !== 'draft' && t.status !== 'hidden') : [];
 
     const handleAddTestToSeries = async (testId) => {
         if (!managingSeries) return;
@@ -1719,7 +1767,7 @@ export default function AdminDashboard() {
     return (
         <div className="space-y-6 relative">
             {showAnalytics && <AnalyticsModal testId={showAnalytics} onClose={() => setShowAnalytics(null)} />}
-            {viewingStudent && <StudentReportModal student={viewingStudent} onClose={() => setViewingStudent(null)} />}
+            {viewingStudent && <StudentReportModal student={viewingStudent} user={user} onClose={() => setViewingStudent(null)} />}
             {showBulkUpload && <BulkUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowBulkUpload(false)} />}
             {showPdfModal && <PdfUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowPdfModal(false)} onZoom={(url) => setZoomedImg(url)} />}
 
@@ -1831,13 +1879,140 @@ export default function AdminDashboard() {
 
             {/* Profile Tab */}
             {activeTab === 'profile' && (
-                <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl mx-auto">
-                    <div className="flex items-center space-x-6">
-                        <div className="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600"><User size={48} /></div>
-                        <div>
-                            <h3 className="text-2xl font-bold text-gray-900">{user?.name || 'Administrator'}</h3>
-                            <p className="text-gray-500">{user?.email}</p>
-                            <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold capitalize">{user?.role}</span>
+                <div className="space-y-8 max-w-5xl mx-auto">
+                    {/* Logged in Admin Profile */}
+                    <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
+                        <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
+                        <div className="w-32 h-32 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 shadow-inner z-10 shrink-0 border-4 border-white">
+                            <User size={64} />
+                        </div>
+                        <div className="text-center md:text-left z-10">
+                            <h3 className="text-3xl font-black text-gray-900 tracking-tight">{user?.name || 'Administrator'}</h3>
+                            <p className="text-gray-500 font-medium mb-4">{user?.email}</p>
+                            <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                                <span className="inline-block px-4 py-1.5 bg-emerald-100 text-emerald-800 rounded-full text-sm font-bold uppercase tracking-wider">{user?.role}</span>
+                                {user?.role === 'admin' && (
+                                    <span className="inline-block px-4 py-1.5 bg-purple-100 text-purple-800 rounded-full text-sm font-bold uppercase tracking-wider">
+                                        Level {user?.adminLevel || 1} Admin
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Admin Team Leaderboard */}
+                    <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 relative">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 pb-6 border-b border-gray-100 gap-4">
+                            <div>
+                                <h3 className="text-2xl font-black text-gray-900 flex items-center gap-3">
+                                    <Award className="text-indigo-600" size={28} /> Admin Team Leaderboard
+                                </h3>
+                                <p className="text-sm text-gray-500 mt-1 font-medium">Global ranking based on test creation and review activity</p>
+                            </div>
+                            <div className="flex gap-4 bg-gray-50 p-3 rounded-xl border border-gray-100 hidden sm:flex">
+                                <div className="text-center px-4 border-r border-gray-200">
+                                    <div className="text-[10px] font-black uppercase text-emerald-600 tracking-wider">Upload</div>
+                                    <div className="text-xs font-bold text-gray-600">+10 pts</div>
+                                </div>
+                                <div className="text-center px-4">
+                                    <div className="text-[10px] font-black uppercase text-blue-600 tracking-wider">Review</div>
+                                    <div className="text-xs font-bold text-gray-600">+5 pts</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Super Admins Section */}
+                        {teamStats.superAdmins && teamStats.superAdmins.length > 0 && (
+                            <div className="mb-10 text-center sm:text-left">
+                                <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">👑 Super Admins (Level 1)</h4>
+                                <div className="flex flex-wrap gap-4 justify-center sm:justify-start">
+                                    {teamStats.superAdmins.map(admin => (
+                                        <div key={admin.id} className="flex items-center gap-3 bg-gray-50 border border-gray-200 px-4 py-2 rounded-full shadow-sm hover:border-indigo-300 transition-colors">
+                                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0 overflow-hidden">
+                                                {admin.photoURL ? (
+                                                    <img src={admin.photoURL} alt={admin.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                                ) : (
+                                                    admin.name.charAt(0).toUpperCase()
+                                                )}
+                                            </div>
+                                            <div className="text-left">
+                                                <div className="text-sm font-bold text-gray-900 leading-tight">{admin.name}</div>
+                                                <div className="text-[10px] uppercase font-bold text-indigo-500 tracking-wider">Super Admin</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid gap-4">
+                            {(!teamStats.leaderboard) ? (
+                                <div className="text-center p-8 text-gray-500 font-medium">Loading leaderboard...</div>
+                            ) : teamStats.leaderboard.length === 0 ? (
+                                <div className="text-center p-8 text-gray-500 font-medium">No activity to rank yet...</div>
+                            ) : (
+                                teamStats.leaderboard.map((stat) => (
+                                    <div key={stat.id} className="group flex flex-col md:flex-row items-center bg-gray-50 hover:bg-white transition-all p-5 rounded-xl border border-gray-200 hover:border-indigo-300 shadow-sm hover:shadow-md gap-6 relative overflow-hidden">
+                                        {/* Rank Indicator Bar */}
+                                        <div className="absolute top-0 left-0 w-1.5 h-full rounded-l-xl transition-colors"
+                                            style={{ backgroundColor: stat.rank === 1 ? '#FBBF24' : stat.rank === 2 ? '#9CA3AF' : stat.rank === 3 ? '#B45309' : '#818CF8' }}>
+                                        </div>
+
+                                        {/* Rank Circle */}
+                                        <div className="flex items-center justify-center w-14 h-14 bg-white rounded-full shadow-md text-2xl font-black shrink-0 border-2"
+                                            style={{
+                                                color: stat.rank === 1 ? '#F59E0B' : stat.rank === 2 ? '#6B7280' : stat.rank === 3 ? '#92400E' : '#6366F1',
+                                                borderColor: stat.rank === 1 ? '#FDE68A' : stat.rank === 2 ? '#E5E7EB' : stat.rank === 3 ? '#FEF3C7' : '#E0E7FF'
+                                            }}>
+                                            #{stat.rank}
+                                        </div>
+
+                                        {/* User Details */}
+                                        <div className="flex items-center justify-center md:justify-start shrink-0 mr-2 md:mr-0 z-10 w-full md:w-auto mt-4 md:mt-0">
+                                            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-xl overflow-hidden border-2 border-white shadow-sm ring-2 ring-indigo-50">
+                                                {stat.photoURL ? (
+                                                    <img src={stat.photoURL} alt={stat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                                ) : (
+                                                    stat.name.charAt(0).toUpperCase()
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex-1 text-center md:text-left mt-2 md:mt-0 z-10">
+                                            <h4 className="text-lg font-bold text-gray-900 justify-center md:justify-start gap-2 flex items-center">
+                                                {stat.name}
+                                                <span className="text-[10px] px-2 py-0.5 bg-gray-200 text-gray-700 rounded text-center font-bold tracking-widest uppercase">
+                                                    L{stat.level}
+                                                </span>
+                                            </h4>
+                                            <p className="text-xs text-gray-500 font-medium mt-0.5">{stat.email}</p>
+                                        </div>
+
+                                        {/* Stats Row */}
+                                        <div className="flex gap-4 md:gap-8 items-center flex-wrap justify-center bg-white md:bg-transparent p-3 md:p-0 rounded-xl md:rounded-none border md:border-none border-gray-100 w-full md:w-auto">
+                                            <div className="text-center">
+                                                <div className="text-2xl font-black text-emerald-600">{stat.uploads}</div>
+                                                <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Uploads</div>
+                                            </div>
+                                            <div className="text-center border-l border-r border-gray-100 md:border-gray-200 px-4 md:px-8">
+                                                <div className="text-2xl font-black text-blue-600">{stat.reviews}</div>
+                                                <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Reviews</div>
+                                            </div>
+                                            <div className="text-center bg-indigo-50/50 md:bg-indigo-50 px-4 md:px-6 py-2 rounded-xl md:border border-indigo-100">
+                                                <div className="text-2xl font-black text-indigo-700">{stat.score}</div>
+                                                <div className="text-[10px] uppercase font-bold text-indigo-500 tracking-wider">Points</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Badge */}
+                                        <div className="shrink-0 text-center md:text-right w-full md:w-auto mt-2 md:mt-0">
+                                            <span className="inline-block px-4 py-2 bg-gradient-to-r from-amber-50 to-orange-50 text-amber-900 text-xs font-black uppercase tracking-widest rounded-full shadow-sm border border-amber-200/50 group-hover:scale-105 transition-transform">
+                                                {stat.badge}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1851,11 +2026,21 @@ export default function AdminDashboard() {
                         const now = new Date();
                         const isExpired = (date) => date && new Date(date) < now;
 
-                        const activeTests = tests.filter(t => !isExpired(t.expiryDate) && t.isVisible !== false);
-                        const hiddenTests = tests.filter(t => !isExpired(t.expiryDate) && t.isVisible === false);
-                        const expiredTests = tests.filter(t => isExpired(t.expiryDate));
+                        // Unified sorting
+                        const sortedTests = [...tests].sort((a, b) => {
+                            if (sortTestsBy === 'newest') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+                            if (sortTestsBy === 'oldest') return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+                            if (sortTestsBy === 'alpha-asc') return (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' });
+                            if (sortTestsBy === 'alpha-desc') return (b.title || '').localeCompare(a.title || '', undefined, { numeric: true, sensitivity: 'base' });
+                            return 0;
+                        });
 
-                        const renderTestTable = (testList, title, key) => (
+                        const activeTests = sortedTests.filter(t => !isExpired(t.expiryDate) && t.isVisible !== false && t.status !== 'draft');
+                        const hiddenTests = sortedTests.filter(t => !isExpired(t.expiryDate) && t.isVisible === false && t.status !== 'draft');
+                        const draftTests = sortedTests.filter(t => t.status === 'draft');
+                        const expiredTests = sortedTests.filter(t => isExpired(t.expiryDate) && t.status !== 'draft');
+
+                        const renderTestTable = (testList, title, key, isDraft = false) => (
                             <div key={key} className="bg-white rounded-lg shadow overflow-hidden mb-6">
                                 <div className="p-6 border-b border-gray-200 bg-gray-50"><h3 className="text-xl font-bold text-gray-800">{title} ({testList.length})</h3></div>
                                 {testList.length === 0 ? (
@@ -1875,7 +2060,23 @@ export default function AdminDashboard() {
                                             <tbody className="bg-white divide-y divide-gray-200">
                                                 {testList.map((test) => (
                                                     <tr key={test._id} className="hover:bg-gray-50">
-                                                        <td className="px-6 py-4 font-medium text-gray-900">{test.title}</td>
+                                                        <td className="px-6 py-4 font-medium text-gray-900">
+                                                            <div>{test.title}</div>
+                                                            {user?.adminLevel === 1 && (
+                                                                <div className="text-[10px] text-gray-400 mt-1 flex flex-col gap-1 font-normal">
+                                                                    {test.createdByName && (
+                                                                        <div className="flex items-center gap-1">
+                                                                            <User size={10} /> Uploaded by: <span className="font-semibold text-gray-600">{test.createdByName}</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {test.updatedByName && (
+                                                                        <div className="flex items-center gap-1 text-indigo-400">
+                                                                            <User size={10} /> Edited by: <span className="font-semibold text-indigo-500">{test.updatedByName}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </td>
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             {(() => {
                                                                 const series = seriesList.find(s => s.testIds?.includes(test._id));
@@ -2027,6 +2228,42 @@ export default function AdminDashboard() {
                                                             >
                                                                 Mark Ans
                                                             </button>
+                                                            {/* Approve & Publish button — only in Draft section for Level 1/2 admins */}
+                                                            {isDraft && (user?.adminLevel === 1 || user?.adminLevel === 2) && (
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        if (!window.confirm(`Publish "${test.title}" and make it visible to students?`)) return;
+                                                                        try {
+                                                                            const token = await user?.getIdToken();
+                                                                            const res = await fetch(`${API_BASE_URL}/api/tests/${test._id}`, {
+                                                                                method: 'PUT',
+                                                                                headers: {
+                                                                                    'Content-Type': 'application/json',
+                                                                                    'Authorization': `Bearer ${token}`
+                                                                                },
+                                                                                body: JSON.stringify({
+                                                                                    status: 'published',
+                                                                                    isVisible: true,
+                                                                                    updatedByName: user?.name || user?.displayName || (user?.email ? user.email.split('@')[0] : 'Admin')
+                                                                                })
+                                                                            });
+                                                                            if (res.ok) {
+                                                                                setTests(prev => prev.map(t => t._id === test._id ? { ...t, status: 'published', isVisible: true } : t));
+                                                                                alert(`✅ "${test.title}" is now Published and visible to students!`);
+                                                                            } else {
+                                                                                const errData = await res.json().catch(() => ({}));
+                                                                                alert('Failed to publish: ' + (errData.message || 'Unknown error'));
+                                                                            }
+                                                                        } catch (e) {
+                                                                            alert('Error publishing test: ' + e.message);
+                                                                        }
+                                                                    }}
+                                                                    className="flex items-center gap-1 text-xs font-bold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg shadow transition-all"
+                                                                    title="Approve and Publish this Draft"
+                                                                >
+                                                                    ✓ Approve & Publish
+                                                                </button>
+                                                            )}
                                                             <button onClick={() => handleDeleteTest(test._id)} className="text-red-500 hover:text-red-700 text-sm font-bold">Delete</button>
                                                         </td>
                                                     </tr>
@@ -2049,7 +2286,36 @@ export default function AdminDashboard() {
 
                         return (
                             <div>
-                                <h2 className="text-2xl font-bold text-gray-800 mb-4 pb-2 border-b-2 border-green-500 inline-block">Active Tests (Visible)</h2>
+                                <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
+                                    <h2 className="text-2xl font-bold text-gray-800">Manage All Tests</h2>
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-sm font-semibold text-gray-600">Sort By:</label>
+                                        <select
+                                            value={sortTestsBy}
+                                            onChange={(e) => setSortTestsBy(e.target.value)}
+                                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:ring-2 focus:ring-indigo-500"
+                                        >
+                                            <option value="newest">Newest First</option>
+                                            <option value="oldest">Oldest First</option>
+                                            <option value="alpha-asc">Alphabetical (A→Z)</option>
+                                            <option value="alpha-desc">Alphabetical (Z→A)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {draftTests.length > 0 && (
+                                    <>
+                                        <h2 className="text-2xl font-bold text-indigo-800 mb-4 pb-2 border-b-2 border-indigo-500 inline-block">Drafts (Awaiting Approval)</h2>
+                                        <p className="text-sm text-gray-500 mb-6">Tests uploaded by reviewers/uploaders saving as drafts. These are not visible anywhere until published.</p>
+                                        {categories.map(cat => {
+                                            const catTests = draftTests.filter(t => t.category === cat);
+                                            if (catTests.length === 0) return null;
+                                            return renderTestTable(catTests, `${cat} - Drafts`, `draft-${cat}`, true);
+                                        })}
+                                    </>
+                                )}
+
+                                <h2 className="text-2xl font-bold text-gray-800 mb-4 mt-8 pt-8 border-t-2 border-green-500 inline-block w-full">Active Tests (Visible)</h2>
                                 {categories.map(cat => {
                                     const catTests = activeTests.filter(t => t.category === cat);
                                     if (catTests.length === 0) return null;
@@ -2344,12 +2610,28 @@ export default function AdminDashboard() {
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <div className="flex items-center space-x-3">
                                                     {/* Role Toggle */}
-                                                    <button
-                                                        onClick={() => handleUpdateRole(student.id, student.role === 'admin' ? 'student' : 'admin')}
-                                                        className={`text-xs px-2 py-1 rounded border ${student.role === 'admin' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
-                                                    >
-                                                        {student.role === 'admin' ? 'Demote' : 'Promote'}
-                                                    </button>
+                                                    {user?.adminLevel === 1 && (
+                                                        <button
+                                                            onClick={() => handleUpdateRole(student.id, student.role === 'admin' ? 'student' : 'admin')}
+                                                            className={`text-xs px-2 py-1 rounded border ${student.role === 'admin' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
+                                                        >
+                                                            {student.role === 'admin' ? 'Demote' : 'Promote'}
+                                                        </button>
+                                                    )}
+
+                                                    {/* Admin Level Assignment (For Level 1 Admins only) */}
+                                                    {user?.adminLevel === 1 && student.role === 'admin' && (
+                                                        <select
+                                                            value={student.adminLevel || 1}
+                                                            onChange={(e) => handleUpdateAdminLevel(student.id, e.target.value)}
+                                                            className="text-xs px-2 py-1 rounded border bg-purple-50 text-purple-700 border-purple-200 outline-none"
+                                                            title="Set Admin Level"
+                                                        >
+                                                            <option value={1}>L1 (Super)</option>
+                                                            <option value={2}>L2 (Review)</option>
+                                                            <option value={3}>L3 (Upload)</option>
+                                                        </select>
+                                                    )}
 
                                                     {/* Status Toggle (Block/Unblock) */}
                                                     <button
@@ -3129,7 +3411,7 @@ export default function AdminDashboard() {
                                                 {loading ? (
                                                     <><Loader2 className="animate-spin text-indigo-400" size={20} /> <span className="text-slate-300">Processing...</span></>
                                                 ) : (
-                                                    <><Save size={20} /> {isUpdatingExisting ? 'SAVE CHANGES' : 'PUBLISH ASSESSMENT'}</>
+                                                    <><Save size={20} /> {user?.adminLevel === 3 ? 'SAVE AS DRAFT' : (isUpdatingExisting ? 'SAVE CHANGES' : 'PUBLISH ASSESSMENT')}</>
                                                 )}
                                             </div>
                                         </button>

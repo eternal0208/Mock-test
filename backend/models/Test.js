@@ -10,6 +10,7 @@ class Test {
         this.category = data.category || 'JEE Main'; // 'JEE Main' | 'JEE Advanced' | 'NEET'
         this.difficulty = data.difficulty || 'medium'; // 'easy' | 'medium' | 'hard'
         this.isVisible = data.isVisible !== undefined ? data.isVisible : true; // Visibility Toggle
+        this.status = data.status || 'published'; // 'published' | 'draft'
 
         // New Fields for granular categorization
         this.accessType = data.accessType || 'free'; // 'free' | 'paid'
@@ -57,6 +58,7 @@ class Test {
         }));
 
         this.createdBy = data.createdBy || 'admin';
+        this.createdByName = data.createdByName || 'Admin';
         this.createdAt = data.createdAt || new Date().toISOString();
     }
 
@@ -70,6 +72,7 @@ class Test {
             category: this.category,
             difficulty: this.difficulty,
             isVisible: this.isVisible,
+            status: this.status,
             accessType: this.accessType,
             format: this.format,
             chapters: this.chapters,
@@ -89,6 +92,7 @@ class Test {
                 solutionImages: q.solutionImages || []
             })),
             createdBy: this.createdBy,
+            createdByName: this.createdByName,
             createdAt: this.createdAt
         };
     }

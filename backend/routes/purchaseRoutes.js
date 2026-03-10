@@ -12,17 +12,17 @@ const { protect } = require('../middleware/authMiddleware');
 // @route   POST /api/purchases/enroll-free
 // @desc    Instantly enroll user in free test series
 // @access  Private
-router.post('/enroll-free', enrollFreeTest);
+router.post('/enroll-free', protect, enrollFreeTest);
 
 // @route   POST /api/purchases/create-order
 // @desc    Create Razorpay order for paid test series
 // @access  Private
-router.post('/create-order', createPaidOrder);
+router.post('/create-order', protect, createPaidOrder);
 
 // @route   POST /api/purchases/verify-payment
 // @desc    Verify Razorpay payment and enroll user
 // @access  Private
-router.post('/verify-payment', verifyPayment);
+router.post('/verify-payment', protect, verifyPayment);
 
 // @route   GET /api/purchases/check-access/:testId
 // @desc    Check if user has access to a test series

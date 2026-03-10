@@ -8,6 +8,7 @@ class User {
         this.class = data.class || ''; // String (e.g., '11', '12', 'Dropper')
         this.firebaseUid = data.firebaseUid; // String
         this.role = data.role || 'student'; // 'student' | 'admin'
+        this.adminLevel = typeof data.adminLevel === 'number' ? data.adminLevel : 1; // 1: Super, 2: Reviewer, 3: Uploader
         this.status = data.status || 'active'; // 'active' | 'suspended'
         this.category = data.category || data.targetExam || ''; // Unified Field: 'JEE Main' | 'NEET', etc.
         this.purchasedTests = data.purchasedTests || []; // Array of Test IDs
@@ -23,6 +24,7 @@ class User {
             class: this.class,
             firebaseUid: this.firebaseUid,
             role: this.role,
+            adminLevel: this.adminLevel,
             status: this.status,
             category: this.category,
             purchasedTests: this.purchasedTests,
