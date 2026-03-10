@@ -94,7 +94,7 @@ export default function LandingPage() {
 
     try {
       // Determine if test is free or paid
-      const isFree = series.price === 0 || series.isPaid === false;
+      const isFree = Number(series.price) === 0 || series.isPaid === false;
 
       if (isFree) {
         // FREE TEST: Instant Enrollment

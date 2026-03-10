@@ -1,4 +1,21 @@
 import { API_BASE_URL } from '@/lib/config';
+import { getAuth } from 'firebase/auth';
+
+/**
+ * Helper to get the current user's Firebase ID token
+ */
+async function getAuthToken(): Promise<string | null> {
+    try {
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (user) {
+            return await user.getIdToken();
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
 
 /**
  * Enroll user in a FREE test series
@@ -8,10 +25,12 @@ import { API_BASE_URL } from '@/lib/config';
  */
 export async function enrollFreeTest(testId: string, userId: string) {
     try {
+        const token = await getAuthToken();
         const response = await fetch(`${API_BASE_URL}/api/purchases/enroll-free`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             },
             body: JSON.stringify({ testId, userId }),
         });
@@ -44,10 +63,12 @@ export async function enrollFreeTest(testId: string, userId: string) {
  */
 export async function createRazorpayOrder(testId: string, userId: string) {
     try {
+        const token = await getAuthToken();
         const response = await fetch(`${API_BASE_URL}/api/purchases/create-order`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             },
             body: JSON.stringify({ testId, userId }),
         });
@@ -84,10 +105,12 @@ export async function verifyAndEnroll(paymentData: {
     userId: string;
 }) {
     try {
+        const token = await getAuthToken();
         const response = await fetch(`${API_BASE_URL}/api/purchases/verify-payment`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             },
             body: JSON.stringify(paymentData),
         });
@@ -166,7 +189,7 @@ export function openRazorpayCheckout(
     onFailure: (error: any) => void
 ) {
     const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_1234567890',
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SKdPiD0l0HQgwS',
         amount: order.amount,
         currency: order.currency,
         name: 'Apex Mock',

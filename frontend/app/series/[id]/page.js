@@ -134,7 +134,7 @@ export default function SeriesDetails() {
     // Main action handler
     const handleUnlock = () => {
         if (!series) return;
-        if (series.price === 0 || series.isPaid === false) {
+        if (Number(series.price) === 0 || series.isPaid === false) {
             handleFreeEnroll();
         } else {
             handlePurchase();
@@ -146,7 +146,7 @@ export default function SeriesDetails() {
 
     const descriptionText = series.description || 'Comprehensive test series designed to boost your preparation.';
     const isLongDesc = descriptionText.length > 150;
-    const isFree = series.price === 0 || series.isPaid === false;
+    const isFree = Number(series.price) === 0 || series.isPaid === false;
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-12">

@@ -89,8 +89,8 @@ exports.createPaidOrder = async (req, res) => {
 
         const testData = testDoc.data();
 
-        // SECURITY: Verify test is paid
-        if (testData.price === 0 || testData.isPaid === false) {
+        // SECURITY: Verify test is paid (handle Firestore storing price as string)
+        if (Number(testData.price) === 0 || testData.isPaid === false) {
             return res.status(400).json({
                 message: 'This is a free test. Use the free enrollment endpoint.',
                 isFree: true

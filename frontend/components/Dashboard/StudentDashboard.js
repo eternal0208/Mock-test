@@ -224,7 +224,7 @@ export default function StudentDashboard() {
     }
 
     const processDemoPayment = async (item, type = 'series') => {
-        const price = item.price ?? 0;
+        const price = Number(item.price) || 0;
         const isFree = price === 0 || item.isPaid === false;
         const uid = user.uid || user._id;
 
@@ -292,7 +292,7 @@ export default function StudentDashboard() {
 
             // Step 3: Open Razorpay checkout
             const rzp = new window.Razorpay({
-                key: 'rzp_test_SJcYLXcZeoHY4r',
+                key: 'rzp_live_SKdPiD0l0HQgwS',
                 amount: orderData.order.amount,
                 currency: orderData.order.currency || 'INR',
                 name: 'Apex Mock Tests',
