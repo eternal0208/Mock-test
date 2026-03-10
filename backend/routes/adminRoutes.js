@@ -351,15 +351,13 @@ router.get('/revenue', async (req, res) => {
                 }
             } catch (e) { }
 
-            // Fetch series title if not already stored
-            if (!itemName || itemName === 'Unknown Item') {
-                try {
-                    if (order.seriesId) {
-                        const seriesDoc = await db.collection('testSeries').doc(order.seriesId).get();
-                        if (seriesDoc.exists) itemName = seriesDoc.data().title;
-                    }
-                } catch (e) { }
-            }
+            // Always fetch latest series title from DB (not stale order data)
+            try {
+                if (order.seriesId) {
+                    const seriesDoc = await db.collection('testSeries').doc(order.seriesId).get();
+                    if (seriesDoc.exists) itemName = seriesDoc.data().title || itemName;
+                }
+            } catch (e) { }
 
             // Revenue by series
             if (order.seriesId) {

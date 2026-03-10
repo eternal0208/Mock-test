@@ -1179,7 +1179,10 @@ export default function AdminDashboard() {
 
     const fetchRevenue = async () => {
         try {
-            const res = await fetch(`${API_BASE_URL}/api/admin/revenue`);
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/admin/revenue`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             const data = await res.json();
             setRevenueStats(data);
         } catch (error) {
@@ -2683,7 +2686,7 @@ export default function AdminDashboard() {
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
                                 Total Revenue
                             </h4>
-                            <p className="text-5xl font-black text-green-700 mt-3 drop-shadow-sm">₹{revenueStats.totalRevenue.toLocaleString('en-IN')}</p>
+                            <p className="text-5xl font-black text-green-700 mt-3 drop-shadow-sm">₹{(revenueStats?.totalRevenue || 0).toLocaleString('en-IN')}</p>
                         </div>
                         <div className="bg-blue-50 p-6 rounded-lg text-center border border-blue-200 shadow-sm transition-transform hover:-translate-y-1">
                             <h4 className="text-gray-600 font-bold uppercase tracking-wider text-sm flex items-center justify-center gap-2">
