@@ -56,12 +56,9 @@ export default function StudentDashboard() {
                         hasCache = true;
                     }
 
-                    const cachedSeries = localStorage.getItem(cacheKeys.series);
-                    if (cachedSeries) {
-                        const pd = JSON.parse(cachedSeries);
-                        setSeries(Array.isArray(pd) ? pd.sort((a, b) => (a.title || '').localeCompare(b.title || '')) : pd);
-                        hasCache = true;
-                    }
+
+                    // Series: NOT cached — always fetch fresh to reflect latest prices
+
 
                     const cachedResults = localStorage.getItem(cacheKeys.results);
                     if (cachedResults) { setResults(JSON.parse(cachedResults)); hasCache = true; }
@@ -95,13 +92,12 @@ export default function StudentDashboard() {
                         localStorage.setItem(cacheKeys.tests, JSON.stringify(sortedTests));
                     }
 
-                    // Fetch Series
+                    // Fetch Series (always fresh — no caching to ensure latest prices)
                     const seriesRes = await fetch(`${API_BASE_URL}/api/tests/series`, { headers });
                     const seriesData = await seriesRes.json();
                     if (Array.isArray(seriesData)) {
                         const sortedSeries = seriesData.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
                         setSeries(sortedSeries);
-                        localStorage.setItem(cacheKeys.series, JSON.stringify(sortedSeries));
                     }
 
                     // Fetch Results
