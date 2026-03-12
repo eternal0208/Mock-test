@@ -3,7 +3,7 @@ const router = express.Router();
 const { createTest, updateTest, addQuestions, getAllTests, getTestById, submitTest } = require('../controllers/testController');
 const { protect, optionalProtect } = require('../middleware/authMiddleware');
 
-router.post('/', createTest);
+router.post('/', protect, createTest);
 router.put('/:id', protect, updateTest);
 router.put('/:id/questions', addQuestions);
 

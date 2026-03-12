@@ -42,7 +42,7 @@ export default function SeriesDetails() {
                 setSeries(data.series);
 
                 // Ensure tests are sorted alphabetically
-                const sortedTests = (data.tests || []).sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+                const sortedTests = (data.tests || []).sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' }));
                 setTests(sortedTests);
 
                 // 2. Check if user already has access (permanent check)

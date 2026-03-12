@@ -33,8 +33,8 @@ const SeriesCard = ({ series, onAction, actionLabel = undefined }) => {
 
                 {/* Premium Badge */}
                 {!isFree && (
-                    <div className="absolute top-4 right-4 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1 shadow-lg ring-2 ring-white/50 backdrop-blur-md">
-                        <Star size={10} fill="currentColor" /> Premium
+                    <div className="absolute top-4 right-4 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 px-3 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 shadow-[0_4px_15px_rgba(251,191,36,0.3)] ring-1 ring-white/60 backdrop-blur-md">
+                        <Star size={12} fill="currentColor" /> Premium
                     </div>
                 )}
 
@@ -52,12 +52,12 @@ const SeriesCard = ({ series, onAction, actionLabel = undefined }) => {
             {/* Content Section */}
             <div className="p-6 md:p-7 flex-1 flex flex-col relative bg-white">
                 <div className="flex justify-between items-start mb-3">
-                    <h4 className="text-xl md:text-2xl font-black text-gray-900 group-hover:text-indigo-600 transition-colors leading-tight">
+                    <h4 className="text-xl md:text-2xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">
                         {series.title}
                     </h4>
                 </div>
 
-                <p className="text-gray-500 text-sm mb-6 line-clamp-2 md:line-clamp-3 font-medium leading-relaxed">
+                <p className="text-slate-500 text-sm mb-6 line-clamp-2 md:line-clamp-3 font-medium leading-relaxed">
                     {series.description || 'Hone your skills with our meticulously designed test series. Simulate real-time exam environments.'}
                 </p>
 
@@ -74,16 +74,16 @@ const SeriesCard = ({ series, onAction, actionLabel = undefined }) => {
                 )}
 
                 {/* Action Row */}
-                <div className="mt-auto pt-6 border-t border-gray-50 flex items-center justify-between gap-4">
+                <div className="mt-auto pt-6 border-t border-slate-100 flex items-center justify-between gap-4">
                     <div className="flex flex-col">
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Price</span>
-                        <div className="flex items-baseline gap-1">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Price</span>
+                        <div className="flex items-baseline gap-1.5">
                             {isFree ? (
                                 <span className="text-2xl font-black text-emerald-500">FREE</span>
                             ) : (
                                 <>
-                                    <span className="text-2xl font-black text-gray-900">₹{series.price}</span>
-                                    <span className="text-[10px] text-gray-400 line-through">₹{Math.round(series.price * 1.5)}</span>
+                                    <span className="text-2xl md:text-3xl font-black text-slate-900">₹{series.price}</span>
+                                    <span className="text-xs text-slate-400 line-through">₹{Math.round(series.price * 1.5)}</span>
                                 </>
                             )}
                         </div>
@@ -95,13 +95,13 @@ const SeriesCard = ({ series, onAction, actionLabel = undefined }) => {
                             e.stopPropagation();
                             onAction(series);
                         }}
-                        className={`px-6 py-3 rounded-2xl font-black text-sm transition-all duration-300 shadow-xl flex items-center gap-2 group/btn active:scale-95 ${isFree
-                            ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-200'
-                            : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200'
+                        className={`px-6 py-3 rounded-2xl font-bold text-sm md:text-base transition-all duration-300 shadow-xl flex items-center gap-2 group/btn hover:-translate-y-0.5 active:scale-95 ${isFree
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-[0_4px_15px_rgba(16,185,129,0.3)] hover:shadow-[0_8px_25px_rgba(16,185,129,0.4)]'
+                            : 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-[0_4px_15px_rgba(79,70,229,0.3)] hover:shadow-[0_8px_25px_rgba(79,70,229,0.4)]'
                             }`}
                     >
                         {actionLabel || (isFree ? 'Enroll Now' : `Unlock Series`)}
-                        <ArrowRight size={16} className="group-hover/btn:translate-x-1 transition-transform" />
+                        <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
                     </button>
                 </div>
             </div>

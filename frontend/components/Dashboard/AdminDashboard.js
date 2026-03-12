@@ -1156,7 +1156,10 @@ export default function AdminDashboard() {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
-            if (Array.isArray(data)) setSeriesList(data);
+            if (Array.isArray(data)) {
+                const sortedSeries = data.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' }));
+                setSeriesList(sortedSeries);
+            }
         } catch (error) {
             console.error("Error fetching series:", error);
         }
@@ -1731,19 +1734,26 @@ export default function AdminDashboard() {
 
     // Filter tests for Modal (Ensure logic works even if series not loaded yet, though normally is)
     // Tests already in series
-    const seriesTests = managingSeries ? tests.filter(t => (managingSeries.testIds || []).includes(t._id)) : [];
-    // Collect all used test IDs across all series to prevent a test from being added to multiple series
-    const allUsedTestIds = new Set(seriesList.flatMap(s => s.testIds || []));
-    // Tests available to add (Tests that are NOT in any series at all AND are Active)
-    const availableTests = managingSeries ? tests.filter(t => !allUsedTestIds.has(t._id) && t.status !== 'draft' && t.status !== 'hidden') : [];
+    const seriesTests = managingSeries ? tests
+        .filter(t => (managingSeries.testIds || []).includes(t._id))
+        .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' })) : [];
+
+    // Tests available to add (Tests NOT currently in THIS series AND are Active)
+    const availableTests = managingSeries ? tests
+        .filter(t => !managingSeries.testIds?.includes(t._id) && t.status !== 'draft' && t.status !== 'hidden')
+        .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' })) : [];
 
     const handleAddTestToSeries = async (testId) => {
         if (!managingSeries) return;
         const updatedIds = [...(managingSeries.testIds || []), testId];
+        const token = await user?.getIdToken();
         try {
             await fetch(`${API_BASE_URL}/api/admin/series/${managingSeries.id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ testIds: updatedIds })
             });
             // Update Local Series List State (to reflect instantly)
@@ -1756,10 +1766,14 @@ export default function AdminDashboard() {
     const handleRemoveTestFromSeries = async (testId) => {
         if (!managingSeries) return;
         const updatedIds = managingSeries.testIds.filter(id => id !== testId);
+        const token = await user?.getIdToken();
         try {
             await fetch(`${API_BASE_URL}/api/admin/series/${managingSeries.id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ testIds: updatedIds })
             });
             const updatedSeries = { ...managingSeries, testIds: updatedIds };
@@ -1803,7 +1817,17 @@ export default function AdminDashboard() {
                                     {availableTests.length > 0 ? availableTests.map(t => (
                                         <div key={t._id} className="p-3 sm:p-4 rounded-xl border-2 border-slate-100 hover:border-indigo-300 bg-white transition-all group flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:shadow-md">
                                             <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-slate-800 text-[13px] sm:text-[15px] truncate">{t.title}</p>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <p className="font-bold text-slate-800 text-[13px] sm:text-[15px] truncate">{t.title}</p>
+                                                    {(() => {
+                                                        const otherSeries = seriesList.filter(s => s.id !== managingSeries.id && s.testIds?.includes(t._id));
+                                                        return otherSeries.length > 0 && (
+                                                            <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 text-[9px] font-black rounded border border-amber-200 uppercase leading-none">
+                                                                In {otherSeries.length} Other {otherSeries.length === 1 ? 'Series' : 'Series'}
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </div>
                                                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                                                     <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100"><BookOpen size={10} /> {t.questionCount || t.questions?.length || 0} Qs</span>
                                                     <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100"><Clock size={10} /> {t.duration_minutes || t.duration || 0}m</span>
@@ -2080,15 +2104,26 @@ export default function AdminDashboard() {
                                                                 </div>
                                                             )}
                                                         </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                        <td className="px-6 py-4">
                                                             {(() => {
-                                                                const series = seriesList.find(s => s.testIds?.includes(test._id));
-                                                                return series ? (
-                                                                    <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold border border-indigo-200">
-                                                                        {series.title}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-xs text-gray-400 italic font-medium">No Series</span>
+                                                                const matchedSeries = seriesList.filter(s => s.testIds?.includes(test._id));
+                                                                if (matchedSeries.length === 0) {
+                                                                    return <span className="text-xs text-gray-400 italic font-medium">No Series</span>;
+                                                                }
+                                                                if (matchedSeries.length === 1) {
+                                                                    return (
+                                                                        <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-[11px] font-bold border border-indigo-100">
+                                                                            {matchedSeries[0].title}
+                                                                        </span>
+                                                                    );
+                                                                }
+                                                                return (
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <span className="text-[11px] font-black text-indigo-600 uppercase tracking-tighter bg-indigo-50 w-fit px-1.5 rounded">{matchedSeries.length} Series</span>
+                                                                        <div className="text-[9px] text-gray-400 leading-none">
+                                                                            {matchedSeries.map(s => s.title).join(', ')}
+                                                                        </div>
+                                                                    </div>
                                                                 );
                                                             })()}
                                                         </td>

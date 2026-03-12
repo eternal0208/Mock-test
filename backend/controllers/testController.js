@@ -55,8 +55,8 @@ exports.createTest = async (req, res) => {
             })),
             questionCount: (questions || []).length,
             answerCount: (questions || []).filter(q => q.correctOption || (q.correctOptions && q.correctOptions.length > 0) || (q.integerAnswer !== undefined && q.integerAnswer !== '')).length,
-            createdBy: req.user?._id || req.user?.uid || 'admin',
-            createdByName: req.body.createdByName || req.user?.name || (req.user?.email ? req.user.email.split('@')[0] : 'Admin'),
+            createdBy: req.user.uid || req.user._id || 'admin',
+            createdByName: req.body.createdByName || req.user.name || req.user.displayName || (req.user.email ? req.user.email.split('@')[0] : 'Admin'),
             createdAt: new Date().toISOString()
         };
 
@@ -634,8 +634,8 @@ exports.updateTest = async (req, res) => {
             expiryDate,
             resultVisibility,
             resultDeclarationTime,
-            updatedBy: req.user?._id || req.user?.uid || 'admin',
-            updatedByName: req.body.updatedByName || req.user?.name || (req.user?.email ? req.user.email.split('@')[0] : 'Admin'),
+            updatedBy: req.user.uid || req.user._id || 'admin',
+            updatedByName: req.body.updatedByName || req.user.name || req.user.displayName || (req.user.email ? req.user.email.split('@')[0] : 'Admin'),
             updatedAt: new Date().toISOString()
         };
 

@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import Link from 'next/link';
 import Script from 'next/script';
-import { ArrowRight, BookOpen, Target, Award, Users, Star, CheckCircle } from 'lucide-react';
+import { ArrowRight, BookOpen, Target, Award, Users, Star, CheckCircle, Instagram } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/config';
@@ -153,7 +153,7 @@ export default function LandingPage() {
         <div className="relative z-10 min-h-screen flex flex-col">
 
           {/* Navbar */}
-          <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-white/80 border-b border-gray-200 shadow-sm">
+          <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-white/70 border-b border-white/40 shadow-[0_4px_30px_rgba(0,0,0,0.05)]">
             <div className="max-w-7xl mx-auto px-6 py-0 flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <img src="/logo.png" alt="Apex Mock Test" className="h-20 w-auto" />
@@ -161,16 +161,16 @@ export default function LandingPage() {
               <div className="flex gap-2 md:gap-4">
                 {user ? (
                   <Link href="/dashboard">
-                    <button className="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-lg text-sm md:text-base">
+                    <button className="px-5 py-2 md:px-7 md:py-2.5 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold hover:from-indigo-700 hover:to-violet-700 transition-all duration-300 shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] transform hover:-translate-y-0.5 text-sm md:text-base">
                       Dashboard
                     </button>
                   </Link>
                 ) : (
                   <>
-                    <button onClick={openLogin} className="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-white text-slate-900 border border-gray-300 hover:bg-gray-50 transition backdrop-blur-sm font-semibold text-sm md:text-base shadow-sm">
+                    <button onClick={openLogin} className="px-5 py-2 md:px-7 md:py-2.5 rounded-full bg-white/80 text-slate-800 border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700 transition-all duration-300 backdrop-blur-md font-bold text-sm md:text-base shadow-sm">
                       Login
                     </button>
-                    <button onClick={openSignup} className="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30 text-sm md:text-base">
+                    <button onClick={openSignup} className="px-5 py-2 md:px-7 md:py-2.5 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold hover:from-indigo-700 hover:to-violet-700 transition-all duration-300 shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] transform hover:-translate-y-0.5 text-sm md:text-base">
                       Sign Up
                     </button>
                   </>
@@ -183,33 +183,37 @@ export default function LandingPage() {
           <main className="flex-grow flex flex-col justify-center items-center px-4 pt-24 pb-12">
 
             {/* Hero Text */}
-            <div className="text-center max-w-4xl mx-auto mb-16 space-y-6">
+            <div className="text-center max-w-5xl mx-auto mb-16 space-y-8">
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 border border-green-200 text-green-800 backdrop-blur-md mb-4 font-semibold shadow-sm"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-emerald-50/80 border border-emerald-200/50 text-emerald-800 backdrop-blur-xl mb-4 shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:shadow-[0_0_25px_rgba(16,185,129,0.25)] transition-shadow duration-300"
               >
-                <Users size={18} className="text-green-600" />
-                <span className="font-semibold">Trusted by 10,000+ Students</span>
+                <div className="relative flex h-3 w-3 mr-1">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </div>
+                <Users size={16} className="text-emerald-600 hidden sm:block" />
+                <span className="font-bold tracking-wide text-sm sm:text-base">Trusted by 10,000+ Students</span>
               </motion.div>
 
               <motion.h1
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.15, ease: [0.23, 1, 0.32, 1] }}
-                className="text-4xl md:text-6xl lg:text-7xl font-black text-slate-900 drop-shadow-sm leading-tight"
+                className="text-5xl md:text-7xl lg:text-[5.5rem] font-black drop-shadow-sm leading-[1.1] md:leading-tight tracking-tight px-2"
               >
-                Apex Mock Test
+                <span className="text-transparent bg-clip-text bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-800">Apex Mock Test</span>
                 <br />
-                <span className="text-indigo-600">Don't Just Compete, Dominate.</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600">Don't Just Compete, Dominate.</span>
               </motion.h1>
 
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.7, delay: 0.3, ease: [0.23, 1, 0.32, 1] }}
-                className="text-base md:text-xl text-slate-700 font-medium max-w-2xl mx-auto px-4"
+                className="text-lg md:text-2xl text-slate-600 font-medium max-w-3xl mx-auto px-4 leading-relaxed"
               >
                 An innovative mock test platform proudly built by me to support aspirants across India in cracking JEE, NEET, and CAT.
                 Train with real exam-like tests and data-backed performance analysis.
@@ -221,8 +225,8 @@ export default function LandingPage() {
 
             {/* Premium Test Series Section */}
             {testSeries.length > 0 && (
-              <div className="w-full max-w-7xl mx-auto mb-20">
-                <h3 className="text-4xl font-black text-slate-900 mb-10 text-center">Premium <span className="text-indigo-600">Test Series</span></h3>
+              <div className="w-full max-w-7xl mx-auto mb-20 z-10 relative">
+                <h3 className="text-4xl md:text-5xl font-black text-slate-900 mb-14 text-center tracking-tight">Premium <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Test Series</span></h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   {testSeries.map((series: any, idx) => (
                     // @ts-ignore
@@ -239,7 +243,7 @@ export default function LandingPage() {
           </main>
 
           {/* Footer with Scalability Flex */}
-          <footer className="w-full bg-slate-900 text-slate-300 backdrop-blur-lg">
+          <footer className="w-full bg-slate-900 border-t border-slate-800 text-slate-300 backdrop-blur-lg">
             <div className="max-w-7xl mx-auto px-6 py-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
                 {/* Brand Section */}
@@ -280,9 +284,15 @@ export default function LandingPage() {
                 {/* Contact */}
                 <div>
                   <h4 className="text-white font-semibold mb-3">Contact Us</h4>
-                  <p className="text-sm text-slate-400 mb-2">
+                  <p className="text-sm text-slate-400 mb-4">
                     📧 <a href="mailto:officialsrcounselling@gmail.com" className="hover:text-white transition">
                       officialsrcounselling@gmail.com
+                    </a>
+                  </p>
+                  <p className="text-sm text-slate-400 mb-4">
+                    <a href="https://www.instagram.com/apexmock_official?igsh=MWkzODVxeWdyeXAyaA==" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-pink-500 transition-colors">
+                      <Instagram size={18} />
+                      Follow us on Instagram
                     </a>
                   </p>
                   <p className="text-sm text-slate-400 flex items-center gap-2">

@@ -52,7 +52,7 @@ export default function StudentDashboard() {
                     const cachedTests = localStorage.getItem(cacheKeys.tests);
                     if (cachedTests) {
                         const pd = JSON.parse(cachedTests);
-                        setTests(Array.isArray(pd) ? pd.sort((a, b) => (a.title || '').localeCompare(b.title || '')) : pd);
+                        setTests(Array.isArray(pd) ? pd.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' })) : pd);
                         hasCache = true;
                     }
 
@@ -87,7 +87,7 @@ export default function StudentDashboard() {
                     const testsRes = await fetch(`${API_BASE_URL}/api/tests`, { headers });
                     const testsData = await testsRes.json();
                     if (Array.isArray(testsData)) {
-                        const sortedTests = testsData.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+                        const sortedTests = testsData.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' }));
                         setTests(sortedTests);
                         localStorage.setItem(cacheKeys.tests, JSON.stringify(sortedTests));
                     }
@@ -96,7 +96,7 @@ export default function StudentDashboard() {
                     const seriesRes = await fetch(`${API_BASE_URL}/api/tests/series`, { headers });
                     const seriesData = await seriesRes.json();
                     if (Array.isArray(seriesData)) {
-                        const sortedSeries = seriesData.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+                        const sortedSeries = seriesData.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' }));
                         setSeries(sortedSeries);
                     }
 
