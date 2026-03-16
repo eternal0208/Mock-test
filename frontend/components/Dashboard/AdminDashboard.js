@@ -971,6 +971,369 @@ const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
     );
 };
 
+const CustomMockGeneratorModal = ({ availableTests, onClose, onSuccess, user }) => {
+    // Step 1: Selection
+    const [selectedTestIds, setSelectedTestIds] = useState([]);
+    const [categoryFilter, setCategoryFilter] = useState('All');
+    
+    // Step 2: Blueprint
+    const [step, setStep] = useState(1);
+    const [pools, setPools] = useState({}); // { "Physics|mcq": { available: 50, selected: 10 } }
+    const [mockCount, setMockCount] = useState(1);
+    
+    // UI state
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    // Initial Filter
+    const activeTests = availableTests.filter(t => t.isVisible !== false && t.status !== 'draft');
+    const filteredTests = categoryFilter === 'All' 
+        ? activeTests 
+        : activeTests.filter(t => t.category === categoryFilter);
+
+    const handleNextStep = () => {
+        if (selectedTestIds.length === 0) {
+            setError("Please select at least one source test.");
+            return;
+        }
+        
+        // Ensure all selected tests have the same category
+        const selectedTestsData = activeTests.filter(t => selectedTestIds.includes(t._id));
+        const firstCat = selectedTestsData[0].category;
+        const allSameCat = selectedTestsData.every(t => t.category === firstCat);
+        
+        if (!allSameCat) {
+            setError("All selected source tests must belong to the exact same category.");
+            return;
+        }
+
+        // Calculate available pools
+        const newPools = {};
+        selectedTestsData.forEach(t => {
+            (t.questions || []).forEach(q => {
+                const key = `${q.subject || 'General'}|${q.type || 'mcq'}`;
+                if (!newPools[key]) newPools[key] = { available: 0, selected: 0 };
+                newPools[key].available += 1;
+            });
+        });
+
+        setPools(newPools);
+        setError(null);
+        setStep(2);
+    };
+
+    const handlePoolChange = (key, value) => {
+        const num = parseInt(value, 10) || 0;
+        setPools(prev => ({
+            ...prev,
+            [key]: { ...prev[key], selected: num }
+        }));
+    };
+
+    // nCr combinations formula
+    const getCombinations = (n, r) => {
+        if (r > n) return 0;
+        if (r === 0 || r === n) return 1;
+        let c = 1;
+        for (let i = 1; i <= r; i++) {
+            c = c * (n - i + 1) / i;
+        }
+        return c;
+    };
+
+    const calculateMaxMocks = () => {
+        let max = Infinity;
+        let hasSelection = false;
+        let isValid = true;
+        
+        for (const [key, data] of Object.entries(pools)) {
+            if (data.selected > 0) {
+                hasSelection = true;
+                if (data.available < data.selected) {
+                    isValid = false;
+                } else {
+                    // Calculate nCr for this bucket
+                    const combinations = getCombinations(data.available, data.selected);
+                    if (combinations < max) {
+                        max = combinations;
+                    }
+                }
+            }
+        }
+        
+        // If not valid, 0. Otherwise, return the minimum combinations across all required buckets.
+        // Cap the *display* at a very high number if it gets too large to prevent Infinity display issues
+        if (!hasSelection || !isValid) return 0;
+        return max > 1000000 ? "1000000+" : max; 
+    };
+
+    const maxMocks = calculateMaxMocks();
+
+    const handleGenerate = async () => {
+        if (maxMocks === 0) {
+            setError("Blueprint is invalid or empty. You cannot generate 0 mocks.");
+            return;
+        }
+        
+        const count = parseInt(mockCount, 10);
+        if (isNaN(count) || count < 1) {
+            setError(`Please enter a valid number of mocks to generate (minimum 1).`);
+            return;
+        }
+        
+        if (count > 50) {
+            setError("To prevent server overload, you can only generate a maximum of 50 mocks at one time.");
+            return;
+        }
+
+        const numericMax = typeof maxMocks === 'string' ? Infinity : maxMocks;
+        if (count > numericMax) {
+            setError(`You cannot generate more than ${numericMax} unique mocks based on this blueprint.`);
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            const blueprint = {};
+            for (const [key, data] of Object.entries(pools)) {
+                if (data.selected > 0) blueprint[key] = data.selected;
+            }
+
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/tests/generate-shuffled`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    testIds: selectedTestIds,
+                    blueprint,
+                    mockCount: parseInt(mockCount, 10)
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                alert(`Success! ${data.message}`);
+                onSuccess();
+            } else {
+                throw new Error(data.message || "Failed to generate mocks");
+            }
+        } catch (err) {
+            console.error(err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4 sm:p-6 overflow-y-auto">
+            <div className="bg-white rounded-2xl w-full max-w-4xl flex flex-col shadow-2xl overflow-hidden border border-white/20 my-auto">
+                <div className="p-6 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
+                    <div>
+                        <h3 className="text-xl font-black text-indigo-900 flex items-center gap-2">
+                            <Combine className="text-indigo-600" /> Custom Mock Generator
+                        </h3>
+                        <p className="text-sm text-indigo-700/70 mt-1 font-medium">Create new drafted mocks by pooling and shuffling questions.</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 bg-white hover:bg-red-50 hover:text-red-500 rounded-full transition-colors text-gray-400">
+                        <X size={20} strokeWidth={2.5} />
+                    </button>
+                </div>
+
+                <div className="p-6 md:p-8 flex-1 overflow-y-auto max-h-[70vh]">
+                    {error && (
+                        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-start gap-3 text-sm font-medium">
+                            <AlertTriangle className="shrink-0 mt-0.5" size={18} />
+                            <span>{error}</span>
+                        </div>
+                    )}
+
+                    {/* Stepper */}
+                    <div className="flex items-center justify-center mb-8">
+                        <div className={`px-4 py-2 rounded-full font-bold text-sm ${step === 1 ? 'bg-indigo-600 text-white shadow-md' : 'bg-indigo-50 text-indigo-400 border border-indigo-100'}`}>
+                            1. Select Pool
+                        </div>
+                        <div className={`w-12 h-0.5 mx-2 ${step === 2 ? 'bg-indigo-600' : 'bg-indigo-100'}`}></div>
+                        <div className={`px-4 py-2 rounded-full font-bold text-sm ${step === 2 ? 'bg-indigo-600 text-white shadow-md' : 'bg-indigo-50 text-indigo-400 border border-indigo-100'}`}>
+                            2. Blueprint & Generate
+                        </div>
+                    </div>
+
+                    {step === 1 && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                <div>
+                                    <h4 className="font-bold text-gray-800">Select Source Tests</h4>
+                                    <p className="text-xs text-gray-500">Pick active tests to pool questions from.</p>
+                                </div>
+                                <select 
+                                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium text-gray-700"
+                                    value={categoryFilter}
+                                    onChange={(e) => {
+                                        setCategoryFilter(e.target.value);
+                                        setSelectedTestIds([]); // Reset selection on category change to prevent mixing
+                                    }}
+                                >
+                                    <option value="All">All Categories</option>
+                                    <option value="JEE Main">JEE Main</option>
+                                    <option value="JEE Advanced">JEE Advanced</option>
+                                    <option value="NEET">NEET</option>
+                                    <option value="CAT">CAT</option>
+                                    <option value="Board Exam">Board Exam</option>
+                                    <option value="Others">Others</option>
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto p-1 pr-2 custom-scrollbar">
+                                {filteredTests.map(t => (
+                                    <label key={t._id} className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedTestIds.includes(t._id) ? 'border-indigo-500 bg-indigo-50/50 shadow-sm' : 'border-gray-100 hover:border-indigo-200 hover:bg-gray-50'}`}>
+                                        <div className="pt-0.5">
+                                            <input 
+                                                type="checkbox" 
+                                                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 transition-colors"
+                                                checked={selectedTestIds.includes(t._id)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) setSelectedTestIds(prev => [...prev, t._id]);
+                                                    else setSelectedTestIds(prev => prev.filter(id => id !== t._id));
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-gray-900 truncate">{t.title}</p>
+                                            <div className="flex gap-2 mt-1">
+                                                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded uppercase tracking-wider">{t.category}</span>
+                                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded uppercase tracking-wider">{t.questions?.length || 0} QS</span>
+                                            </div>
+                                        </div>
+                                    </label>
+                                ))}
+                                {filteredTests.length === 0 && (
+                                    <div className="col-span-1 md:col-span-2 text-center py-12 text-gray-500">
+                                        No active tests found in this category.
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="pt-4 flex justify-end">
+                                <button
+                                    onClick={handleNextStep}
+                                    disabled={selectedTestIds.length === 0}
+                                    className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-bold shadow hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    Continue to Blueprint →
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 2 && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-300">
+                            <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex gap-3 text-sm text-amber-800">
+                                <Info className="shrink-0 mt-0.5 text-amber-600" size={18} />
+                                <div>
+                                    <p className="font-bold mb-1">How it works</p>
+                                    <p className="text-amber-700/80 leading-relaxed">Questions are pooled from the {selectedTestIds.length} test(s) you selected. Define how many questions you want per mock for each subject and type below. The system will calculate how many non-duplicating mocks can be generated.</p>
+                                </div>
+                            </div>
+
+                            <div className="border border-gray-200 rounded-xl overflow-hidden">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Subject & Type</th>
+                                            <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase">Pool Size</th>
+                                            <th className="px-6 py-3 text-right text-xs font-bold text-indigo-600 uppercase">Select Per Mock</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-100">
+                                        {Object.entries(pools).map(([key, data]) => {
+                                            const [subj, type] = key.split('|');
+                                            return (
+                                                <tr key={key} className={data.selected > 0 ? "bg-indigo-50/30" : ""}>
+                                                    <td className="px-6 py-3 whitespace-nowrap">
+                                                        <span className="font-bold text-gray-800">{subj}</span>
+                                                        <span className="ml-2 text-[10px] font-bold text-gray-500 uppercase bg-gray-100 px-2 py-0.5 rounded">{type}</span>
+                                                    </td>
+                                                    <td className="px-6 py-3 whitespace-nowrap text-center font-mono font-bold text-gray-600">
+                                                        {data.available}
+                                                    </td>
+                                                    <td className="px-6 py-3 whitespace-nowrap text-right">
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max={data.available}
+                                                            className="w-20 px-3 py-1.5 border border-indigo-200 rounded text-center font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                            value={data.selected || ''}
+                                                            onChange={(e) => handlePoolChange(key, e.target.value)}
+                                                            placeholder="0"
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="bg-emerald-50 border-2 border-emerald-100 p-6 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                <div>
+                                    <h4 className="font-black text-emerald-800 text-lg">Maximum Possible Mocks</h4>
+                                    <p className="text-sm text-emerald-600/80 font-medium">Based on your blueprint limit</p>
+                                </div>
+                                <div className="text-4xl font-black text-emerald-600 text-center font-mono drop-shadow-sm">
+                                    {maxMocks}
+                                </div>
+                            </div>
+
+                            {maxMocks > 0 && (
+                                <div className="p-6 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between gap-4">
+                                    <div className="flex-1">
+                                        <label className="block text-sm font-bold text-gray-800 mb-1">Mocks to Generate</label>
+                                        <p className="text-xs text-gray-500">How many new draft tests should be created?</p>
+                                    </div>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max={maxMocks}
+                                        value={mockCount}
+                                        onChange={(e) => setMockCount(e.target.value)}
+                                        className="w-24 px-4 py-2 text-xl font-bold text-center border cursor-text border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    />
+                                </div>
+                            )}
+
+                            <div className="pt-6 border-t border-gray-100 flex justify-between items-center">
+                                <button
+                                    onClick={() => setStep(1)}
+                                    className="px-4 py-2 text-gray-500 hover:text-gray-800 font-bold transition-colors"
+                                >
+                                    ← Back
+                                </button>
+                                <button
+                                    onClick={handleGenerate}
+                                    disabled={loading || maxMocks === 0}
+                                    className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-black tracking-wide shadow-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                                >
+                                    {loading ? (
+                                        <><Loader2 size={18} className="animate-spin" /> Generating...</>
+                                    ) : (
+                                        <><Combine size={18} /> Generate {mockCount || 0} Mocks</>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function AdminDashboard() {
     const { user } = useAuth();
     const router = useRouter();
@@ -1031,6 +1394,7 @@ export default function AdminDashboard() {
 
     const [showBulkUpload, setShowBulkUpload] = useState(false);
     const [showPdfModal, setShowPdfModal] = useState(false);
+    const [showCustomMockModal, setShowCustomMockModal] = useState(false);
 
     // States for "Load to Edit" functionality
     const [isUpdatingExisting, setIsUpdatingExisting] = useState(false);
@@ -2324,9 +2688,31 @@ export default function AdminDashboard() {
 
                         return (
                             <div>
+                                {showCustomMockModal && (
+                                    <CustomMockGeneratorModal
+                                        availableTests={tests}
+                                        user={user}
+                                        onClose={() => setShowCustomMockModal(false)}
+                                        onSuccess={() => {
+                                            setShowCustomMockModal(false);
+                                            fetchTests(); // Refresh the list to show new drafts
+                                            setActiveTab('manage'); // Ensure we stay on manage page
+                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        }}
+                                    />
+                                )}
+
                                 <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
                                     <h2 className="text-2xl font-bold text-gray-800">Manage All Tests</h2>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-3">
+                                        <button 
+                                            onClick={() => setShowCustomMockModal(true)}
+                                            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2"
+                                            title="Combine multiple tests to generate new drafts"
+                                        >
+                                            <Combine size={18} /> Custom Generator
+                                        </button>
+                                        <div className="w-px h-6 bg-gray-300 mx-1 hidden md:block"></div>
                                         <label className="text-sm font-semibold text-gray-600">Sort By:</label>
                                         <select
                                             value={sortTestsBy}

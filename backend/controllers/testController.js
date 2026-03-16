@@ -178,7 +178,8 @@ exports.getAllTests = async (req, res) => {
                     expiryDate: data.expiryDate || null,
                     maxAttempts: data.maxAttempts,
                     questionCount: data.questionCount || (data.questions || []).length,
-                    answerCount: (data.answerCount > 0) ? data.answerCount : (data.questions || []).filter(q => q.correctOption || (q.correctOptions && q.correctOptions.length > 0) || (q.integerAnswer !== undefined && q.integerAnswer !== '')).length
+                    answerCount: (data.answerCount > 0) ? data.answerCount : (data.questions || []).filter(q => q.correctOption || (q.correctOptions && q.correctOptions.length > 0) || (q.integerAnswer !== undefined && q.integerAnswer !== '')).length,
+                    questions: data.questions || []
                 });
                 return;
             }
@@ -920,6 +921,137 @@ exports.toggleVisibility = async (req, res) => {
         res.status(200).json({ message: 'Visibility updated', isVisible });
     } catch (error) {
         console.error("Toggle Visibility Error:", error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Generate Shuffled Mocks from existing mocks (Dynamic)
+// @route   POST /api/tests/generate-shuffled
+// @access  Admin
+exports.generateShuffledMocks = async (req, res) => {
+    try {
+        const { testIds, blueprint, mockCount } = req.body;
+        // blueprint format: { "Physics|mcq": 10, "Physics|integer": 5 }
+        if (!testIds || !Array.isArray(testIds) || testIds.length === 0) {
+            return res.status(400).json({ message: 'Please provide an array of testIds' });
+        }
+        if (!blueprint || typeof blueprint !== 'object') {
+            return res.status(400).json({ message: 'Blueprint object is required.' });
+        }
+        const requestedMocks = Number(mockCount) || 1;
+
+        const tests = [];
+        for (const id of testIds) {
+            const doc = await db.collection('tests').doc(id).get();
+            if (doc.exists) {
+                tests.push({ id: doc.id, ...doc.data() });
+            }
+        }
+
+        if (tests.length === 0) {
+            return res.status(404).json({ message: 'None of the provided tests were found' });
+        }
+
+        // Verify same category (e.g. JEE Main)
+        const firstCategory = tests[0].category;
+        for (const t of tests) {
+            if (t.category !== firstCategory) {
+                return res.status(400).json({ message: 'All selected tests must belong to the same category.' });
+            }
+        }
+
+        // Pool all questions by subject|type
+        const pool = {};
+        tests.forEach(t => {
+            (t.questions || []).forEach(q => {
+                const key = `${q.subject || 'General'}|${q.type || 'mcq'}`;
+                if (!pool[key]) pool[key] = [];
+                // Assign new unique IDs globally to prevent React render issues and result conflicts
+                pool[key].push({ ...q, _id: `q_shf_${Date.now()}_${Math.random().toString(36).substring(2, 9)}` });
+            });
+        });
+
+        // Validation against the Blueprint
+        for (const [key, reqCount] of Object.entries(blueprint)) {
+            const available = pool[key] ? pool[key].length : 0;
+            if (available < reqCount) {
+                return res.status(400).json({ message: `Insufficient questions for ${key}. Required: ${reqCount}, Available: ${available}` });
+            }
+        }
+
+        const maxAllowed = 50; 
+        if (requestedMocks > maxAllowed) {
+            return res.status(400).json({ message: `Cannot generate more than ${maxAllowed} mocks at once to prevent server overload.` });
+        }
+
+        // Shuffle helper
+        const shuffleArray = (arr) => {
+            const cpy = [...arr]; // Create a copy so we don't mutate the original pool immediately before all test iteration
+            for (let i = cpy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [cpy[i], cpy[j]] = [cpy[j], cpy[i]];
+            }
+            return cpy;
+        };
+
+        const newMocks = [];
+        const baseTest = tests[0];
+
+        // Generate the specified number of mocks
+        for (let i = 0; i < requestedMocks; i++) {
+            const generatedQuestions = [];
+            
+            // For EACH new mock, take a FRESH shuffled copy of all pools.
+            // This allows the same question to appear across different mocks,
+            // but NEVER twice within the SAME mock.
+            // And because we randomize, the selection is different every time.
+            for (const [key, reqCount] of Object.entries(blueprint)) {
+                if (reqCount > 0 && pool[key]) {
+                    const shuffledBucket = shuffleArray(pool[key]);
+                    const picked = shuffledBucket.slice(0, reqCount);
+                    generatedQuestions.push(...picked);
+                }
+            }
+
+            // Shuffle the final list to mix subjects if desired, or leave grouped.
+            // Grouped is better for structural integrity.
+
+            // Calculate total marks based on picked questions
+            const totalMarks = generatedQuestions.reduce((sum, q) => sum + (Number(q.marks) || 4), 0);
+
+            const newMock = {
+                title: `[Gen] ${baseTest.title.substring(0, 20)}... - Mock ${i + 1}`,
+                duration_minutes: baseTest.duration_minutes,
+                total_marks: totalMarks || baseTest.total_marks,
+                subject: 'Combined Subjects',
+                category: baseTest.category,
+                difficulty: baseTest.difficulty,
+                isVisible: false, // Draft
+                status: 'draft',
+                instructions: baseTest.instructions,
+                startTime: null,
+                endTime: null,
+                maxAttempts: baseTest.maxAttempts,
+                questions: generatedQuestions,
+                questionCount: generatedQuestions.length,
+                answerCount: generatedQuestions.filter(q => q.correctOption || (q.correctOptions && q.correctOptions.length > 0) || (q.integerAnswer !== undefined && q.integerAnswer !== '')).length,
+                createdBy: req.user?.uid || req.user?._id || 'admin',
+                createdByName: req.user?.name || req.user?.displayName || 'Admin',
+                createdAt: new Date().toISOString()
+            };
+
+            const docRef = await db.collection('tests').add(newMock);
+            newMocks.push({ id: docRef.id, title: newMock.title });
+        }
+
+        res.status(200).json({ 
+            message: `Successfully generated ${requestedMocks} new mocks.`, 
+            generatedCount: requestedMocks,
+            mocks: newMocks
+        });
+
+    } catch (error) {
+        console.error("Generate Shuffled Mocks Error:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
