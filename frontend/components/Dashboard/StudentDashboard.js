@@ -24,6 +24,13 @@ export default function StudentDashboard() {
     const [loading, setLoading] = useState(true);
     const [currentFilter, setFilter] = useState('all');
 
+    // Coupon State
+    const [couponModal, setCouponModal] = useState(null); // { item, type } — shows coupon input
+    const [couponCode, setCouponCode] = useState('');
+    const [couponResult, setCouponResult] = useState(null); // validated coupon response
+    const [couponLoading, setCouponLoading] = useState(false);
+    const [couponPopup, setCouponPopup] = useState(null); // { type: 'success'|'error', message, discount }
+
     // UI State
     const [activeSection, setActiveSection] = useState('dashboard'); // 'dashboard', 'tests', 'series', 'orders', 'analytics', 'profile'
 
@@ -259,21 +266,88 @@ export default function StudentDashboard() {
             return;
         }
 
-        // ── PAID CHECKOUT (Razorpay) ────────────────────────────────────────
+        // ── PAID CHECKOUT ───────────────────────────────────────────────────
+        // Show coupon input modal before payment
+        setCouponModal({ item, type });
+    };
+
+    // Called after coupon step (skip or apply)
+    const handleValidateCoupon = async () => {
+        if (!couponCode.trim()) { setCouponResult({ valid: false, reason: 'Please enter a coupon code' }); return; }
+        setCouponLoading(true); setCouponResult(null);
+        try {
+            const token = await user.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/payment/validate-coupon`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ code: couponCode, userId: user.uid || user._id, seriesId: couponModal.item.id || couponModal.item._id, examType: userField })
+            });
+            const data = await res.json();
+            setCouponResult(data);
+        } catch (e) { setCouponResult({ valid: false, reason: 'Failed to validate coupon' }); }
+        finally { setCouponLoading(false); }
+    };
+
+    const proceedToPayment = async (item, type = 'series', appliedCoupon = null) => {
+        const originalPrice = Number(item.price) || 0;
+        const uid = user.uid || user._id;
         try {
             const token = await user.getIdToken();
 
-            // Step 1: Create Razorpay order on backend
-            const orderRes = await fetch(`${API_BASE_URL}/api/purchases/create-order`, {
+            const finalPrice = appliedCoupon ? appliedCoupon.finalPrice : originalPrice;
+            const finalCouponCode = appliedCoupon ? appliedCoupon.couponCode : null;
+            const discountAmount = appliedCoupon ? appliedCoupon.discountAmount : 0;
+
+            // If coupon makes it 100% free, bypass razorpay
+            if (finalPrice <= 0 && appliedCoupon) {
+                if (!window.confirm(`Enroll in "${item.title}" for FREE using coupon?`)) return;
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/purchases/enroll-free`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ testId: item.id || item._id, userId: uid })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        const newOrder = { id: `enroll_${item.id}_${Date.now()}`, seriesId: item.id || item._id, testTitle: item.title, amount: 0, status: 'paid', couponCode: finalCouponCode, discountAmount, createdAt: new Date().toISOString() };
+                        setOrders(prev => [newOrder, ...prev]);
+                        
+                        // Tell verification endpoint to record the coupon usage explicitly
+                        await fetch(`${API_BASE_URL}/api/payment/verify-payment`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                            body: JSON.stringify({ razorpay_order_id: newOrder.id, razorpay_payment_id: 'FREE_COUPON', razorpay_signature: 'DEMO_SUCCESS_SIGNATURE', userId: uid, seriesId: item.id || item._id, couponCode: finalCouponCode })
+                        });
+
+                        setCouponPopup({ type: 'success', message: `Congratulations!`, discount: discountAmount });
+                        setTimeout(() => setCouponPopup(null), 4000);
+                        setCouponModal(null);
+                    } else { alert(data.message || 'Enrollment failed.'); }
+                } catch (err) { alert('Error: ' + err.message); }
+                return;
+            }
+
+            const orderRes = await fetch(`${API_BASE_URL}/api/payment/create-order`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ testId: item.id || item._id, userId: uid })
+                body: JSON.stringify({ amount: finalPrice, seriesId: item.id || item._id, userId: uid, couponCode: finalCouponCode })
             });
             const orderData = await orderRes.json();
             if (!orderRes.ok) {
-                alert(orderData.message || 'Failed to initiate payment. Please try again.');
+                alert(orderData.message || orderData.error || 'Failed to initiate payment.');
                 return;
             }
+
+            // Backend short-circuited because coupon made it free
+            if (orderData.isFree) {
+                // Enrollment was already recorded server-side via verify-payment DEMO path
+                setCouponModal(null);
+                setCouponPopup({ type: 'success', message: 'Congratulations! Enrolled for FREE!', discount: discountAmount });
+                setTimeout(() => setCouponPopup(null), 4000);
+                const newOrder = { id: `free_${item.id}_${Date.now()}`, seriesId: item.id || item._id, testTitle: item.title, amount: 0, status: 'paid', couponCode: finalCouponCode, discountAmount, createdAt: new Date().toISOString() };
+                setOrders(prev => [newOrder, ...prev]);
+                return;
+            }
+
+            // Close coupon modal as Razorpay is starting
+            setCouponModal(null);
 
             // Step 2: Load Razorpay SDK if not already loaded
             if (!window.Razorpay) {
@@ -287,13 +361,14 @@ export default function StudentDashboard() {
             }
 
             // Step 3: Open Razorpay checkout
+            // Backend spreads order at root: orderData.id, orderData.amount, etc.
             const rzp = new window.Razorpay({
-                key: 'rzp_live_SKdPiD0l0HQgwS',
-                amount: orderData.order.amount,
-                currency: orderData.order.currency || 'INR',
+                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SKdPiD0l0HQgwS',
+                amount: orderData.amount,
+                currency: orderData.currency || 'INR',
                 name: 'Apex Mock Tests',
                 description: item.title,
-                order_id: orderData.order.id,
+                order_id: orderData.id,
                 prefill: {
                     name: user.name || user.displayName || '',
                     email: user.email || ''
@@ -302,7 +377,7 @@ export default function StudentDashboard() {
                 handler: async (response) => {
                     // Step 4: Verify payment on backend
                     try {
-                        const verifyRes = await fetch(`${API_BASE_URL}/api/purchases/verify-payment`, {
+                        const verifyRes = await fetch(`${API_BASE_URL}/api/payment/verify-payment`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                             body: JSON.stringify({
@@ -310,7 +385,9 @@ export default function StudentDashboard() {
                                 razorpay_payment_id: response.razorpay_payment_id,
                                 razorpay_signature: response.razorpay_signature,
                                 testId: item.id || item._id,
-                                userId: uid
+                                seriesId: item.id || item._id,
+                                userId: uid,
+                                couponCode: finalCouponCode
                             })
                         });
                         const verifyData = await verifyRes.json();
@@ -319,8 +396,10 @@ export default function StudentDashboard() {
                                 id: response.razorpay_order_id,
                                 seriesId: item.id || item._id,
                                 testTitle: item.title,
-                                amount: price,
+                                amount: finalPrice,
                                 status: 'paid',
+                                couponCode: finalCouponCode,
+                                discountAmount,
                                 razorpayOrderId: response.razorpay_order_id,
                                 createdAt: new Date().toISOString()
                             };
@@ -329,9 +408,15 @@ export default function StudentDashboard() {
                                 const cached = JSON.parse(localStorage.getItem(`apex_cache_orders_${uid}`) || '[]');
                                 localStorage.setItem(`apex_cache_orders_${uid}`, JSON.stringify([newOrder, ...cached]));
                             } catch (_) { }
-                            alert(`✅ Payment successful! You are now enrolled in "${item.title}".`);
+                            
+                            if (finalCouponCode) {
+                                setCouponPopup({ type: 'success', message: 'Congratulations! Coupon Applied Successfully', discount: discountAmount });
+                                setTimeout(() => setCouponPopup(null), 4000);
+                            } else {
+                                alert(`✅ Payment successful! You are enrolled in "${item.title}".`);
+                            }
                         } else {
-                            alert(verifyData.message || 'Payment verification failed. Contact support.');
+                            alert(verifyData.message || verifyData.error || 'Payment verification failed.');
                         }
                     } catch (err) {
                         alert('Verification error: ' + err.message);
@@ -776,8 +861,8 @@ export default function StudentDashboard() {
                             <SeriesCard
                                 key={s.id}
                                 series={s}
-                                onAction={() => window.location.href = `/series/${s.id}`}
-                                actionLabel={s.price > 0 ? 'Unlock' : 'Start'}
+                                onAction={(series) => processDemoPayment(series, 'series')}
+                                actionLabel={s.price > 0 ? 'Buy Now' : 'Start Free'}
                             />
                         ))}
                     </div>
@@ -886,9 +971,87 @@ export default function StudentDashboard() {
                     ) :
                         activeSection === 'analytics' ? <AnalyticsDashboard results={results} /> :
                             activeSection === 'tests' ? <TestsLibrary /> :
-                                activeSection === 'series' ? <TestsLibrary /> : // Redirect Series tab request to TestsLibrary too
+                                activeSection === 'series' ? <TestsLibrary /> :
                                     <DashboardHome />}
             </div>
+
+            {/* COUPON INPUT MODAL */}
+            {couponModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative">
+                        <button onClick={() => { setCouponModal(null); setCouponCode(''); setCouponResult(null); }} className="absolute -top-3 -right-3 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-red-100 hover:text-red-500 transition-colors shadow-sm">
+                            <X size={16} />
+                        </button>
+                        <div className="text-center mb-6">
+                            <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-12 shadow-sm text-3xl">🎟️</div>
+                            <h3 className="text-2xl font-black text-gray-900">Have a Coupon?</h3>
+                            <p className="text-gray-500 text-sm mt-1">Enter a code to get a discount on <span className="font-bold text-gray-700">{couponModal.item.title}</span></p>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Enter Code (e.g. SAVE50)"
+                                    value={couponCode}
+                                    onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponResult(null); }}
+                                    onKeyDown={e => e.key === 'Enter' && handleValidateCoupon()}
+                                    className="w-full pl-5 pr-28 py-4 rounded-xl border border-gray-200 font-mono font-bold text-gray-900 bg-gray-50 uppercase tracking-widest focus:ring-2 focus:ring-indigo-500 outline-none"
+                                />
+                                <button
+                                    onClick={handleValidateCoupon}
+                                    disabled={!couponCode || couponLoading}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-900 text-white px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50 hover:bg-indigo-600 transition-colors"
+                                >
+                                    {couponLoading ? '...' : 'Apply'}
+                                </button>
+                            </div>
+                            {couponResult && (
+                                <div className={`p-4 rounded-xl text-sm font-bold flex items-start gap-3 ${couponResult.valid ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                    {couponResult.valid ? <CheckCircle size={18} className="shrink-0 mt-0.5" /> : <X size={18} className="shrink-0 mt-0.5" />}
+                                    <div>
+                                        <p>{couponResult.message || couponResult.reason}</p>
+                                        {couponResult.valid && (
+                                            <p className="mt-1 text-xs opacity-80">Original ₹{couponModal.item.price} → Final <strong>₹{couponResult.finalPrice}</strong> (Save ₹{couponResult.discountAmount})</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                            <div className="pt-4 grid grid-cols-2 gap-3">
+                                <button onClick={() => { setCouponModal(null); setCouponCode(''); setCouponResult(null); proceedToPayment(couponModal.item, couponModal.type, null); }} className="px-4 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl transition-colors text-sm border border-gray-200">
+                                    Skip & Pay ₹{couponModal.item.price}
+                                </button>
+                                <button
+                                    onClick={() => proceedToPayment(couponModal.item, couponModal.type, couponResult?.valid ? couponResult : null)}
+                                    className="px-4 py-3 bg-indigo-600 text-white font-black rounded-xl hover:bg-indigo-700 shadow-lg transition-all active:scale-95"
+                                >
+                                    {couponResult?.valid ? `Pay ₹${couponResult.finalPrice}` : 'Proceed →'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* SUCCESS / ERROR POPUP */}
+            {couponPopup && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setCouponPopup(null)}>
+                    <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-2xl flex flex-col items-center text-center max-w-sm w-full" onClick={e => e.stopPropagation()}>
+                        <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-5 shadow-xl ${couponPopup.type === 'success' ? 'bg-gradient-to-br from-green-400 to-emerald-600 shadow-green-200' : 'bg-red-500 shadow-red-200'}`}>
+                            {couponPopup.type === 'success' ? <CheckCircle size={40} className="text-white" /> : <X size={40} className="text-white" />}
+                        </div>
+                        <h2 className="text-3xl font-black text-gray-900 mb-2">{couponPopup.type === 'success' ? '🎉 Woohoo!' : 'Oops!'}</h2>
+                        <p className="text-gray-600 font-bold">{couponPopup.message}</p>
+                        {couponPopup.type === 'success' && couponPopup.discount > 0 && (
+                            <div className="mt-4 bg-green-50 text-green-700 px-6 py-2 rounded-full font-black text-xl border border-green-200">
+                                You Saved ₹{couponPopup.discount}!
+                            </div>
+                        )}
+                        <button onClick={() => setCouponPopup(null)} className="mt-6 w-full py-4 bg-gray-900 text-white font-bold rounded-2xl hover:bg-indigo-600 transition-colors">
+                            Awesome!
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -956,6 +1119,102 @@ const ProfileView = ({ user, profileForm, setProfileForm, profileLoading, onSave
                     </div>
                 </div>
             </div>
+
+            {/* COUPON INPUT MODAL */}
+            {couponModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative animate-in zoom-in-95 duration-200">
+                        <button onClick={() => { setCouponModal(null); setCouponCode(''); setCouponResult(null); }} className="absolute -top-3 -right-3 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-red-100 hover:text-red-500 transition-colors shadow-sm">
+                            <X size={16} />
+                        </button>
+                        
+                        <div className="text-center mb-6">
+                            <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-12 shadow-sm">🎟️</div>
+                            <h3 className="text-2xl font-black text-gray-900 leading-tight">Apply Coupon</h3>
+                            <p className="text-gray-500 text-sm mt-1">Have a discount code? Enter it below to get a sweet deal on <span className="font-bold text-gray-700">{couponModal.item.title}</span>.</p>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div className="relative">
+                                <input 
+                                    type="text" 
+                                    placeholder="Enter Code (e.g. SAVE50)" 
+                                    value={couponCode} 
+                                    onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponResult(null); }}
+                                    className="w-full pl-5 pr-24 py-4 rounded-xl border border-gray-200 font-mono font-bold text-gray-900 bg-gray-50 uppercase tracking-widest focus:ring-2 focus:ring-indigo-500 outline-none"
+                                />
+                                <button 
+                                    onClick={handleValidateCoupon} 
+                                    disabled={!couponCode || couponLoading}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-900 text-white px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50 hover:bg-indigo-600 transition-colors"
+                                >
+                                    {couponLoading ? '...' : 'Apply'}
+                                </button>
+                            </div>
+
+                            {/* Coupon Validation Result */}
+                            {couponResult && (
+                                <div className={`p-4 rounded-xl text-sm font-bold flex items-start gap-3 animate-in slide-in-from-bottom-2 ${couponResult.valid ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                    {couponResult.valid ? <CheckCircle size={18} className="shrink-0 mt-0.5" /> : <X size={18} className="shrink-0 mt-0.5" />}
+                                    <div>
+                                        <p>{couponResult.message || couponResult.reason}</p>
+                                        {couponResult.valid && (
+                                            <div className="mt-2 text-xs opacity-90">
+                                                Original: <span className="line-through">₹{couponModal.item.price}</span> → Final: <span className="font-black text-lg">₹{couponResult.finalPrice}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="pt-4 grid grid-cols-2 gap-3">
+                                <button onClick={() => proceedToPayment(couponModal.item, couponModal.type, null)} className="px-4 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl transition-colors text-sm">
+                                    Skip & Pay ₹{couponModal.item.price}
+                                </button>
+                                <button 
+                                    onClick={() => proceedToPayment(couponModal.item, couponModal.type, couponResult?.valid ? couponResult : null)} 
+                                    className="px-4 py-3 bg-indigo-600 text-white font-black rounded-xl hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all active:scale-95 flex justify-center items-center gap-2"
+                                >
+                                    {couponResult?.valid ? `Pay ₹${couponResult.finalPrice}` : 'Proceed'} →
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* SUCCESS / ERROR ANIMATED POPUP */}
+            {couponPopup && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl flex flex-col items-center text-center max-w-sm w-full animate-in zoom-in-50 slide-in-from-bottom-8 duration-500">
+                        {couponPopup.type === 'success' && (
+                            <div className="absolute inset-0 pointer-events-none">
+                                <DotLottieReact
+                                    src="https://lottie.host/17498c11-9a96-48de-8cb8-7ee820059c1c/q9RjB91n1f.lottie"
+                                    autoplay
+                                    loop={false}
+                                />
+                            </div>
+                        )}
+                        <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-xl relative z-10 ${couponPopup.type === 'success' ? 'bg-gradient-to-br from-green-400 to-emerald-600 shadow-green-200' : 'bg-red-500 shadow-red-200'}`}>
+                            {couponPopup.type === 'success' ? <CheckCircle size={48} className="text-white" /> : <X size={48} className="text-white" />}
+                        </div>
+                        
+                        <h2 className="text-3xl font-black text-gray-900 mb-2 relative z-10">{couponPopup.type === 'success' ? 'Woohoo!' : 'Oops!'}</h2>
+                        <p className="text-lg font-bold text-gray-600 relative z-10">{couponPopup.message}</p>
+                        
+                        {couponPopup.type === 'success' && couponPopup.discount > 0 && (
+                            <div className="mt-4 bg-green-50 text-green-700 px-6 py-2 rounded-full font-black text-xl border border-green-200 relative z-10">
+                                You Saved ₹{couponPopup.discount}
+                            </div>
+                        )}
+                        
+                        <button onClick={() => setCouponPopup(null)} className="mt-8 w-full py-4 bg-gray-900 text-white font-bold rounded-2xl hover:bg-indigo-600 transition-colors relative z-10">
+                            Awesome, let's go!
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

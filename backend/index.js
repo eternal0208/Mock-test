@@ -55,6 +55,7 @@ app.use('/api/tests', testRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/payment', paymentRoutes);  // alias — frontend coupon APIs use singular form
 app.use('/api/purchases', purchaseRoutes);
 
 

@@ -379,7 +379,9 @@ router.get('/revenue', async (req, res) => {
                 status: order.status,
                 paymentId: order.paymentId,
                 razorpayOrderId: order.razorpayOrderId,
-                createdAt: order.createdAt
+                createdAt: order.createdAt,
+                couponCode: order.couponCode || null,
+                discountAmount: order.discountAmount || 0
             });
         }
 
@@ -606,5 +608,100 @@ router.post('/rescore-all-results', async (req, res) => {
     }
 });
 
-module.exports = router;
+// --- Coupon Management ---
 
+// GET /api/admin/coupons — List all coupons
+router.get('/coupons', async (req, res) => {
+    try {
+        const snapshot = await db.collection('coupons').orderBy('createdAt', 'desc').get();
+        const coupons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        res.json(coupons);
+    } catch (error) {
+        console.error('Fetch Coupons Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /api/admin/coupons — Create coupon
+router.post('/coupons', async (req, res) => {
+    try {
+        const {
+            code, discountType, applicableFields,
+            maxUses, maxUsesPerUser, validFrom, validUntil, isActive
+        } = req.body;
+        let { discountValue } = req.body; // Use let for discountValue
+
+        if (!code || !discountType) {
+            return res.status(400).json({ error: 'code and discountType are required' });
+        }
+
+        // Check uniqueness
+        const existing = await db.collection('coupons').where('code', '==', code.toUpperCase()).get();
+        if (!existing.empty) {
+            return res.status(400).json({ error: 'A coupon with this code already exists' });
+        }
+
+        // Handle discountValue for 'free' type
+        if (discountType === 'free') {
+            discountValue = 0; // Ensure discountValue is 0 for 'free'
+        } else {
+            discountValue = Number(discountValue) || 0;
+        }
+
+        const couponData = {
+            code: code.toUpperCase().trim(),
+            discountType,                             // 'percent' | 'flat' | 'free'
+            discountValue: discountValue,
+            applicableFields: applicableFields || ['all'],
+            maxUses: Number(maxUses) || 0,            // 0 = unlimited
+            maxUsesPerUser: Number(maxUsesPerUser) || 1,
+            usedCount: 0,
+            validFrom: validFrom || null,
+            validUntil: validUntil || null,
+            isActive: isActive !== false,
+            usages: [],
+            createdAt: new Date().toISOString()
+        };
+
+        const docRef = await db.collection('coupons').add(couponData);
+        res.status(201).json({ id: docRef.id, ...couponData });
+    } catch (error) {
+        console.error('Create Coupon Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// PUT /api/admin/coupons/:id — Update coupon
+router.put('/coupons/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = { ...req.body, updatedAt: new Date().toISOString() };
+        if (updates.code) updates.code = updates.code.toUpperCase().trim();
+        if (updates.discountType === 'free') {
+            updates.discountValue = 0; // Ensure discountValue is 0 for 'free'
+        } else if (updates.discountValue !== undefined) {
+            updates.discountValue = Number(updates.discountValue);
+        }
+        if (updates.maxUses !== undefined) updates.maxUses = Number(updates.maxUses);
+        if (updates.maxUsesPerUser !== undefined) updates.maxUsesPerUser = Number(updates.maxUsesPerUser);
+        await db.collection('coupons').doc(id).update(updates);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Update Coupon Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// DELETE /api/admin/coupons/:id — Delete coupon
+router.delete('/coupons/:id', async (req, res) => {
+    try {
+        const { id } = req.params; // Destructure id from req.params
+        await db.collection('coupons').doc(id).delete();
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Delete Coupon Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+module.exports = router;

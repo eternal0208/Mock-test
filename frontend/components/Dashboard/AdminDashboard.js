@@ -1334,7 +1334,231 @@ const CustomMockGeneratorModal = ({ availableTests, onClose, onSuccess, user }) 
     );
 };
 
+// ========================
+// COUPON MANAGER COMPONENT
+// ========================
+const CouponManager = ({ user }) => {
+    const [coupons, setCoupons] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [showForm, setShowForm] = useState(false);
+    const [editingCoupon, setEditingCoupon] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(null);
+    const emptyForm = { code: '', discountType: 'percent', discountValue: '', applicableFields: ['all'], maxUses: 0, maxUsesPerUser: 1, validFrom: '', validUntil: '', isActive: true };
+    const [form, setForm] = useState(emptyForm);
+
+    const EXAM_FIELDS = ['JEE Main', 'JEE Advanced', 'NEET', 'CAT', 'Board Exam', 'Others'];
+
+    const fetchCoupons = async () => {
+        try {
+            setLoading(true);
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/admin/coupons`, { headers: { Authorization: `Bearer ${token}` } });
+            const data = await res.json();
+            setCoupons(Array.isArray(data) ? data : []);
+        } catch (e) { setError('Failed to fetch coupons'); }
+        finally { setLoading(false); }
+    };
+
+    useEffect(() => { fetchCoupons(); }, []);
+
+    const handleFieldToggle = (field) => {
+        setForm(prev => {
+            if (field === 'all') return { ...prev, applicableFields: ['all'] };
+            const current = prev.applicableFields.filter(f => f !== 'all');
+            if (current.includes(field)) return { ...prev, applicableFields: current.filter(f => f !== field) || ['all'] };
+            return { ...prev, applicableFields: [...current, field] };
+        });
+    };
+
+    const openCreate = () => { setEditingCoupon(null); setForm(emptyForm); setShowForm(true); setError(null); };
+    const openEdit = (c) => { setEditingCoupon(c); setForm({ ...c, validFrom: c.validFrom ? c.validFrom.slice(0,16) : '', validUntil: c.validUntil ? c.validUntil.slice(0,16) : '' }); setShowForm(true); setError(null); };
+
+    const handleSave = async () => {
+        if (!form.code.trim()) { setError('Coupon code is required'); return; }
+        if (form.discountType !== 'free' && (!form.discountValue || isNaN(Number(form.discountValue)))) { setError('Discount value is required'); return; }
+        setSaving(true); setError(null);
+        try {
+            const token = await user?.getIdToken();
+            const url = editingCoupon ? `${API_BASE_URL}/api/admin/coupons/${editingCoupon.id}` : `${API_BASE_URL}/api/admin/coupons`;
+            const method = editingCoupon ? 'PUT' : 'POST';
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(form) });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to save');
+            setSuccess(editingCoupon ? 'Coupon updated!' : 'Coupon created!');
+            setShowForm(false);
+            fetchCoupons();
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (e) { setError(e.message); }
+        finally { setSaving(false); }
+    };
+
+    const handleDelete = async (id) => {
+        if (!confirm('Delete this coupon? This action cannot be undone.')) return;
+        try {
+            const token = await user?.getIdToken();
+            await fetch(`${API_BASE_URL}/api/admin/coupons/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+            setCoupons(prev => prev.filter(c => c.id !== id));
+        } catch (e) { setError('Failed to delete coupon'); }
+    };
+
+    const discountLabel = (c) => {
+        if (c.discountType === 'free') return <span className="text-green-700 font-bold">FREE</span>;
+        if (c.discountType === 'percent') return <span className="text-indigo-700 font-bold">{c.discountValue}%</span>;
+        return <span className="text-orange-700 font-bold">₹{c.discountValue}</span>;
+    };
+
+    return (
+        <div className="bg-white rounded-xl shadow border border-gray-200">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    🎟️ Coupon Manager
+                </h3>
+                <button onClick={openCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 flex items-center gap-2">
+                    + Create Coupon
+                </button>
+            </div>
+
+            {success && <div className="mx-6 mt-4 p-3 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm font-bold">{success}</div>}
+            {error && !showForm && <div className="mx-6 mt-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-bold">{error}</div>}
+
+            {/* Create / Edit Form */}
+            {showForm && (
+                <div className="p-6 border-b border-gray-100 bg-indigo-50/30 space-y-4">
+                    <h4 className="font-bold text-gray-700">{editingCoupon ? 'Edit Coupon' : 'New Coupon'}</h4>
+                    {error && <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm">{error}</div>}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-600 mb-1">Coupon Code *</label>
+                            <input value={form.code} onChange={e => setForm(p => ({...p, code: e.target.value.toUpperCase()}))} placeholder="e.g. SAVE50" maxLength={20}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 font-mono font-bold text-sm uppercase focus:ring-2 focus:ring-indigo-400 outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-600 mb-1">Discount Type *</label>
+                            <select value={form.discountType} onChange={e => setForm(p => ({...p, discountType: e.target.value}))}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none">
+                                <option value="percent">Percentage (%)</option>
+                                <option value="flat">Flat Amount (₹)</option>
+                                <option value="free">100% Free</option>
+                            </select>
+                        </div>
+                        {form.discountType !== 'free' && (
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 mb-1">Discount Value *</label>
+                                <input type="number" min="0" max={form.discountType === 'percent' ? 100 : undefined} value={form.discountValue} onChange={e => setForm(p => ({...p, discountValue: e.target.value}))}
+                                    placeholder={form.discountType === 'percent' ? '0-100' : '₹ amount'}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" />
+                            </div>
+                        )}
+                        <div>
+                            <label className="block text-xs font-bold text-gray-600 mb-1">Max Total Uses (0 = unlimited)</label>
+                            <input type="number" min="0" value={form.maxUses} onChange={e => setForm(p => ({...p, maxUses: e.target.value}))}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-600 mb-1">Max Uses Per User</label>
+                            <input type="number" min="0" value={form.maxUsesPerUser} onChange={e => setForm(p => ({...p, maxUsesPerUser: e.target.value}))}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-600 mb-1">Active</label>
+                            <button onClick={() => setForm(p => ({...p, isActive: !p.isActive}))}
+                                className={`px-4 py-2 rounded-lg font-bold text-sm border-2 ${form.isActive ? 'bg-green-100 border-green-400 text-green-800' : 'bg-gray-100 border-gray-300 text-gray-600'}`}>
+                                {form.isActive ? '✅ Active' : '⛔ Inactive'}
+                            </button>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-600 mb-1">Valid From</label>
+                            <input type="datetime-local" value={form.validFrom} onChange={e => setForm(p => ({...p, validFrom: e.target.value}))}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-600 mb-1">Valid Until</label>
+                            <input type="datetime-local" value={form.validUntil} onChange={e => setForm(p => ({...p, validUntil: e.target.value}))}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-2">Applicable For</label>
+                        <div className="flex flex-wrap gap-2">
+                            {['all', ...EXAM_FIELDS].map(field => (
+                                <button key={field} onClick={() => handleFieldToggle(field)}
+                                    className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${(form.applicableFields || []).includes(field)
+                                        ? 'bg-indigo-600 text-white border-indigo-600'
+                                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
+                                    {field === 'all' ? '🌍 All Fields' : field}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                        <button onClick={handleSave} disabled={saving} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 disabled:opacity-50">
+                            {saving ? 'Saving...' : editingCoupon ? '💾 Save Changes' : '✨ Create Coupon'}
+                        </button>
+                        <button onClick={() => { setShowForm(false); setError(null); }} className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg font-bold text-sm hover:bg-gray-50">Cancel</button>
+                    </div>
+                </div>
+            )}
+
+            {/* Coupon List */}
+            <div className="overflow-x-auto">
+                {loading ? (
+                    <div className="text-center py-12 text-gray-400 font-medium">Loading coupons...</div>
+                ) : coupons.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400">
+                        <div className="text-4xl mb-3">🎟️</div>
+                        <p className="font-medium">No coupons yet. Create one to get started!</p>
+                    </div>
+                ) : (
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Code</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Discount</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">For</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Uses</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Per User</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Validity</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                            {coupons.map(c => (
+                                <tr key={c.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3 whitespace-nowrap font-mono font-bold text-gray-900 text-sm">{c.code}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap">{discountLabel(c)}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">{(c.applicableFields || ['all']).join(', ')}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                        <span className="font-bold text-gray-800">{c.usedCount || 0}</span>
+                                        <span className="text-gray-400"> / {c.maxUses > 0 ? c.maxUses : '∞'}</span>
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{c.maxUsesPerUser > 0 ? c.maxUsesPerUser : '∞'}x</td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
+                                        {c.validUntil ? `Until ${new Date(c.validUntil).toLocaleDateString()}` : 'No expiry'}
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${c.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                            {c.isActive ? 'Active' : 'Inactive'}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap flex gap-2">
+                                        <button onClick={() => openEdit(c)} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100">Edit</button>
+                                        <button onClick={() => handleDelete(c.id)} className="px-3 py-1 bg-red-50 text-red-700 rounded-md text-xs font-bold hover:bg-red-100">Delete</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+        </div>
+    );
+};
+
 export default function AdminDashboard() {
+
     const { user } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -3138,6 +3362,8 @@ export default function AdminDashboard() {
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Student</th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Item Name</th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider border-l border-gray-100">Amount Paid</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider text-purple-600">Coupon Used</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider text-orange-600">Discount</th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Ref ID</th>
                                     </tr>
@@ -3150,6 +3376,16 @@ export default function AdminDashboard() {
                                             <td className="px-6 py-4 whitespace-nowrap text-gray-600">{order.itemName}</td>
                                             <td className="px-6 py-4 whitespace-nowrap font-bold text-green-600">₹{order.amount}</td>
                                             <td className="px-6 py-4 whitespace-nowrap">
+                                                {order.couponCode ? (
+                                                    <span className="px-2 py-1 text-xs font-bold rounded-full bg-purple-100 text-purple-700 font-mono">{order.couponCode}</span>
+                                                ) : <span className="text-gray-300 text-xs">—</span>}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {order.discountAmount > 0 ? (
+                                                    <span className="text-orange-600 font-bold text-sm">-₹{order.discountAmount}</span>
+                                                ) : <span className="text-gray-300 text-xs">—</span>}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`px-2 py-1 text-xs font-bold rounded-full uppercase ${order.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                                     {order.status}
                                                 </span>
@@ -3158,7 +3394,7 @@ export default function AdminDashboard() {
                                         </tr>
                                     ))}
                                     {(!revenueStats.orders || revenueStats.orders.length === 0) && (
-                                        <tr><td colSpan="6" className="text-center py-8 text-gray-500">No transactions found.</td></tr>
+                                        <tr><td colSpan="8" className="text-center py-8 text-gray-500">No transactions found.</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -3170,6 +3406,9 @@ export default function AdminDashboard() {
             {/* Content Tab */}
             {activeTab === 'content' && isMasterUnlocked && (
                 <div className="space-y-8">
+                    {/* Coupon Manager */}
+                    <CouponManager user={user} />
+
                     {/* Syllabus Management */}
                     <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
                         <div className="flex justify-between items-start mb-6">
