@@ -22,6 +22,7 @@ export default function StudentDashboard() {
     const [testRanks, setTestRanks] = useState({});
     const [percentileData, setPercentileData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [isSyncing, setIsSyncing] = useState(false); // Subtle background sync indicator
     const [currentFilter, setFilter] = useState('all');
 
     // Coupon State
@@ -85,7 +86,9 @@ export default function StudentDashboard() {
             loadFromCache();
 
             // 2. Background Fetch (Update data silently)
-            const fetchFreshData = async () => {
+            const fetchFreshData = async (silent = false) => {
+                if (!silent) setLoading(true);
+                setIsSyncing(true);
                 try {
                     const token = await user.getIdToken();
                     const headers = { 'Authorization': `Bearer ${token}` };
@@ -96,10 +99,11 @@ export default function StudentDashboard() {
                     if (Array.isArray(testsData)) {
                         const sortedTests = testsData.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' }));
                         setTests(sortedTests);
+                        localStorage.removeItem(cacheKeys.tests);
                         localStorage.setItem(cacheKeys.tests, JSON.stringify(sortedTests));
                     }
 
-                    // Fetch Series (always fresh — no caching to ensure latest prices)
+                    // Fetch Series (always fresh)
                     const seriesRes = await fetch(`${API_BASE_URL}/api/tests/series`, { headers });
                     const seriesData = await seriesRes.json();
                     if (Array.isArray(seriesData)) {
@@ -112,6 +116,7 @@ export default function StudentDashboard() {
                     const resultsData = await resultsRes.json();
                     const validResults = Array.isArray(resultsData) ? resultsData : [];
                     setResults(validResults);
+                    localStorage.removeItem(cacheKeys.results);
                     localStorage.setItem(cacheKeys.results, JSON.stringify(validResults));
 
                     // Fetch Orders
@@ -120,16 +125,18 @@ export default function StudentDashboard() {
                         if (ordersRes.ok) {
                             const ordersData = await ordersRes.json();
                             setOrders(ordersData);
+                            localStorage.removeItem(cacheKeys.orders);
                             localStorage.setItem(cacheKeys.orders, JSON.stringify(ordersData));
                         }
                     } catch (e) { console.error("Cache Orders Error", e) }
 
-                    // Fetch Percentile Data (Global, not user scoped)
+                    // Fetch Percentile Data (Global)
                     try {
                         const percRes = await fetch(`${API_BASE_URL}/api/admin/percentile-data`, { headers });
                         if (percRes.ok) {
                             const pData = await percRes.json();
                             setPercentileData(pData);
+                            localStorage.removeItem(`apex_cache_percentile`);
                             localStorage.setItem(`apex_cache_percentile`, JSON.stringify(pData));
                         }
                     } catch (e) { console.error("Percentile Error", e) }
@@ -137,12 +144,38 @@ export default function StudentDashboard() {
                 } catch (error) {
                     console.error("Background fetch failed", error);
                 } finally {
-                    setLoading(false); // Ensure loading is off even if cache was empty and fetch failed
+                    setLoading(false);
+                    setTimeout(() => setIsSyncing(false), 1000); // Pulse effect duration
                 }
             };
 
-            // Trigger background fetch
+            // 3. Clear mismatched user cache
+            const cleanupCache = () => {
+                try {
+                    const keys = Object.keys(localStorage);
+                    keys.forEach(key => {
+                        if (key.startsWith('apex_cache_') && !key.includes(uid) && !key.includes('percentile')) {
+                            localStorage.removeItem(key);
+                            console.log("Cleaned up old cache key:", key);
+                        }
+                    });
+                } catch (e) { console.warn("Cache cleanup failed", e); }
+            };
+
+            cleanupCache();
+            loadFromCache();
             fetchFreshData();
+
+            // 4. Sync on Tab Visibility (Automated)
+            const handleVisibilityChange = () => {
+                if (document.visibilityState === 'visible') {
+                    console.log("Tab focused, triggering background sync...");
+                    fetchFreshData(true); // Silent sync
+                }
+            };
+
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+            return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
         fetchData();
     }, [user]);
@@ -750,9 +783,17 @@ export default function StudentDashboard() {
                         </h1>
                         <p className="text-gray-500 font-medium">Ready to crush your goals today?</p>
                     </div>
-                    <div className="bg-white/80 backdrop-blur-sm border border-gray-100 px-4 py-2 rounded-full shadow-sm flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                        <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">System Online</span>
+                    <div className="flex flex-col md:flex-row items-end md:items-center gap-3">
+                        {isSyncing && (
+                            <div className="bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-full shadow-sm flex items-center gap-2 animate-pulse">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping"></div>
+                                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Syncing Data</span>
+                            </div>
+                        )}
+                        <div className="bg-white/80 backdrop-blur-sm border border-gray-100 px-4 py-2 rounded-full shadow-sm flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                            <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">System Online</span>
+                        </div>
                     </div>
                 </div>
 
@@ -947,6 +988,13 @@ export default function StudentDashboard() {
                     <span className="font-black text-xl tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">APEX</span>
                 </div>
                 <div className="flex items-center gap-3">
+                    {/* Sync Indicator */}
+                    {isSyncing && (
+                        <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100 animate-pulse">
+                            <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping"></div>
+                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Syncing</span>
+                        </div>
+                    )}
                     <div className="text-right">
                         <p className="text-[10px] font-black text-gray-900 leading-none">{user.name?.split(' ')[0]}</p>
                         <span className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest">{userField}</span>
