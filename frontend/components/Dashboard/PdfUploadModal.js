@@ -43,6 +43,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
         questionImageSize: 'medium', // 'small' | 'medium' | 'large'
         optionsImageSize: 'medium', // 'small' | 'medium' | 'large'
         subject: 'Physics',
+        section: '',              // Section within subject (e.g. 'Section A')
         topic: '',
         marks: 4,
         negativeMarks: 1
@@ -452,6 +453,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
         const questionToPush = {
             ...currentQuestionData,
             text: currentQuestionData.text || '',
+            section: currentQuestionData.section || '',
             options: currentQuestionData.options.map((opt, i) => opt || ''),
             solutionImages: currentQuestionData.solutionImages || []
         };
@@ -472,6 +474,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
             questionImageSize: prev.questionImageSize || 'medium',
             optionsImageSize: prev.optionsImageSize || 'medium',
             topic: '',
+            // section is KEPT sticky (same section for batch of questions)
             solutionImages: []
         }));
         setGlobalHighlights(prev => [...prev, ...capturedHighlights]);
@@ -939,17 +942,29 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                         <option value="custom">Others...</option>
                                     </select>
                                 </div>
-                                {/* Topic */}
+                                {/* Section */}
                                 <div>
-                                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Topic / Tag</label>
+                                    <label className="block text-[9px] font-bold text-amber-500 uppercase mb-1">Section <span className="text-gray-400 font-normal normal-case">(opt.)</span></label>
                                     <input
                                         type="text"
-                                        value={currentQuestionData.topic}
-                                        onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, topic: e.target.value })}
-                                        placeholder="e.g. Kinematics"
-                                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-medium bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        value={currentQuestionData.section || ''}
+                                        onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, section: e.target.value })}
+                                        placeholder="e.g. Section A"
+                                        className="w-full border border-amber-200 rounded-lg px-2 py-1.5 text-xs font-medium bg-amber-50 focus:ring-2 focus:ring-amber-400 outline-none"
                                     />
                                 </div>
+                            </div>
+
+                            {/* Topic - full width */}
+                            <div>
+                                <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Topic / Tag</label>
+                                <input
+                                    type="text"
+                                    value={currentQuestionData.topic}
+                                    onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, topic: e.target.value })}
+                                    placeholder="e.g. Kinematics"
+                                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-medium bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                />
                             </div>
 
                             {/* Custom Subject Input */}

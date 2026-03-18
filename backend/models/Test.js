@@ -51,6 +51,7 @@ class Test {
             marks: Number(q.marks) || 4,
             negativeMarks: Number(q.negativeMarks) || 1,
             subject: q.subject,
+            section: q.section || '', // Section within subject (e.g. 'Section A')
             topic: q.topic || '',
             solution: q.solution || '', // Explanation Text
             solutionImage: q.solutionImage || '', // Explanation Image (Legacy)
@@ -60,6 +61,10 @@ class Test {
         this.createdBy = data.createdBy || 'admin';
         this.createdByName = data.createdByName || 'Admin';
         this.createdAt = data.createdAt || new Date().toISOString();
+
+        // Section optional attempt limits: [{ subject, section, requiredAttempts }]
+        // requiredAttempts = null means all questions must be attempted
+        this.sectionMeta = Array.isArray(data.sectionMeta) ? data.sectionMeta : [];
     }
 
     // Helper to Convert to Plain Object for Firestore
@@ -89,8 +94,10 @@ class Test {
                 optionsLayout: q.optionsLayout || 'list',
                 questionImageSize: q.questionImageSize || 'medium',
                 optionsImageSize: q.optionsImageSize || 'medium',
+                section: q.section || '',
                 solutionImages: q.solutionImages || []
             })),
+            sectionMeta: this.sectionMeta || [],
             createdBy: this.createdBy,
             createdByName: this.createdByName,
             createdAt: this.createdAt

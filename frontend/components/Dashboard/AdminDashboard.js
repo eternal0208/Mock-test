@@ -152,6 +152,11 @@ const TestPreviewModal = ({ test, onClose }) => {
                                             <span className="px-3 py-1 bg-gray-50 text-gray-600 text-xs font-bold rounded-lg border border-gray-200">
                                                 {q.subject || 'General'}
                                             </span>
+                                            {q.section && (
+                                                <span className="px-3 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-lg border border-amber-200">
+                                                    {q.section}
+                                                </span>
+                                            )}
                                             <div className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-100 flex items-center gap-1">
                                                 +{q.marks || 4}
                                                 <span className="text-red-500 border-l border-emerald-200 pl-1 ml-1">-{q.negativeMarks || 1}</span>
@@ -459,13 +464,14 @@ const BulkUploadModal = ({ onUpload, onClose }) => {
             { header: 'Marks', key: 'marks', width: 10 },
             { header: 'Neg. Marks', key: 'neg', width: 10 },
             { header: 'Subject', key: 'subj', width: 15 },
+            { header: 'Section (optional)', key: 'section', width: 18 },
             { header: 'Topic', key: 'topic', width: 15 },
             { header: 'Solution', key: 'sol', width: 40 },
             { header: 'Solution Image', key: 'solImg', width: 30 }
         ];
 
         // Add some instruction row
-        sheet.addRow(["mcq", "Example Question?", "", "Opt A", "", "Opt B", "", "Opt C", "", "Opt D", "", "A", "", 4, 1, "Physics", "Mechanics", "Explanation...", ""]);
+        sheet.addRow(["mcq", "Example Question?", "", "Opt A", "", "Opt B", "", "Opt C", "", "Opt D", "", "A", "", 4, 1, "Physics", "Section A", "Mechanics", "Explanation...", ""]);
 
         // Style the header
         sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -583,10 +589,11 @@ const BulkUploadModal = ({ onUpload, onClose }) => {
                 const marks = Number(row.getCell(14).value) || 4;
                 const neg = Number(row.getCell(15).value) || 1;
                 const subject = (row.getCell(16).value || 'Physics').toString();
-                const topic = (row.getCell(17).value || '').toString();
+                const section = (row.getCell(17).value || '').toString().trim(); // NEW: Section column
+                const topic = (row.getCell(18).value || '').toString();
 
-                const sol = await getCellData(18, 'solutions');
-                const solImg = await getCellData(19, 'solutions');
+                const sol = await getCellData(19, 'solutions');
+                const solImg = await getCellData(20, 'solutions');
 
                 // Determine correct option — store as the actual option text to match exam format
                 let correctOption = '';
@@ -612,6 +619,7 @@ const BulkUploadModal = ({ onUpload, onClose }) => {
                         marks,
                         negativeMarks: neg,
                         subject,
+                        section,
                         topic,
                         solution: sol,
                         solutionImage: solImg || '',
@@ -1941,14 +1949,14 @@ export default function AdminDashboard() {
         endTime: '',
         accessType: 'free',
         format: 'full-mock',
-        calculator: false, // Default false
+        calculator: false,
         chapters: '',
         instructions: '',
         seriesId: '',
         isVisible: true,
-        // Result visibility settings
-        resultVisibility: 'immediate', // 'immediate' | 'scheduled' | 'afterTestEnds'
-        resultDeclarationTime: ''      // ISO date string for scheduled mode
+        resultVisibility: 'immediate',
+        resultDeclarationTime: '',
+        sectionMeta: [] // [{ subject, section, requiredAttempts }]
     });
 
     // ... Question State Setup ...
@@ -1961,6 +1969,7 @@ export default function AdminDashboard() {
         correctOptions: [],
         integerAnswer: '',
         subject: 'Physics',
+        section: '',       // Section within subject (e.g. 'Section A')
         topic: '',
         marks: 4,
         negativeMarks: 1,
@@ -2191,6 +2200,14 @@ export default function AdminDashboard() {
         setQuestions(questions.filter((_, i) => i !== index));
     };
 
+    const moveQuestion = (index, direction) => {
+        const newQs = [...questions];
+        const targetIdx = direction === 'up' ? index - 1 : index + 1;
+        if (targetIdx < 0 || targetIdx >= newQs.length) return;
+        [newQs[index], newQs[targetIdx]] = [newQs[targetIdx], newQs[index]];
+        setQuestions(newQs);
+    };
+
     const handleSubmitTest = async () => {
         if (questions.length === 0) {
             alert('Please add at least one question to the test.');
@@ -2230,6 +2247,7 @@ export default function AdminDashboard() {
                 chapters: (testDetails.chapters || '').toString().split(',').map(c => c.trim()).filter(c => c),
                 totalMarks: calculatedTotalMarks,
                 questions,
+                sectionMeta: testDetails.sectionMeta || [],
                 createdByName: user?.name || user?.displayName || (user?.email ? user.email.split('@')[0] : 'Admin'),
                 updatedByName: user?.name || user?.displayName || (user?.email ? user.email.split('@')[0] : 'Admin')
             };
@@ -3629,6 +3647,62 @@ export default function AdminDashboard() {
                                         </div>
                                     </div>
 
+                                    {/* Section Optional Attempt Config — auto-computed from question queue */}
+                                    {(() => {
+                                        const pairs = [];
+                                        const seen = new Set();
+                                        questions.forEach(q => {
+                                            const sub = q.subject || 'General';
+                                            const sec = q.section || '';
+                                            if (sec) {
+                                                const key = `${sub}|||${sec}`;
+                                                if (!seen.has(key)) { seen.add(key); pairs.push({ subject: sub, section: sec }); }
+                                            }
+                                        });
+                                        if (pairs.length === 0) return null;
+                                        return (
+                                            <div className="mt-6 pt-6 border-t border-slate-100">
+                                                <div className="mb-3 flex items-center gap-2">
+                                                    <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Section Attempt Limits</span>
+                                                    <span className="text-[10px] text-slate-400 font-medium">(optional — leave blank to require all)</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                                    {pairs.map(({ subject, section }) => {
+                                                        const meta = (testDetails.sectionMeta || []).find(m => m.subject === subject && m.section === section);
+                                                        const totalInSection = questions.filter(q => (q.subject || 'General') === subject && (q.section || '') === section).length;
+                                                        return (
+                                                            <div key={`${subject}|||${section}`} className="flex items-center gap-3 bg-amber-50/60 border border-amber-200/60 rounded-2xl px-4 py-3">
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="text-[10px] font-black text-amber-900 uppercase tracking-wider truncate">{subject} › {section}</div>
+                                                                    <div className="text-[9px] text-amber-700/70 font-medium">{totalInSection} question{totalInSection !== 1 ? 's' : ''} total</div>
+                                                                </div>
+                                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                                    <span className="text-[10px] text-slate-500 font-bold">Answer any</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="1"
+                                                                        max={totalInSection}
+                                                                        value={meta?.requiredAttempts ?? ''}
+                                                                        onChange={(e) => {
+                                                                            const val = e.target.value === '' ? null : Math.min(totalInSection, Math.max(1, parseInt(e.target.value) || 1));
+                                                                            setTestDetails(prev => {
+                                                                                const existing = (prev.sectionMeta || []).filter(m => !(m.subject === subject && m.section === section));
+                                                                                return { ...prev, sectionMeta: val !== null ? [...existing, { subject, section, requiredAttempts: val }] : existing };
+                                                                            });
+                                                                        }}
+                                                                        placeholder={String(totalInSection)}
+                                                                        className="w-14 text-center border border-amber-300 rounded-lg px-2 py-1.5 text-sm font-bold text-amber-900 bg-white outline-none focus:ring-2 focus:ring-amber-400"
+                                                                    />
+                                                                    <span className="text-[10px] text-slate-500 font-bold">of {totalInSection}</span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
                                     <div className="pt-8 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
                                         <div className="flex flex-col gap-3 p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100/60 transition-colors hover:bg-indigo-50">
@@ -3759,6 +3833,10 @@ export default function AdminDashboard() {
                                             <div>
                                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Topic Tag</label>
                                                 <input type="text" name="topic" value={currentQuestion.topic || ''} onChange={handleQuestionChange} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" placeholder="e.g. Optics" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Section <span className="text-slate-300 font-normal normal-case">(optional)</span></label>
+                                                <input type="text" name="section" value={currentQuestion.section || ''} onChange={handleQuestionChange} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" placeholder="e.g. Section A" />
                                             </div>
                                         </div>
 
@@ -3998,6 +4076,12 @@ export default function AdminDashboard() {
                                                     <span className="bg-indigo-500 text-white text-xs px-2.5 py-0.5 rounded-full font-bold shadow-sm">{questions.length}</span>
                                                 </h3>
                                                 <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest mt-0.5">Ready for publication</p>
+                                                {isUpdatingExisting && (
+                                                    <p className="text-[10px] font-bold text-emerald-400 mt-1 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
+                                                        Appending to existing test — {questions.length} questions loaded
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="flex gap-2 relative z-10">
@@ -4021,8 +4105,10 @@ export default function AdminDashboard() {
                                             </div>
                                         ) : (
                                             questions.map((q, idx) => (
-                                                <div key={idx} className="group relative bg-slate-800 border border-slate-700 rounded-2xl p-5 hover:border-indigo-500/50 transition-all shadow-sm hover:shadow-lg hover:shadow-indigo-500/10">
+                                                <div key={q._id ? `${q._id}_${idx}` : idx} className="group relative bg-slate-800 border border-slate-700 rounded-2xl p-5 hover:border-indigo-500/50 transition-all shadow-sm hover:shadow-lg hover:shadow-indigo-500/10">
                                                     <div className="absolute -top-3 -right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                                        <button onClick={() => moveQuestion(idx, 'up')} disabled={idx === 0} className="bg-slate-600 text-white p-2 rounded-xl shadow-lg hover:bg-slate-500 transition-transform hover:-translate-y-0.5 disabled:opacity-30" title="Move Up">▲</button>
+                                                        <button onClick={() => moveQuestion(idx, 'down')} disabled={idx === questions.length - 1} className="bg-slate-600 text-white p-2 rounded-xl shadow-lg hover:bg-slate-500 transition-transform hover:-translate-y-0.5 disabled:opacity-30" title="Move Down">▼</button>
                                                         <button onClick={() => { setCurrentQuestion({ ...q }); removeQuestion(idx); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="bg-indigo-500 text-white p-2 rounded-xl shadow-lg hover:bg-indigo-600 transition-transform hover:-translate-y-0.5"><Edit3 size={14} /></button>
                                                         <button onClick={() => removeQuestion(idx)} className="bg-rose-500 text-white p-2 rounded-xl shadow-lg hover:bg-rose-600 transition-transform hover:-translate-y-0.5"><Trash size={14} /></button>
                                                     </div>
@@ -4031,6 +4117,7 @@ export default function AdminDashboard() {
                                                         <div className="flex items-center gap-2">
                                                             <span className="px-2 py-1 bg-slate-700 text-slate-300 text-[9px] font-black tracking-widest uppercase rounded-md border border-slate-600">Q{idx + 1}</span>
                                                             <span className={`px-2 py-1 text-[9px] font-black tracking-widest uppercase rounded-md border ${q.type === 'mcq' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : q.type === 'msq' ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>{q.type}</span>
+                                                            {q.section && <span className="px-2 py-1 text-[9px] font-black tracking-widest uppercase rounded-md border bg-amber-500/10 border-amber-500/20 text-amber-400">{q.section}</span>}
                                                         </div>
                                                         <div className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded-md border border-slate-800">
                                                             <span className="text-emerald-400">+{q.marks}</span> / <span className="text-rose-400">-{q.negativeMarks}</span>
@@ -4262,6 +4349,62 @@ export default function AdminDashboard() {
                                         rows="4"
                                     ></textarea>
                                 </div>
+
+                                {/* Section Attempt Limits */}
+                                {(() => {
+                                    const pairs = [];
+                                    const seen = new Set();
+                                    (editingTest.questions || []).forEach(q => {
+                                        const sub = q.subject || 'General';
+                                        const sec = q.section || '';
+                                        if (sec) {
+                                            const key = `${sub}|||${sec}`;
+                                            if (!seen.has(key)) { seen.add(key); pairs.push({ subject: sub, section: sec }); }
+                                        }
+                                    });
+                                    if (pairs.length === 0) return (
+                                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 font-medium">
+                                            No sections found. Use the Mark &amp; Edit Editor to set sections on individual questions.
+                                        </p>
+                                    );
+                                    return (
+                                        <div>
+                                            <label className="block text-sm font-bold text-amber-700 mb-2">
+                                                Section Attempt Limits
+                                                <span className="font-normal text-gray-400 text-xs ml-2">(blank = all required)</span>
+                                            </label>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {pairs.map(({ subject, section }) => {
+                                                    const meta = (editingTest.sectionMeta || []).find(m => m.subject === subject && m.section === section);
+                                                    const totalInSection = (editingTest.questions || []).filter(q => (q.subject || 'General') === subject && (q.section || '') === section).length;
+                                                    return (
+                                                        <div key={`${subject}|||${section}`} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                                            <div className="flex-1 text-xs font-bold text-amber-900 truncate">{subject} › {section} <span className="font-normal text-amber-600">({totalInSection}q)</span></div>
+                                                            <span className="text-[10px] text-gray-500 font-bold">Any</span>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                max={totalInSection}
+                                                                value={meta?.requiredAttempts ?? ''}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value === '' ? null : Math.min(totalInSection, Math.max(1, parseInt(e.target.value) || 1));
+                                                                    setEditingTest(prev => {
+                                                                        const existing = (prev.sectionMeta || []).filter(m => !(m.subject === subject && m.section === section));
+                                                                        return { ...prev, sectionMeta: val !== null ? [...existing, { subject, section, requiredAttempts: val }] : existing };
+                                                                    });
+                                                                }}
+                                                                placeholder={String(totalInSection)}
+                                                                className="w-12 text-center border border-amber-300 rounded px-1 py-1 text-sm font-bold bg-white outline-none focus:ring-2 focus:ring-amber-400"
+                                                            />
+                                                            <span className="text-[10px] text-gray-500 font-bold">of {totalInSection}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
                                 <div className="flex justify-end gap-3 pt-4 border-t">
                                     <button type="button" onClick={() => setEditingTest(null)} className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
                                     <button type="submit" className="px-4 py-2 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700">Save Changes</button>
@@ -4302,7 +4445,9 @@ export default function AdminDashboard() {
                                         </div>
                                         <button
                                             onClick={() => {
-                                                const extractedQuestions = splittingTest.questions.filter(q => (q.subject || 'Uncategorized') === sub);
+                                                const extractedQuestions = splittingTest.questions
+                                                    .filter(q => (q.subject || 'Uncategorized') === sub)
+                                                    .map(q => ({ ...q, _id: undefined })); // Strip IDs for new test
                                                 setQuestions(extractedQuestions);
                                                 setTestDetails({
                                                     ...splittingTest,
@@ -4456,7 +4601,9 @@ export default function AdminDashboard() {
                                                 if (res.ok) {
                                                     const testData = await res.json();
                                                     if (testData.questions) {
-                                                        allFetchedQuestions.push(...testData.questions);
+                                                        // Strip IDs when merging into a new test to prevent collisions
+                                                        const cleanQs = testData.questions.map(q => ({ ...q, _id: undefined }));
+                                                        allFetchedQuestions.push(...cleanQs);
                                                     }
                                                 } else {
                                                     const error = await res.json();
@@ -4525,13 +4672,14 @@ export default function AdminDashboard() {
                                         <tr>
                                             <th className="p-3 text-xs font-black uppercase text-gray-500 border w-[60px] text-center">#</th>
                                             <th className="p-3 text-xs font-black uppercase text-gray-500 border w-1/2">Question & Options</th>
+                                            <th className="p-3 text-xs font-black uppercase text-gray-500 border w-[130px]">Subject / Section</th>
                                             <th className="p-3 text-xs font-black uppercase text-gray-500 border w-[120px]">Type</th>
                                             <th className="p-3 text-xs font-black uppercase text-gray-500 border w-[200px]">Answer</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {questions.map((q, idx) => (
-                                            <tr key={q._id || idx} className="hover:bg-blue-50/30 transition-colors">
+                                            <tr key={q._id ? `${q._id}_${idx}` : idx} className="hover:bg-blue-50/30 transition-colors">
                                                 <td className="p-3 border text-center bg-gray-50/50">
                                                     <div className="flex flex-col items-center gap-1">
                                                         <span className="font-black text-lg text-gray-700">{idx + 1}</span>
@@ -4651,6 +4799,24 @@ export default function AdminDashboard() {
                                                                 </div>
                                                             </div>
                                                         )}
+                                                    </div>
+                                                </td>
+                                                <td className="p-3 border align-top pt-4">
+                                                    <div className="flex flex-col gap-1.5">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Subject"
+                                                            className="w-full text-xs p-1.5 border rounded outline-none focus:border-indigo-400 bg-gray-50"
+                                                            value={q.subject || ''}
+                                                            onChange={(e) => { const newQs = [...questions]; newQs[idx].subject = e.target.value; setQuestions(newQs); }}
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Section (opt.)"
+                                                            className="w-full text-xs p-1.5 border rounded outline-none focus:border-amber-400 bg-amber-50"
+                                                            value={q.section || ''}
+                                                            onChange={(e) => { const newQs = [...questions]; newQs[idx].section = e.target.value; setQuestions(newQs); }}
+                                                        />
                                                     </div>
                                                 </td>
                                                 <td className="p-3 border text-center align-top pt-4">

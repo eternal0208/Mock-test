@@ -1,4 +1,6 @@
 const { db } = require('../config/firebaseAdmin');
+const NodeCache = require('node-cache');
+const testCache = new NodeCache({ stdTTL: 600 }); // Cache tests for 10 minutes
 
 // @desc    Create a new test
 // @route   POST /api/tests
@@ -48,7 +50,7 @@ exports.createTest = async (req, res) => {
             resultDeclarationTime: resultDeclarationTime || null, // ISO date string for scheduled mode
             questions: (questions || []).map((q, i) => ({
                 ...q,
-                _id: q._id || `q_${Date.now()}_${i}`,
+                _id: q._id || `q_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 9)}`,
                 // Ensure solution fields are preserved
                 solution: q.solution || '',
                 solutionImage: q.solutionImage || ''
@@ -380,14 +382,22 @@ exports.submitTest = async (req, res) => {
             return String(v).trim();
         };
 
-        const testRef = db.collection('tests').doc(req.params.id);
-        const testDoc = await testRef.get();
+        const testId = req.params.id;
+        let test = testCache.get(testId);
 
-        if (!testDoc.exists) {
-            return res.status(404).json({ message: 'Test not found' });
+        if (!test) {
+            console.log(`[SUBMIT] Cache miss for test ${testId}. Fetching from Firestore.`);
+            const testRef = db.collection('tests').doc(testId);
+            const testDoc = await testRef.get();
+
+            if (!testDoc.exists) {
+                return res.status(404).json({ message: 'Test not found' });
+            }
+            test = testDoc.data();
+            testCache.set(testId, test);
+        } else {
+            console.log(`[SUBMIT] Cache hit for test ${testId}. Skipping Firestore read.`);
         }
-
-        const test = testDoc.data();
 
         // Helper to ensure questions have IDs
         const ensureIds = (qs) => qs.map((q, i) => ({
@@ -657,7 +667,7 @@ exports.updateTest = async (req, res) => {
 
                 const mergedQ = {
                     ...q,
-                    _id: q._id || `q_${req.params.id}_${i}`,
+                    _id: q._id || `q_${req.params.id}_${i}_${Math.random().toString(36).substring(2, 9)}`,
                     type: q.type || existingQ?.type || 'mcq',
                     solution: q.solution || existingQ?.solution || '',
                     solutionImage: q.solutionImage || existingQ?.solutionImage || ''

@@ -42,9 +42,11 @@ const ExamInterface = ({ test, onSubmit }) => {
     const [questionStatus, setQuestionStatus] = useState({});
     const [timeLeft, setTimeLeft] = useState(test.duration_minutes * 60);
 
-    // Sections
+    // Subjects & Sections
     const [activeSubject, setActiveSubject] = useState(null); // 'Physics', etc.
+    const [activeSection, setActiveSection] = useState(null); // null = All Sections
     const [subjects, setSubjects] = useState([]);
+    const [sectionsMap, setSectionsMap] = useState({}); // { Physics: ['Section A', 'Section B'] }
 
     // Feedback
     const [feedback, setFeedback] = useState({ rating: 0, comment: '' });
@@ -72,13 +74,26 @@ const ExamInterface = ({ test, onSubmit }) => {
         return 'max-h-24 md:max-h-32'; // default medium ~96px/128px
     };
 
-    // Init Subjects and Sections
+    // Init Subjects and sectionsMap
     useEffect(() => {
         if (test.questions && test.questions.length > 0) {
             // Extract Unique Subjects, preserve order
             const subs = [...new Set(test.questions.map(q => q.subject || 'General'))];
             setSubjects(subs);
             setActiveSubject(subs[0]);
+            setActiveSection(null);
+
+            // Build sections map: { subject: [section1, section2, ...] }
+            const map = {};
+            test.questions.forEach(q => {
+                const sub = q.subject || 'General';
+                const sec = q.section || '';
+                if (sec) {
+                    if (!map[sub]) map[sub] = [];
+                    if (!map[sub].includes(sec)) map[sub].push(sec);
+                }
+            });
+            setSectionsMap(map);
         }
     }, [test]);
 
@@ -229,13 +244,57 @@ const ExamInterface = ({ test, onSubmit }) => {
 
     const handleSubjectChange = (subj) => {
         setActiveSubject(subj);
+        setActiveSection(null); // reset section when switching subject
         // Jump to first question of that subject
         const idx = test.questions.findIndex(q => (q.subject || 'General') === subj);
         if (idx !== -1) setCurrentQuestionIndex(idx);
     };
 
+    const handleSectionChange = (sec) => {
+        setActiveSection(sec); // null = All
+        // Jump to first question in this section (within active subject)
+        const idx = test.questions.findIndex(q =>
+            (q.subject || 'General') === activeSubject &&
+            (sec === null || (q.section || '') === sec)
+        );
+        if (idx !== -1) setCurrentQuestionIndex(idx);
+    };
+
+    // Helper: get sectionMeta for a specific subject+section
+    const getSectionMeta = (subject, section) => {
+        if (!test.sectionMeta || !section) return null;
+        return test.sectionMeta.find(m => m.subject === subject && m.section === section) || null;
+    };
+
+    // Count answered questions in a subject+section
+    const countAnsweredInSection = (subject, section) => {
+        return test.questions.filter(q => {
+            if ((q.subject || 'General') !== subject) return false;
+            if ((q.section || '') !== section) return false;
+            const status = questionStatus[q._id] || 'not_visited';
+            return status === 'answered' || status === 'marked_answered';
+        }).length;
+    };
+
     const handleAnswerChange = (val) => {
-        const qId = test.questions[currentQuestionIndex]._id;
+        const q = test.questions[currentQuestionIndex];
+        const qId = q._id;
+        const sub = q.subject || 'General';
+        const sec = q.section || '';
+
+        // Enforce optional attempt limit for this section
+        const meta = getSectionMeta(sub, sec);
+        if (meta?.requiredAttempts) {
+            const alreadyAnswered = answers[qId] !== undefined && answers[qId] !== '' && answers[qId] !== null;
+            if (!alreadyAnswered) {
+                const answeredCount = countAnsweredInSection(sub, sec);
+                if (answeredCount >= meta.requiredAttempts) {
+                    alert(`This section allows attempting any ${meta.requiredAttempts} questions. You have already answered ${answeredCount}. Clear another answer first.`);
+                    return;
+                }
+            }
+        }
+
         setAnswers({ ...answers, [qId]: val });
     };
 
@@ -491,6 +550,42 @@ const ExamInterface = ({ test, onSubmit }) => {
                         ))}
                     </div>
                 </div>
+
+                {/* Section Sub-tabs (only shown when subject has multiple sections) */}
+                {activeSubject && sectionsMap[activeSubject] && sectionsMap[activeSubject].length > 1 && (
+                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar bg-blue-900/50 px-4 py-1 border-t border-blue-700/50">
+                        <button
+                            onClick={() => handleSectionChange(null)}
+                            className={`px-3 py-0.5 rounded text-[11px] font-bold whitespace-nowrap transition-colors ${
+                                activeSection === null ? 'bg-white text-blue-800' : 'bg-blue-800/60 text-blue-200 hover:bg-blue-700'
+                            }`}
+                        >
+                            All Sections
+                        </button>
+                        {sectionsMap[activeSubject].map(sec => {
+                            const meta = getSectionMeta(activeSubject, sec);
+                            const answeredCount = meta?.requiredAttempts ? countAnsweredInSection(activeSubject, sec) : null;
+                            return (
+                                <button
+                                    key={sec}
+                                    onClick={() => handleSectionChange(sec)}
+                                    className={`px-3 py-0.5 rounded text-[11px] font-bold whitespace-nowrap transition-colors ${
+                                        activeSection === sec ? 'bg-white text-blue-800' : 'bg-blue-800/60 text-blue-200 hover:bg-blue-700'
+                                    }`}
+                                >
+                                    {sec}
+                                    {meta?.requiredAttempts && (
+                                        <span className={`ml-1.5 text-[9px] font-black px-1.5 py-0.5 rounded ${
+                                            answeredCount >= meta.requiredAttempts ? 'bg-green-500 text-white' : 'bg-amber-400 text-black'
+                                        }`}>
+                                            {answeredCount}/{meta.requiredAttempts}
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
             </header>
 
             <div className="flex flex-1 overflow-hidden">
@@ -700,10 +795,14 @@ const ExamInterface = ({ test, onSubmit }) => {
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 bg-blue-50">
-                        <h3 className="font-bold text-blue-900 mb-2 px-2 bg-blue-200 py-1 text-sm rounded">{activeSubject} Questions</h3>
+                        <h3 className="font-bold text-blue-900 mb-2 px-2 bg-blue-200 py-1 text-sm rounded">
+                            {activeSubject}{activeSection ? ` › ${activeSection}` : ''} Questions
+                        </h3>
                         <div className="grid grid-cols-5 gap-2">
                             {test.questions.map((q, idx) => {
                                 if ((q.subject || 'General') !== activeSubject) return null;
+                                // Filter by active section if one is chosen
+                                if (activeSection && (q.section || '') !== activeSection) return null;
                                 const status = questionStatus[q._id] || 'not_visited';
                                 let classes = '';
                                 switch (status) {
