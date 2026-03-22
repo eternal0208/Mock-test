@@ -46,7 +46,8 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
         section: '',              // Section within subject (e.g. 'Section A')
         topic: '',
         marks: 4,
-        negativeMarks: 1
+        negativeMarks: 1,
+        solution: ''
     });
 
     const [capturedHighlights, setCapturedHighlights] = useState([]);
@@ -434,8 +435,8 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
     };
 
     const handleAddToQueue = () => {
-        if (!currentQuestionData.image) {
-            alert("Please at least select the question area");
+        if (!currentQuestionData.image && !currentQuestionData.text.trim()) {
+            alert("Please at least select the question area or type the question text.");
             return;
         }
 
@@ -455,7 +456,8 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
             text: currentQuestionData.text || '',
             section: currentQuestionData.section || '',
             options: currentQuestionData.options.map((opt, i) => opt || ''),
-            solutionImages: currentQuestionData.solutionImages || []
+            solutionImages: currentQuestionData.solutionImages || [],
+            solution: currentQuestionData.solution || ''
         };
 
         onUpload([questionToPush]);
@@ -475,7 +477,8 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
             optionsImageSize: prev.optionsImageSize || 'medium',
             topic: '',
             // section is KEPT sticky (same section for batch of questions)
-            solutionImages: []
+            solutionImages: [],
+            solution: ''
         }));
         setGlobalHighlights(prev => [...prev, ...capturedHighlights]);
         setCapturedHighlights([]);
@@ -1007,8 +1010,17 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                             <button onClick={(e) => handleDeleteImage(slot.id, slot.img, e)} className="absolute top-1 right-1 bg-red-500 text-white p-0.5 rounded opacity-0 group-hover/img:opacity-100 hover:bg-red-600 transition z-10"><X size={10} /></button>
                                         </div>
                                     ) : (
-                                        <div className="h-7 flex items-center justify-center text-[9px] text-gray-400 border border-dashed border-gray-200 rounded-lg italic bg-gray-50">Draw on PDF to capture</div>
+                                        <div className="h-7 flex items-center justify-center text-[9px] text-gray-400 border border-dashed border-gray-200 rounded-lg italic bg-gray-50">Draw on PDF to capture image</div>
                                     )}
+                                    <textarea
+                                        value={currentQuestionData.text}
+                                        onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, text: e.target.value })}
+                                        placeholder="Type question text here (Optional)"
+                                        className="w-full text-xs p-2 border border-indigo-100 rounded-lg mt-2 font-medium bg-white focus:ring-2 focus:ring-indigo-400 outline-none resize-y placeholder:text-gray-300 transition-shadow"
+                                        rows={2}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onKeyDown={(e) => e.stopPropagation()}
+                                    />
                                 </div>
                             ))}
 
@@ -1065,8 +1077,21 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    <div className="h-14 flex items-center justify-center text-[8px] text-gray-400 border border-dashed border-gray-200 rounded italic bg-gray-50">Capture</div>
+                                                    <div className="h-12 flex items-center justify-center text-[8px] text-gray-400 border border-dashed border-gray-200 rounded italic bg-gray-50">Capture Image</div>
                                                 )}
+                                                <textarea
+                                                    value={currentQuestionData.options[['optA', 'optB', 'optC', 'optD'].indexOf(slot.id)] || ''}
+                                                    onChange={(e) => {
+                                                        const newOpts = [...currentQuestionData.options];
+                                                        newOpts[['optA', 'optB', 'optC', 'optD'].indexOf(slot.id)] = e.target.value;
+                                                        setCurrentQuestionData({ ...currentQuestionData, options: newOpts });
+                                                    }}
+                                                    placeholder={`Type ${slot.label} text`}
+                                                    className="w-full text-[10px] p-1.5 border border-indigo-100 rounded bg-white mt-1.5 focus:ring-2 focus:ring-indigo-400 outline-none resize-none placeholder:text-gray-300 transition-shadow"
+                                                    rows={1}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    onKeyDown={(e) => e.stopPropagation()}
+                                                />
                                             </div>
                                         );
                                     })}
@@ -1111,6 +1136,15 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                 <div className={`h-7 flex items-center justify-center text-[9px] text-gray-400 border border-dashed border-gray-200 rounded-lg italic ${currentQuestionData.solutionImages?.length > 0 ? 'bg-white' : 'bg-gray-50'}`}>
                                     Draw on PDF to capture {currentQuestionData.solutionImages?.length > 0 ? 'another ' : ''}image
                                 </div>
+                                <textarea
+                                    value={currentQuestionData.solution || ''}
+                                    onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, solution: e.target.value })}
+                                    placeholder="Type solution/explanation here (Optional)"
+                                    className="w-full text-xs p-2 border border-violet-100 rounded-lg mt-2 font-medium bg-white focus:ring-2 focus:ring-violet-400 outline-none resize-y placeholder:text-gray-300 transition-shadow"
+                                    rows={2}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                />
                             </div>
                         </div>
                     </div>
@@ -1267,7 +1301,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                         disabled={
                             isPdfLoading ||
                             isCapturing ||
-                            !currentQuestionData.image ||
+                            (!currentQuestionData.image && !currentQuestionData.text.trim()) ||
                             (currentQuestionData.type === 'mcq' && !currentQuestionData.correctOption) ||
                             (currentQuestionData.type === 'msq' && currentQuestionData.correctOptions.length === 0) ||
                             (currentQuestionData.type === 'integer' && currentQuestionData.integerAnswer === '')
