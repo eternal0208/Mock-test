@@ -3980,8 +3980,8 @@ export default function AdminDashboard() {
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     {currentQuestion.options.map((opt, idx) => {
                                                         const letter = String.fromCharCode(65 + idx);
-                                                        const isCorrectMCQ = (currentQuestion.type === 'mcq' || currentQuestion.type === 'matching') && currentQuestion.correctOption === (opt || `Option ${idx + 1}`);
-                                                        const isCorrectMSQ = currentQuestion.type === 'msq' && (currentQuestion.correctOptions.includes(opt || `Option ${idx + 1}`) || currentQuestion.correctOptions.includes(letter) || currentQuestion.correctOptions.includes(letter.toLowerCase()));
+                                                        const isCorrectMCQ = (currentQuestion.type === 'mcq' || currentQuestion.type === 'matching') && currentQuestion.correctOption === letter;
+                                                        const isCorrectMSQ = currentQuestion.type === 'msq' && currentQuestion.correctOptions.includes(letter);
                                                         const isCorrect = isCorrectMCQ || isCorrectMSQ;
 
                                                         return (
@@ -3993,9 +3993,9 @@ export default function AdminDashboard() {
                                                                         type="button"
                                                                         onClick={() => {
                                                                             if (currentQuestion.type === 'mcq' || currentQuestion.type === 'matching') {
-                                                                                handleQuestionChange({ target: { name: 'correctOption', value: opt || `Option ${idx + 1}` } });
+                                                                                handleQuestionChange({ target: { name: 'correctOption', value: letter } });
                                                                             } else {
-                                                                                handleMSQCheck(opt || `Option ${idx + 1}`);
+                                                                                handleMSQCheck(letter);
                                                                             }
                                                                         }}
                                                                         className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border transition-all ${isCorrect ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200'}`}
@@ -4063,9 +4063,10 @@ export default function AdminDashboard() {
                                                 {(currentQuestion.type === 'mcq' || currentQuestion.type === 'matching') && (
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                         {currentQuestion.options.map((opt, idx) => {
-                                                            const isSelected = currentQuestion.correctOption === (opt || `Option ${idx + 1}`);
+                                                            const letter = String.fromCharCode(65 + idx);
+                                                            const isSelected = currentQuestion.correctOption === letter;
                                                             return (
-                                                                <button key={idx} onClick={() => handleQuestionChange({ target: { name: 'correctOption', value: opt || `Option ${idx + 1}` } })} className={`px-4 py-4 rounded-2xl border-2 text-base font-black transition-all transform active:scale-95 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 -translate-y-1' : 'bg-white border-emerald-100 text-emerald-700 hover:border-emerald-300 hover:shadow-md'}`}>
+                                                                <button key={idx} onClick={() => handleQuestionChange({ target: { name: 'correctOption', value: letter } })} className={`px-4 py-4 rounded-2xl border-2 text-base font-black transition-all transform active:scale-95 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 -translate-y-1' : 'bg-white border-emerald-100 text-emerald-700 hover:border-emerald-300 hover:shadow-md'}`}>
                                                                     {String.fromCharCode(65 + idx)}
                                                                 </button>
                                                             );
@@ -4076,11 +4077,10 @@ export default function AdminDashboard() {
                                                 {currentQuestion.type === 'msq' && (
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                         {currentQuestion.options.map((opt, idx) => {
-                                                            const effectiveOpt = opt || `Option ${idx + 1}`;
                                                             const letter = String.fromCharCode(65 + idx);
-                                                            const isChecked = currentQuestion.correctOptions.includes(effectiveOpt) || currentQuestion.correctOptions.includes(letter) || currentQuestion.correctOptions.includes(letter.toLowerCase());
+                                                            const isChecked = currentQuestion.correctOptions.includes(letter);
                                                             return (
-                                                                <button key={idx} onClick={() => handleMSQCheck(effectiveOpt)} className={`px-4 py-4 rounded-2xl border-2 text-base font-black transition-all transform active:scale-95 ${isChecked ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 -translate-y-1' : 'bg-white border-emerald-100 text-emerald-700 hover:border-emerald-300 hover:shadow-md'}`}>
+                                                                <button key={idx} onClick={() => handleMSQCheck(letter)} className={`px-4 py-4 rounded-2xl border-2 text-base font-black transition-all transform active:scale-95 ${isChecked ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 -translate-y-1' : 'bg-white border-emerald-100 text-emerald-700 hover:border-emerald-300 hover:shadow-md'}`}>
                                                                     {letter}
                                                                 </button>
                                                             );

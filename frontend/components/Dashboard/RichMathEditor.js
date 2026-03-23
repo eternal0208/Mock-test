@@ -11,6 +11,7 @@ const RichMathEditor = forwardRef(({
     minimal = false
 }, ref) => {
     const [isLoaded, setIsLoaded] = useState(false);
+    const [showToolbar, setShowToolbar] = useState(!minimal);
     const mfRef = useRef(null);
 
     useImperativeHandle(ref, () => ({
@@ -96,24 +97,36 @@ const RichMathEditor = forwardRef(({
     return (
         <div className={`border border-slate-200 rounded-2xl overflow-hidden focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all shadow-sm ${className}`}>
             {/* Toolbar styled like minimal OS window */}
-            <div className="bg-slate-50 border-b border-slate-200 flex flex-col">
-                {!minimal && (
-                    <div className="px-3 py-1.5 flex items-center gap-2 border-b border-slate-200/50 bg-slate-100/50">
-                        <div className="flex gap-1.5 mr-2">
-                            <div className="w-2.5 h-2.5 rounded-full bg-rose-400/80"></div>
-                            <div className="w-2.5 h-2.5 rounded-full bg-amber-400/80"></div>
-                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/80"></div>
+            {(!minimal || showToolbar) && (
+                <div className="bg-slate-50 border-b border-slate-200 flex flex-col">
+                    {!minimal && (
+                        <div className="px-3 py-1.5 flex items-center gap-2 border-b border-slate-200/50 bg-slate-100/50">
+                            <div className="flex gap-1.5 mr-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-rose-400/80"></div>
+                                <div className="w-2.5 h-2.5 rounded-full bg-amber-400/80"></div>
+                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/80"></div>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Visual Math Studio</span>
                         </div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Visual Math Studio</span>
+                    )}
+                    <div className="w-full">
+                        <SubjectToolbar onInsert={handleToolbarInsert} />
                     </div>
-                )}
-                <div className="w-full">
-                    <SubjectToolbar onInsert={handleToolbarInsert} />
                 </div>
-            </div>
+            )}
             
             {/* Editor area - MathLive Field */}
-            <div className="bg-white px-2 py-2">
+            <div className="bg-white px-2 py-2 relative">
+                {minimal && (
+                    <button 
+                        type="button" 
+                        onClick={() => setShowToolbar(!showToolbar)} 
+                        className={`absolute top-2 right-2 p-1.5 rounded-lg text-xs font-bold transition-colors z-10 ${showToolbar ? 'bg-indigo-100 text-indigo-700 shadow-inner' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 border border-slate-200 shadow-sm'}`}
+                        title="Toggle Math Symbols"
+                    >
+                        ∑
+                    </button>
+                )}
                 {!isLoaded ? (
                     <div className="animate-pulse h-24 bg-gray-50 flex items-center justify-center text-xs text-gray-400 rounded-lg">
                         Loading Visual Math Editor...
