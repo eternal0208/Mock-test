@@ -442,8 +442,8 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
         }
 
         // Validation for answers
-        if (currentQuestionData.type === 'mcq' && !currentQuestionData.correctOption) {
-            alert("Please mark the correct answer"); return;
+        if ((currentQuestionData.type === 'mcq' || currentQuestionData.type === 'matching') && !currentQuestionData.correctOption) {
+            alert('Please select the correct option.'); return;
         }
         if (currentQuestionData.type === 'msq' && currentQuestionData.correctOptions.length === 0) {
             alert("Please mark at least one correct answer"); return;
@@ -711,7 +711,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                             {capturedHighlights.filter(h => h.page === currentPage).map((h, i) => {
                                 const isOption = h.slot.startsWith('opt');
                                 const optionLetter = h.slot.replace('opt', '');
-                                const isCorrectMCQ = currentQuestionData.type === 'mcq' && currentQuestionData.correctOption === optionLetter;
+                                const isCorrectMCQ = (currentQuestionData.type === 'mcq' || currentQuestionData.type === 'matching') && currentQuestionData.correctOption === optionLetter;
                                 const isCorrectMSQ = currentQuestionData.type === 'msq' && currentQuestionData.correctOptions.includes(optionLetter);
                                 const isCorrect = isCorrectMCQ || isCorrectMSQ;
 
@@ -722,8 +722,8 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                             if (!isOption || isDragging || isMoving || isResizing) return;
                                             e.stopPropagation();
                                             setCurrentQuestionData(prev => {
-                                                if (prev.type === 'mcq') {
-                                                    return { ...prev, correctOption: prev.correctOption === optionLetter ? '' : optionLetter };
+                                            if (prev.type === 'mcq' || prev.type === 'matching') {
+                                                return { ...prev, correctOption: prev.correctOption === optionLetter ? '' : optionLetter };
                                                 } else if (prev.type === 'msq') {
                                                     const newArr = prev.correctOptions.includes(optionLetter)
                                                         ? prev.correctOptions.filter(o => o !== optionLetter)
@@ -1035,7 +1035,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                         { id: 'optD', label: 'Option D', key: '4', img: currentQuestionData.optionImages[3] },
                                     ].map(slot => {
                                         const optLetter = slot.id.replace('opt', '');
-                                        const isCorrectMCQ = currentQuestionData.type === 'mcq' && currentQuestionData.correctOption === optLetter;
+                                        const isCorrectMCQ = (currentQuestionData.type === 'mcq' || currentQuestionData.type === 'matching') && currentQuestionData.correctOption === optLetter;
                                         const isCorrectMSQ = currentQuestionData.type === 'msq' && currentQuestionData.correctOptions.includes(optLetter);
                                         const isCorrect = isCorrectMCQ || isCorrectMSQ;
 
@@ -1061,7 +1061,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                                                 e.stopPropagation();
                                                                 const optLetter = slot.id.replace('opt', '');
                                                                 setCurrentQuestionData(prev => {
-                                                                    if (prev.type === 'mcq') {
+                                                                    if (prev.type === 'mcq' || prev.type === 'matching') {
                                                                         return { ...prev, correctOption: prev.correctOption === optLetter ? '' : optLetter };
                                                                     } else if (prev.type === 'msq') {
                                                                         const newOpts = prev.correctOptions.includes(optLetter)
@@ -1082,6 +1082,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                                 )}
                                                 <div className="mt-1.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                                                     <RichMathEditor
+                                                        minimal={true}
                                                         value={currentQuestionData.options[['optA', 'optB', 'optC', 'optD'].indexOf(slot.id)] || ''}
                                                         onChange={(val) => {
                                                             const newOpts = [...currentQuestionData.options];
@@ -1303,7 +1304,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                             isPdfLoading ||
                             isCapturing ||
                             (!currentQuestionData.image && !currentQuestionData.text.trim()) ||
-                            (currentQuestionData.type === 'mcq' && !currentQuestionData.correctOption) ||
+                            ((currentQuestionData.type === 'mcq' || currentQuestionData.type === 'matching') && !currentQuestionData.correctOption) ||
                             (currentQuestionData.type === 'msq' && currentQuestionData.correctOptions.length === 0) ||
                             (currentQuestionData.type === 'integer' && currentQuestionData.integerAnswer === '')
                         }

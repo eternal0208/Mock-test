@@ -182,6 +182,33 @@ const TestPreviewModal = ({ test, onClose }) => {
                                             )}
                                         </div>
 
+                                        {qType === 'matching' && q.matchPairs && q.matchPairs.length > 0 && (
+                                            <div className="mb-8 flex flex-col md:flex-row gap-4 w-full">
+                                                <div className="flex-1 bg-white border border-gray-200 rounded-lg shadow-sm">
+                                                    <div className="bg-gray-50 border-b px-2 py-1 font-bold text-[10px] text-gray-500 text-center rounded-t-lg">List I</div>
+                                                    <div className="p-0">
+                                                        {q.matchPairs.map((pair, pIdx) => (
+                                                            <div key={pIdx} className="flex border-b last:border-0 hover:bg-gray-50 transition items-center">
+                                                                <div className="px-2 py-2 w-8 text-center text-xs font-bold text-gray-400 bg-gray-50 border-r self-stretch flex items-center justify-center">{pIdx + 1}</div>
+                                                                <div className="px-3 py-2 text-xs sm:text-sm"><MathText text={pair.left || '-'} /></div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1 bg-white border border-gray-200 rounded-lg shadow-sm">
+                                                    <div className="bg-gray-50 border-b px-2 py-1 font-bold text-[10px] text-gray-500 text-center rounded-t-lg">List II</div>
+                                                    <div className="p-0">
+                                                        {q.matchPairs.map((pair, pIdx) => (
+                                                            <div key={pIdx} className="flex border-b last:border-0 hover:bg-gray-50 transition items-center">
+                                                                <div className="px-2 py-2 w-8 text-center text-xs font-bold text-gray-400 bg-gray-50 border-r self-stretch flex items-center justify-center">{String.fromCharCode(80 + pIdx)}</div>
+                                                                <div className="px-3 py-2 text-xs sm:text-sm"><MathText text={pair.right || '-'} /></div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Options OR Integer Answer */}
                                         {isInteger ? (
                                             <div className="bg-amber-50/50 rounded-xl border-2 border-amber-200 p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
@@ -3868,6 +3895,33 @@ export default function AdminDashboard() {
                                                         <div className="prose prose-sm max-w-none text-slate-800">
                                                             <MathText text={currentQuestion.text || '...'} />
                                                         </div>
+
+                                                        {currentQuestion.type === 'matching' && currentQuestion.matchPairs && currentQuestion.matchPairs.length > 0 && (
+                                                            <div className="mt-4 flex flex-col md:flex-row gap-4 w-full">
+                                                                <div className="flex-1 bg-white border border-slate-200 rounded-lg shadow-sm">
+                                                                    <div className="bg-slate-50 border-b px-2 py-1 font-bold text-[9px] text-slate-500 text-center rounded-t-lg uppercase tracking-widest">List I</div>
+                                                                    <div className="p-0">
+                                                                        {currentQuestion.matchPairs.map((pair, pIdx) => (
+                                                                            <div key={pIdx} className="flex border-b last:border-0 items-center">
+                                                                                <div className="px-2 py-2 w-8 text-center text-[10px] font-bold text-slate-400 bg-slate-50 border-r self-stretch flex items-center justify-center">{pIdx + 1}</div>
+                                                                                <div className="px-3 py-2 text-[11px]"><MathText text={pair.left || '-'} /></div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex-1 bg-white border border-slate-200 rounded-lg shadow-sm">
+                                                                    <div className="bg-slate-50 border-b px-2 py-1 font-bold text-[9px] text-slate-500 text-center rounded-t-lg uppercase tracking-widest">List II</div>
+                                                                    <div className="p-0">
+                                                                        {currentQuestion.matchPairs.map((pair, pIdx) => (
+                                                                            <div key={pIdx} className="flex border-b last:border-0 items-center">
+                                                                                <div className="px-2 py-2 w-8 text-center text-[10px] font-bold text-slate-400 bg-slate-50 border-r self-stretch flex items-center justify-center">{String.fromCharCode(80 + pIdx)}</div>
+                                                                                <div className="px-3 py-2 text-[11px]"><MathText text={pair.right || '-'} /></div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                         {currentQuestion.image && (
                                                             <div className="mt-4 inline-block relative group rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white p-2">
                                                                 <img src={currentQuestion.image} alt="Ref" className="max-h-64 object-contain rounded-lg" />
@@ -3895,7 +3949,7 @@ export default function AdminDashboard() {
                                                         <div key={idx} className="flex gap-4 items-center bg-slate-50 p-3 rounded-2xl border border-slate-200">
                                                             <div className="flex-1">
                                                                 <div className="text-[10px] font-bold text-slate-400 mb-1 ml-1">Column I ({idx + 1})</div>
-                                                                <RichMathEditor value={pair.left || ''} onChange={(val) => {
+                                                                <RichMathEditor minimal={true} value={pair.left || ''} onChange={(val) => {
                                                                     const pairs = currentQuestion.matchPairs ? [...currentQuestion.matchPairs] : [{left:'', right:''}, {left:'', right:''}, {left:'', right:''}, {left:'', right:''}];
                                                                     pairs[idx] = { ...pairs[idx], left: val };
                                                                     setCurrentQuestion({...currentQuestion, matchPairs: pairs});
@@ -3903,7 +3957,7 @@ export default function AdminDashboard() {
                                                             </div>
                                                             <div className="flex-1">
                                                                 <div className="text-[10px] font-bold text-slate-400 mb-1 ml-1">Column II ({String.fromCharCode(80 + idx)})</div>
-                                                                <RichMathEditor value={pair.right || ''} onChange={(val) => {
+                                                                <RichMathEditor minimal={true} value={pair.right || ''} onChange={(val) => {
                                                                     const pairs = currentQuestion.matchPairs ? [...currentQuestion.matchPairs] : [{left:'', right:''}, {left:'', right:''}, {left:'', right:''}, {left:'', right:''}];
                                                                     pairs[idx] = { ...pairs[idx], right: val };
                                                                     setCurrentQuestion({...currentQuestion, matchPairs: pairs});
@@ -3926,7 +3980,7 @@ export default function AdminDashboard() {
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     {currentQuestion.options.map((opt, idx) => {
                                                         const letter = String.fromCharCode(65 + idx);
-                                                        const isCorrectMCQ = currentQuestion.type === 'mcq' && currentQuestion.correctOption === (opt || `Option ${idx + 1}`);
+                                                        const isCorrectMCQ = (currentQuestion.type === 'mcq' || currentQuestion.type === 'matching') && currentQuestion.correctOption === (opt || `Option ${idx + 1}`);
                                                         const isCorrectMSQ = currentQuestion.type === 'msq' && (currentQuestion.correctOptions.includes(opt || `Option ${idx + 1}`) || currentQuestion.correctOptions.includes(letter) || currentQuestion.correctOptions.includes(letter.toLowerCase()));
                                                         const isCorrect = isCorrectMCQ || isCorrectMSQ;
 
@@ -3938,7 +3992,7 @@ export default function AdminDashboard() {
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => {
-                                                                            if (currentQuestion.type === 'mcq') {
+                                                                            if (currentQuestion.type === 'mcq' || currentQuestion.type === 'matching') {
                                                                                 handleQuestionChange({ target: { name: 'correctOption', value: opt || `Option ${idx + 1}` } });
                                                                             } else {
                                                                                 handleMSQCheck(opt || `Option ${idx + 1}`);
@@ -3956,6 +4010,7 @@ export default function AdminDashboard() {
                                                                     </div>
                                                                     <div className="flex-1 space-y-3 pt-0.5">
                                                                         <RichMathEditor 
+                                                                            minimal={true}
                                                                             value={opt} 
                                                                             onChange={(val) => handleOptionChange(idx, val)} 
                                                                             onPaste={(e) => handlePaste(e, 'option', idx)}
@@ -4005,7 +4060,7 @@ export default function AdminDashboard() {
                                             </div>
 
                                             <div className="relative z-10">
-                                                {currentQuestion.type === 'mcq' && (
+                                                {(currentQuestion.type === 'mcq' || currentQuestion.type === 'matching') && (
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                         {currentQuestion.options.map((opt, idx) => {
                                                             const isSelected = currentQuestion.correctOption === (opt || `Option ${idx + 1}`);
