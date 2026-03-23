@@ -110,7 +110,7 @@ const RichMathEditor = forwardRef(({
                         </div>
                     )}
                     <div className="w-full">
-                        <SubjectToolbar onInsert={handleToolbarInsert} />
+                        <SubjectToolbar onInsert={handleToolbarInsert} compact={minimal} />
                     </div>
                 </div>
             )}

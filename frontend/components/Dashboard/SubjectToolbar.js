@@ -5,15 +5,15 @@ import {
     Atom, TestTube, Activity, Calculator, BookOpen
 } from 'lucide-react';
 
-const SubjectToolbar = ({ onInsert }) => {
+const SubjectToolbar = ({ onInsert, compact = false }) => {
     const [activeTab, setActiveTab] = useState('math');
 
     const tabs = [
-        { id: 'math', label: 'Math', icon: <Calculator size={14} /> },
-        { id: 'physics', label: 'Physics', icon: <Atom size={14} /> },
-        { id: 'chemistry', label: 'Chemistry', icon: <TestTube size={14} /> },
-        { id: 'biology', label: 'Biology', icon: <Activity size={14} /> },
-        { id: 'cat', label: 'CAT/Gen', icon: <BookOpen size={14} /> },
+        { id: 'math', label: 'Math', icon: <Calculator size={compact ? 11 : 14} /> },
+        { id: 'physics', label: compact ? 'Phy' : 'Physics', icon: <Atom size={compact ? 11 : 14} /> },
+        { id: 'chemistry', label: compact ? 'Chem' : 'Chemistry', icon: <TestTube size={compact ? 11 : 14} /> },
+        { id: 'biology', label: compact ? 'Bio' : 'Biology', icon: <Activity size={compact ? 11 : 14} /> },
+        { id: 'cat', label: 'CAT', icon: <BookOpen size={compact ? 11 : 14} /> },
     ];
 
     const symbolSets = {
@@ -148,13 +148,13 @@ const SubjectToolbar = ({ onInsert }) => {
     return (
         <div className="bg-gray-50 border-b border-gray-300 rounded-t-lg select-none">
             {/* Tabs */}
-            <div className="flex border-b border-gray-200 overflow-x-auto">
+            <div className={`flex border-b border-gray-200 overflow-x-auto ${compact ? '' : ''}`}>
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}
                         type="button"
                         onClick={() => setActiveTab(tab.id)}
-                        className={`flex items-center gap-2 px-4 py-2 text-xs font-bold transition-colors whitespace-nowrap ${activeTab === tab.id
+                        className={`flex items-center gap-1 ${compact ? 'px-2 py-1 text-[10px]' : 'px-4 py-2 text-xs'} font-bold transition-colors whitespace-nowrap ${activeTab === tab.id
                                 ? 'bg-white text-blue-600 border-b-2 border-blue-600'
                                 : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                             }`}
@@ -165,13 +165,13 @@ const SubjectToolbar = ({ onInsert }) => {
             </div>
 
             {/* Symbols Grid */}
-            <div className="flex flex-wrap gap-1 p-2 max-h-32 overflow-y-auto custom-scrollbar">
+            <div className={`flex gap-1 p-2 overflow-y-auto overflow-x-auto custom-scrollbar ${compact ? 'max-h-20 flex-nowrap' : 'flex-wrap max-h-32'}`}>
                 {symbolSets[activeTab].map((btn, idx) => (
                     <button
                         key={idx}
                         type="button"
                         onClick={() => onInsert(btn.latex)}
-                        className="min-w-[32px] h-8 px-2 flex items-center justify-center bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded text-sm text-gray-700 transition shadow-sm font-medium"
+                        className={`${compact ? 'min-w-[28px] h-7 px-1.5 text-xs' : 'min-w-[32px] h-8 px-2 text-sm'} shrink-0 flex items-center justify-center bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded text-gray-700 transition shadow-sm font-medium`}
                         title={btn.label}
                     >
                         {btn.display}
@@ -179,9 +179,11 @@ const SubjectToolbar = ({ onInsert }) => {
                 ))}
             </div>
 
-            <div className="px-2 pb-1 text-[10px] text-gray-400 text-right italic">
-                Click to insert LaTeX
-            </div>
+            {!compact && (
+                <div className="px-2 pb-1 text-[10px] text-gray-400 text-right italic">
+                    Click to insert LaTeX
+                </div>
+            )}
         </div>
     );
 };

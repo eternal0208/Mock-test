@@ -3823,10 +3823,10 @@ export default function AdminDashboard() {
                         </div>
 
                         {/* Workspace Split */}
-                        <div className="lg:col-span-12 grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+                        <div className="lg:col-span-12 grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
 
-                            {/* Left Column: Authoring Studio */}
-                            <div className="xl:col-span-7 2xl:col-span-8 flex flex-col space-y-6">
+                            {/* Left Column: Authoring Studio — takes up most space */}
+                            <div className="xl:col-span-9 2xl:col-span-9 flex flex-col space-y-6">
                                 <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md">
                                     <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-zinc-50/50">
                                         <div className="flex items-center gap-3">
@@ -4158,8 +4158,8 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
 
-                            {/* Right Column: Queue Inspector */}
-                            <div className="xl:col-span-5 2xl:col-span-4 flex flex-col h-full max-h-[calc(100vh-12rem)] sticky top-6">
+                            {/* Right Column: Queue Inspector — slim sidebar */}
+                            <div className="xl:col-span-3 2xl:col-span-3 flex flex-col h-full max-h-[calc(100vh-12rem)] sticky top-6">
                                 <div className="bg-slate-900 rounded-3xl shadow-xl overflow-hidden flex flex-col h-full border border-slate-800">
 
                                     {/* Queue Header */}
