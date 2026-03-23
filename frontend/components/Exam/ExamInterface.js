@@ -657,9 +657,36 @@ const ExamInterface = ({ test, onSubmit }) => {
                                         </div>
                                     )}
 
+                                    {currentType === 'matching' && currentQ.matchPairs && currentQ.matchPairs.length > 0 && (
+                                        <div className="mb-6 flex flex-col md:flex-row gap-4 md:gap-8 w-full max-w-3xl">
+                                            <div className="flex-1 bg-white border border-gray-200 rounded-lg shadow-sm">
+                                                <div className="bg-gray-50 border-b px-4 py-2 font-bold text-gray-700 text-center rounded-t-lg">List I</div>
+                                                <div className="p-0">
+                                                    {currentQ.matchPairs.map((pair, idx) => (
+                                                        <div key={idx} className="flex border-b last:border-0 hover:bg-gray-50 transition items-center">
+                                                            <div className="px-3 py-3 w-10 text-center font-bold text-gray-400 bg-gray-50 border-r self-stretch flex items-center justify-center">{idx + 1}</div>
+                                                            <div className="px-4 py-3"><MathText text={pair.left || '-'} /></div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 bg-white border border-gray-200 rounded-lg shadow-sm">
+                                                <div className="bg-gray-50 border-b px-4 py-2 font-bold text-gray-700 text-center rounded-t-lg">List II</div>
+                                                <div className="p-0">
+                                                    {currentQ.matchPairs.map((pair, idx) => (
+                                                        <div key={idx} className="flex border-b last:border-0 hover:bg-gray-50 transition items-center">
+                                                            <div className="px-3 py-3 w-10 text-center font-bold text-gray-400 bg-gray-50 border-r self-stretch flex items-center justify-center">{String.fromCharCode(80 + idx)}</div>
+                                                            <div className="px-4 py-3"><MathText text={pair.right || '-'} /></div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* ANSWER AREA */}
                                     <div className="mt-6">
-                                        {currentType === 'mcq' && (
+                                        {(currentType === 'mcq' || currentType === 'matching') && (
                                             <div className={`grid gap-3 ${currentQ.optionsLayout === 'grid' ? 'grid-cols-2' : 'grid-cols-1'}`}>
                                                 {currentQ.options.map((opt, idx) => {
                                                     const effectiveOpt = opt || `Option ${idx + 1}`;

@@ -4,6 +4,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { Upload, X, ChevronLeft, ChevronRight, Crop, CheckCircle, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import RichMathEditor from './RichMathEditor';
 
 // Initialize PDF.js worker
 // Initialize PDF.js worker - Use unpkg as a more reliable version-specific CDN
@@ -895,10 +896,10 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                         }}
                                         className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50"
                                     >
-                                        <option value="mcq">MCQ</option>
-                                        <option value="msq">MSQ</option>
-                                        <option value="integer">Integer</option>
-                                    </select>
+                                            <option value="msq">MSQ</option>
+                                            <option value="integer">Integer</option>
+                                            <option value="matching">Matching</option>
+                                        </select>
                                 </div>
                                 {/* Marks */}
                                 <div>
@@ -1012,15 +1013,15 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                     ) : (
                                         <div className="h-7 flex items-center justify-center text-[9px] text-gray-400 border border-dashed border-gray-200 rounded-lg italic bg-gray-50">Draw on PDF to capture image</div>
                                     )}
-                                    <textarea
-                                        value={currentQuestionData.text}
-                                        onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, text: e.target.value })}
-                                        placeholder="Type question text here (Optional)"
-                                        className="w-full text-xs p-2 border border-indigo-100 rounded-lg mt-2 font-medium bg-white focus:ring-2 focus:ring-indigo-400 outline-none resize-y placeholder:text-gray-300 transition-shadow"
-                                        rows={2}
-                                        onClick={(e) => e.stopPropagation()}
-                                        onKeyDown={(e) => e.stopPropagation()}
-                                    />
+                                    <div className="mt-2" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                                        <RichMathEditor
+                                            value={currentQuestionData.text}
+                                            onChange={(val) => setCurrentQuestionData({ ...currentQuestionData, text: val })}
+                                            placeholder="Type question text here (Optional)"
+                                            className="w-full text-xs border border-indigo-100 rounded-lg bg-white"
+                                            rows={2}
+                                        />
+                                    </div>
                                 </div>
                             ))}
 
@@ -1079,19 +1080,19 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                                 ) : (
                                                     <div className="h-12 flex items-center justify-center text-[8px] text-gray-400 border border-dashed border-gray-200 rounded italic bg-gray-50">Capture Image</div>
                                                 )}
-                                                <textarea
-                                                    value={currentQuestionData.options[['optA', 'optB', 'optC', 'optD'].indexOf(slot.id)] || ''}
-                                                    onChange={(e) => {
-                                                        const newOpts = [...currentQuestionData.options];
-                                                        newOpts[['optA', 'optB', 'optC', 'optD'].indexOf(slot.id)] = e.target.value;
-                                                        setCurrentQuestionData({ ...currentQuestionData, options: newOpts });
-                                                    }}
-                                                    placeholder={`Type ${slot.label} text`}
-                                                    className="w-full text-[10px] p-1.5 border border-indigo-100 rounded bg-white mt-1.5 focus:ring-2 focus:ring-indigo-400 outline-none resize-none placeholder:text-gray-300 transition-shadow"
-                                                    rows={1}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    onKeyDown={(e) => e.stopPropagation()}
-                                                />
+                                                <div className="mt-1.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                                                    <RichMathEditor
+                                                        value={currentQuestionData.options[['optA', 'optB', 'optC', 'optD'].indexOf(slot.id)] || ''}
+                                                        onChange={(val) => {
+                                                            const newOpts = [...currentQuestionData.options];
+                                                            newOpts[['optA', 'optB', 'optC', 'optD'].indexOf(slot.id)] = val;
+                                                            setCurrentQuestionData({ ...currentQuestionData, options: newOpts });
+                                                        }}
+                                                        placeholder={`Type ${slot.label} text`}
+                                                        className="w-full text-[10px] border border-indigo-100 rounded bg-white"
+                                                        rows={1}
+                                                    />
+                                                </div>
                                             </div>
                                         );
                                     })}
@@ -1136,15 +1137,15 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                 <div className={`h-7 flex items-center justify-center text-[9px] text-gray-400 border border-dashed border-gray-200 rounded-lg italic ${currentQuestionData.solutionImages?.length > 0 ? 'bg-white' : 'bg-gray-50'}`}>
                                     Draw on PDF to capture {currentQuestionData.solutionImages?.length > 0 ? 'another ' : ''}image
                                 </div>
-                                <textarea
-                                    value={currentQuestionData.solution || ''}
-                                    onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, solution: e.target.value })}
-                                    placeholder="Type solution/explanation here (Optional)"
-                                    className="w-full text-xs p-2 border border-violet-100 rounded-lg mt-2 font-medium bg-white focus:ring-2 focus:ring-violet-400 outline-none resize-y placeholder:text-gray-300 transition-shadow"
-                                    rows={2}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onKeyDown={(e) => e.stopPropagation()}
-                                />
+                                <div className="mt-2" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                                    <RichMathEditor
+                                        value={currentQuestionData.solution || ''}
+                                        onChange={(val) => setCurrentQuestionData({ ...currentQuestionData, solution: val })}
+                                        placeholder="Type solution/explanation here (Optional)"
+                                        className="w-full text-xs border border-violet-100 rounded-lg bg-white"
+                                        rows={2}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>

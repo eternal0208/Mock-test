@@ -2,7 +2,7 @@
 // Admin Dashboard Updated: 2026-02-04
 import { useState, useEffect } from 'react';
 import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X, Download, Loader2, Layers, RefreshCcw, Zap, ChevronUp, ChevronDown, Upload, Info, Combine, AlertTriangle, Edit3, Award } from 'lucide-react';
-import SubjectToolbar from './SubjectToolbar';
+import RichMathEditor from './RichMathEditor';
 import MathText from '@/components/ui/MathText';
 import { API_BASE_URL } from '@/lib/config';
 import { useAuth } from '@/context/AuthContext';
@@ -3820,6 +3820,7 @@ export default function AdminDashboard() {
                                                     <option value="mcq">Single Choice (MCQ)</option>
                                                     <option value="msq">Multi Choice (MSQ)</option>
                                                     <option value="integer">Numerical (Integer)</option>
+                                                    <option value="matching">Matching (Matrix Match)</option>
                                                 </select>
                                             </div>
                                             <div>
@@ -3853,17 +3854,13 @@ export default function AdminDashboard() {
                                             </div>
 
                                             <div className="border border-slate-200 rounded-2xl overflow-hidden focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all shadow-sm">
-                                                {/* Toolbar styled like minimal OS window */}
-                                                <div className="bg-slate-100 border-b border-slate-200 px-3 py-2 flex items-center gap-2">
-                                                    <div className="flex gap-1.5 mr-2">
-                                                        <div className="w-2.5 h-2.5 rounded-full bg-rose-400/80"></div>
-                                                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400/80"></div>
-                                                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/80"></div>
-                                                    </div>
-                                                    <div className="flex-1 opacity-80"><SubjectToolbar onInsert={(latex) => insertMath('text', latex)} /></div>
-                                                </div>
-                                                {/* Editor area */}
-                                                <textarea name="text" value={currentQuestion.text || ''} onChange={handleQuestionChange} rows={5} className="block w-full p-5 text-sm font-medium text-slate-800 outline-none bg-white min-h-[140px] resize-y" placeholder="Draft your question here. Markdown & LaTeX supported ($$ x^2 $$)..." onPaste={(e) => handlePaste(e, 'question')} />
+                                                <RichMathEditor 
+                                                    value={currentQuestion.text || ''}
+                                                    onChange={(val) => handleQuestionChange({ target: { name: 'text', value: val } })}
+                                                    onPaste={(e) => handlePaste(e, 'question')}
+                                                    rows={5}
+                                                    placeholder="Draft your question here. Visual Math and Text supported..."
+                                                />
                                                 {/* Live Preview area */}
                                                 {(currentQuestion.text || currentQuestion.image) && (
                                                     <div className="p-5 bg-slate-50 border-t border-slate-100">
@@ -3881,6 +3878,46 @@ export default function AdminDashboard() {
                                                 )}
                                             </div>
                                         </div>
+
+                                        {currentQuestion.type === 'matching' && (
+                                            <div className="space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Matrix Match Pairs</label>
+                                                    <button type="button" onClick={() => {
+                                                        const pairs = currentQuestion.matchPairs || [];
+                                                        setCurrentQuestion({...currentQuestion, matchPairs: [...pairs, {left:'', right:''}]});
+                                                    }} className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                                                        + Add Pair
+                                                    </button>
+                                                </div>
+                                                <div className="space-y-3">
+                                                    {(currentQuestion.matchPairs || [{left:'', right:''}, {left:'', right:''}, {left:'', right:''}, {left:'', right:''}]).map((pair, idx) => (
+                                                        <div key={idx} className="flex gap-4 items-center bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                                                            <div className="flex-1">
+                                                                <div className="text-[10px] font-bold text-slate-400 mb-1 ml-1">Column I ({idx + 1})</div>
+                                                                <RichMathEditor value={pair.left || ''} onChange={(val) => {
+                                                                    const pairs = currentQuestion.matchPairs ? [...currentQuestion.matchPairs] : [{left:'', right:''}, {left:'', right:''}, {left:'', right:''}, {left:'', right:''}];
+                                                                    pairs[idx] = { ...pairs[idx], left: val };
+                                                                    setCurrentQuestion({...currentQuestion, matchPairs: pairs});
+                                                                }} rows={1} placeholder={`Item ${idx + 1}`} />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <div className="text-[10px] font-bold text-slate-400 mb-1 ml-1">Column II ({String.fromCharCode(80 + idx)})</div>
+                                                                <RichMathEditor value={pair.right || ''} onChange={(val) => {
+                                                                    const pairs = currentQuestion.matchPairs ? [...currentQuestion.matchPairs] : [{left:'', right:''}, {left:'', right:''}, {left:'', right:''}, {left:'', right:''}];
+                                                                    pairs[idx] = { ...pairs[idx], right: val };
+                                                                    setCurrentQuestion({...currentQuestion, matchPairs: pairs});
+                                                                }} rows={1} placeholder={`Item ${String.fromCharCode(80 + idx)}`} />
+                                                            </div>
+                                                            <button type="button" onClick={() => {
+                                                                const pairs = (currentQuestion.matchPairs || []).filter((_, i) => i !== idx);
+                                                                setCurrentQuestion({...currentQuestion, matchPairs: pairs});
+                                                            }} className="p-2 bg-rose-100 text-rose-600 rounded-lg hover:bg-rose-200 transition mt-4"><Trash size={14}/></button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Row 3: Options Array */}
                                         {currentQuestion.type !== 'integer' && (
@@ -3918,7 +3955,14 @@ export default function AdminDashboard() {
                                                                         {letter}
                                                                     </div>
                                                                     <div className="flex-1 space-y-3 pt-0.5">
-                                                                        <textarea value={opt} onChange={(e) => handleOptionChange(idx, e.target.value)} rows={1} className="w-full text-sm font-medium text-slate-800 outline-none bg-transparent resize-none placeholder-slate-300" placeholder="Enter option..." onPaste={(e) => handlePaste(e, 'option', idx)} />
+                                                                        <RichMathEditor 
+                                                                            value={opt} 
+                                                                            onChange={(val) => handleOptionChange(idx, val)} 
+                                                                            onPaste={(e) => handlePaste(e, 'option', idx)}
+                                                                            rows={2} 
+                                                                            className="mb-2"
+                                                                            placeholder="Enter option..." 
+                                                                        />
 
                                                                         {(opt || currentQuestion.optionImages[idx]) && (
                                                                             <div className="pt-2 border-t border-slate-100">
@@ -4023,15 +4067,13 @@ export default function AdminDashboard() {
                                                     </div>
 
                                                     <div className="border border-slate-200 rounded-2xl overflow-hidden focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all shadow-sm">
-                                                        <div className="bg-slate-100 border-b border-slate-200 px-3 py-2 flex items-center gap-2">
-                                                            <div className="flex gap-1.5 mr-2">
-                                                                <div className="w-2.5 h-2.5 rounded-full bg-rose-400/80"></div>
-                                                                <div className="w-2.5 h-2.5 rounded-full bg-amber-400/80"></div>
-                                                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/80"></div>
-                                                            </div>
-                                                            <div className="flex-1 opacity-80"><SubjectToolbar onInsert={(latex) => insertMath('solution', latex)} /></div>
-                                                        </div>
-                                                        <textarea name="solution" value={currentQuestion.solution || ''} onChange={handleQuestionChange} className="block w-full p-5 text-sm font-medium text-slate-800 outline-none bg-white min-h-[140px] resize-y" placeholder="Explain the concept, formulas, and steps used to derive the answer..." onPaste={(e) => handlePaste(e, 'solution')} />
+                                                        <RichMathEditor 
+                                                            value={currentQuestion.solution || ''}
+                                                            onChange={(val) => handleQuestionChange({ target: { name: 'solution', value: val } })}
+                                                            onPaste={(e) => handlePaste(e, 'solution')}
+                                                            rows={4}
+                                                            placeholder="Explain the concept, formulas, and steps used to derive the answer..."
+                                                        />
                                                     </div>
 
                                                     {(currentQuestion.solutionImages || []).length > 0 && (

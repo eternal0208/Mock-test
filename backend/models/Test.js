@@ -48,6 +48,8 @@ class Test {
             correctOption: q.correctOption, // For MCQ/Integer (Auto-check)
             correctOptions: q.correctOptions || [], // For MSQ (Array of correct strings)
             integerAnswer: q.integerAnswer, // For Integer Type (Number or String)
+            matchPairs: q.matchPairs || [], // For Matching Type: Array of { left: '', right: '' }
+
             marks: Number(q.marks) || 4,
             negativeMarks: Number(q.negativeMarks) || 1,
             subject: q.subject,

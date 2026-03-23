@@ -487,7 +487,7 @@ export default function ResultPage() {
                                                 </span>
                                                 <div className="flex items-center gap-1.5 flex-wrap">
                                                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold border border-indigo-100">
-                                                        {qType === 'integer' ? 'INT' : qType === 'msq' ? 'MSQ' : 'MCQ'}
+                                                        {qType === 'integer' ? 'INT' : qType === 'msq' ? 'MSQ' : qType === 'matching' ? 'MATCH' : 'MCQ'}
                                                     </span>
                                                     <StatusIcon size={16} className={statusColor} />
                                                     <span className={`text-xs font-semibold ${statusColor}`}>{statusLabel}</span>
@@ -521,6 +521,34 @@ export default function ResultPage() {
                                                             onClick={() => setPreviewImage(q.image)} />
                                                     )}
                                                 </div>
+
+                                                {/* ── Matrix Match pairs ── */}
+                                                {qType === 'matching' && q.matchPairs && q.matchPairs.length > 0 && (
+                                                    <div className="mb-4 flex flex-col md:flex-row gap-4 w-full">
+                                                        <div className="flex-1 bg-white border border-gray-200 rounded-lg shadow-sm">
+                                                            <div className="bg-gray-50 border-b px-2 py-1 font-bold text-[10px] text-gray-500 text-center rounded-t-lg">List I</div>
+                                                            <div className="p-0">
+                                                                {q.matchPairs.map((pair, pIdx) => (
+                                                                    <div key={pIdx} className="flex border-b last:border-0 hover:bg-gray-50 transition items-center">
+                                                                        <div className="px-2 py-2 w-8 text-center text-xs font-bold text-gray-400 bg-gray-50 border-r self-stretch flex items-center justify-center">{pIdx + 1}</div>
+                                                                        <div className="px-3 py-2 text-xs sm:text-sm"><MathText text={pair.left || '-'} /></div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex-1 bg-white border border-gray-200 rounded-lg shadow-sm">
+                                                            <div className="bg-gray-50 border-b px-2 py-1 font-bold text-[10px] text-gray-500 text-center rounded-t-lg">List II</div>
+                                                            <div className="p-0">
+                                                                {q.matchPairs.map((pair, pIdx) => (
+                                                                    <div key={pIdx} className="flex border-b last:border-0 hover:bg-gray-50 transition items-center">
+                                                                        <div className="px-2 py-2 w-8 text-center text-xs font-bold text-gray-400 bg-gray-50 border-r self-stretch flex items-center justify-center">{String.fromCharCode(80 + pIdx)}</div>
+                                                                        <div className="px-3 py-2 text-xs sm:text-sm"><MathText text={pair.right || '-'} /></div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 {/* ── MCQ / MSQ options ── */}
                                                 {qType !== 'integer' && q.options && q.options.length > 0 && (
