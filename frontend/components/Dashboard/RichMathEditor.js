@@ -133,6 +133,7 @@ const RichMathEditor = forwardRef(({
                     ) : (
                         <math-field
                             ref={mfRef}
+                            default-mode="text"
                             style={{
                                 width: '100%',
                                 minHeight: `${rows * 20}px`,
