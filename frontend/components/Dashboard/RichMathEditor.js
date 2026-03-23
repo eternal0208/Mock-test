@@ -56,8 +56,8 @@ const RichMathEditor = forwardRef(({
             const handleInput = () => {
                 if (onChange) {
                     const rawLatex = mfRef.current.value;
-                    // Wrap in $$ for consistent rendering elsewhere
-                    onChange(rawLatex ? `$$${rawLatex}$$` : '');
+                    // Send raw LaTeX. Our improved MathText component handles raw strings now.
+                    onChange(rawLatex || '');
                 }
             };
 

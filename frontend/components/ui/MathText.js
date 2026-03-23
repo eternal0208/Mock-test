@@ -33,13 +33,30 @@ const MathText = ({ text, className = '' }) => {
 
         const renderMath = () => {
             const container = containerRef.current;
-            container.innerHTML = ''; // Clear
+            if (!container) return;
+            container.innerHTML = ''; 
 
-            // Regex to find math segments
-            // This regex matches $$...$$ or $...$
-            // Using non-greedy matching
-            const regex = /(\$\$[\s\S]*?\$\$)|(\$[^\$]*?\$)/g;
+            // Check if context has NO delimiters but looks like LaTeX (e.g. from MathLive)
+            const hasDelimiters = text.includes('$') || text.includes('\\(') || text.includes('\\[');
+            const looksLikeLatex = text.includes('\\') || text.includes('^') || text.includes('_');
 
+            if (!hasDelimiters && looksLikeLatex) {
+                // If it looks like raw LaTeX, wrap it in a span and render it
+                const mathWrapper = document.createElement('span');
+                try {
+                    katex.render(text, mathWrapper, {
+                        throwOnError: false,
+                        displayMode: false // Prefer inline for natural look
+                    });
+                    container.appendChild(mathWrapper);
+                    return;
+                } catch (e) {
+                    // Fallback to text if KaTeX fails
+                }
+            }
+
+            // Standard regex-based delimiter parsing
+            const regex = /(\$\$[\s\S]*?\$\$)|(\$[^\$]*?\$)|(\\\([\s\S]*?\\\))|(\\\[[\s\S]*?\\\])/g;
             let lastIndex = 0;
             let match;
 
@@ -54,11 +71,14 @@ const MathText = ({ text, className = '' }) => {
                 // Math part
                 const mathWrapper = document.createElement('span');
                 const fullMatch = match[0];
-                const isDisplay = fullMatch.startsWith('$$');
+                const isDisplay = fullMatch.startsWith('$$') || fullMatch.startsWith('\\[');
+                
                 // Remove delimiters
-                const mathContent = isDisplay
-                    ? fullMatch.slice(2, -2)
-                    : fullMatch.slice(1, -1);
+                let mathContent = fullMatch;
+                if (fullMatch.startsWith('$$')) mathContent = fullMatch.slice(2, -2);
+                else if (fullMatch.startsWith('$')) mathContent = fullMatch.slice(1, -1);
+                else if (fullMatch.startsWith('\\(')) mathContent = fullMatch.slice(2, -2);
+                else if (fullMatch.startsWith('\\[')) mathContent = fullMatch.slice(2, -2);
 
                 try {
                     katex.render(mathContent, mathWrapper, {
@@ -66,7 +86,7 @@ const MathText = ({ text, className = '' }) => {
                         displayMode: isDisplay
                     });
                 } catch (e) {
-                    mathWrapper.textContent = fullMatch; // Fallback
+                    mathWrapper.textContent = fullMatch;
                     console.error("Katex Error", e);
                 }
                 container.appendChild(mathWrapper);
