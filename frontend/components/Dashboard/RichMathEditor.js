@@ -160,16 +160,16 @@ const RichMathEditor = forwardRef(({
                     </button>
                 </div>
 
-                {/* Flat symbol strip — appears below when toggled */}
+                {/* Symbol strip — full width, wraps to fill box */}
                 {showSymbols && (
-                    <div className="border-t border-slate-100 bg-slate-50 px-2 py-1.5 flex gap-1 overflow-x-auto">
+                    <div className="border-t border-slate-100 bg-slate-50 px-2 py-2 flex flex-wrap gap-1 w-full">
                         {QUICK_SYMBOLS.map((s, i) => (
                             <button
                                 key={i}
                                 type="button"
                                 title={s.l}
                                 onClick={() => insertLatex(s.l)}
-                                className="shrink-0 min-w-[30px] h-7 px-1.5 rounded-md bg-white border border-slate-200 text-[13px] text-slate-700 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition-colors shadow-sm"
+                                className="min-w-[30px] h-7 px-1.5 rounded-md bg-white border border-slate-200 text-[13px] text-slate-700 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition-colors shadow-sm"
                             >
                                 {s.d}
                             </button>
