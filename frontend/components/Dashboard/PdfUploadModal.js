@@ -133,6 +133,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
             if (key === '3') setActiveSlot('optC');
             if (key === '4') setActiveSlot('optD');
             if (key === 's') setActiveSlot('solution');
+            if (key === 'e') { extractTextFromSelection(); return; }
             if (e.key === 'Enter' && selection) captureSelection();
             if (e.key === 'Escape') setSelection(null);
         };
@@ -626,6 +627,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                             { key: '1–4', label: 'Options' },
                             { key: 'S', label: 'Solution' },
                             { key: '↵', label: 'Crop' },
+                            { key: 'E', label: 'Extract Text' },
                             { key: '^T', label: 'Copy Text' },
                             { key: '^R', label: 'Resize' },
                             { key: 'Esc', label: 'Clear' },
