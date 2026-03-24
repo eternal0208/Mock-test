@@ -1,13 +1,13 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
+import { GlobalWorkerOptions, getDocument, TextLayer } from 'pdfjs-dist';
 import { Upload, X, ChevronLeft, ChevronRight, CheckCircle, Type, ImageIcon, Loader2, Link2, Trash2 } from 'lucide-react';
 import RichMathEditor from './RichMathEditor';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 // Initialize PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@5.4.624/build/pdf.worker.min.mjs`;
 
 const TEXT_LAYER_STYLE = `
 .textLayer {
@@ -227,7 +227,7 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
             setIsPdfLoading(true);
             try {
                 const arrayBuffer = await file.arrayBuffer();
-                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                const loadingTask = getDocument({ data: arrayBuffer });
                 const pdfDoc = await loadingTask.promise;
                 setPdf(pdfDoc);
                 setNumPages(pdfDoc.numPages);
@@ -276,7 +276,7 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
 
                 // Render text layer (Modern PDF.js 5.x way)
                 const textContent = await page.getTextContent();
-                const textLayer = new pdfjsLib.TextLayer({
+                const textLayer = new TextLayer({
                     textContentSource: textContent,
                     container: textLayerDiv,
                     viewport: baseViewport
