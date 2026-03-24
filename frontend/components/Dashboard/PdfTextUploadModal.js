@@ -274,14 +274,14 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
                 await renderTask.promise;
                 renderTaskRef.current = null;
 
-                // Render text layer
+                // Render text layer (Modern PDF.js 5.x way)
                 const textContent = await page.getTextContent();
-                pdfjsLib.renderTextLayer({
+                const textLayer = new pdfjsLib.TextLayer({
                     textContentSource: textContent,
                     container: textLayerDiv,
-                    viewport: baseViewport,
-                    enhanceTextSelection: true
+                    viewport: baseViewport
                 });
+                await textLayer.render();
             } catch (error) {
                 if (error.name !== 'RenderingCancelledException') console.error("Error rendering page:", error);
             }
