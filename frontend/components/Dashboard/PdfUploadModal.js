@@ -63,34 +63,44 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
 
     // Extract text from the selected rectangular area on the current PDF page
     const extractTextFromSelection = async () => {
-        if (!selection || !pdf) return;
+        if (!selection || !pdf) {
+            alert('Pehle PDF pe koi area select karo!');
+            return;
+        }
         try {
             const page = await pdf.getPage(currentPage);
+            // Use the same HIGH_RES_SCALE as rendering so coords match
+            const HIGH_RES_SCALE = 3;
             const viewport = page.getViewport({ scale });
+            const hiResViewport = page.getViewport({ scale: scale * HIGH_RES_SCALE });
             const textContent = await page.getTextContent();
 
-            // Convert CSS-space selection to PDF coordinate space
-            const scaleX = viewport.width / pdfSize.width;
-            const scaleY = viewport.height / pdfSize.height;
-            const selLeft   = selection.x * scaleX;
-            const selRight  = (selection.x + selection.width) * scaleX;
-            const selTop    = selection.y * scaleY;
-            const selBottom = (selection.y + selection.height) * scaleY;
+            // selection coords are in CSS-pixel space (baseViewport)
+            // baseViewport width = viewport.width (scale only, no HRS)
+            const cssW = viewport.width;
+            const cssH = viewport.height;
+
+            const selLeft   = selection.x;
+            const selRight  = selection.x + selection.width;
+            const selTop    = selection.y;
+            const selBottom = selection.y + selection.height;
 
             const extracted = textContent.items
                 .filter(item => {
-                    const [,, , , tx, ty] = item.transform;
-                    // PDF y-axis is bottom-up, viewport is top-down
-                    const screenY = viewport.height - ty;
-                    const screenX = tx;
+                    // PDF text item transforms are in un-scaled PDF space
+                    // Map to CSS space: tx * scale, flip y
+                    const tx = item.transform[4];
+                    const ty = item.transform[5];
+                    const screenX = tx * scale;
+                    const screenY = viewport.height - ty * scale;
                     return (
                         screenX >= selLeft - 5 && screenX <= selRight + 5 &&
                         screenY >= selTop - 5 && screenY <= selBottom + 5
                     );
                 })
                 .sort((a, b) => {
-                    const aY = viewport.height - a.transform[5];
-                    const bY = viewport.height - b.transform[5];
+                    const aY = viewport.height - a.transform[5] * scale;
+                    const bY = viewport.height - b.transform[5] * scale;
                     if (Math.abs(aY - bY) > 5) return aY - bY;
                     return a.transform[4] - b.transform[4];
                 })
@@ -100,21 +110,28 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                 .trim();
 
             if (!extracted) {
-                alert('کوئی text نہیں ملا۔ یہ PDF image-based ہو سکتی ہے۔');
+                alert('Koi text nahi mila. Yeh PDF image-based ho sakti hai (scanned PDF).');
                 return;
             }
             await navigator.clipboard.writeText(extracted);
-            alert(`✅ Text copied!\n\n"${extracted.substring(0, 120)}${extracted.length > 120 ? '…' : ''}"`);
+            alert(`Text copied to clipboard!\n\n"${extracted.substring(0, 150)}${extracted.length > 150 ? '...' : ''}"`);
         } catch (err) {
             console.error('Text extraction failed:', err);
-            alert('Text copy نہیں ہو سکا: ' + err.message);
+            alert('Text copy nahi hua. Error: ' + err.message);
         }
     };
 
     // Keyboard Shortcuts
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            // Block shortcuts when user is typing in any text input or editor
+            const tag = e.target.tagName;
+            if (
+                tag === 'INPUT' ||
+                tag === 'TEXTAREA' ||
+                tag === 'MATH-FIELD' ||
+                e.target.isContentEditable
+            ) return;
 
             const key = e.key.toLowerCase();
             if ((e.ctrlKey || e.metaKey) && key === 'r') {
