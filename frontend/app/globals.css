@@ -1,5 +1,39 @@
 @import "tailwindcss";
 
+@theme {
+  --color-primary: #4a40e0;
+  --color-secondary: #702ae1;
+  --color-tertiary: #006947;
+  --color-background: #f4f6ff;
+  --color-surface: #f4f6ff;
+  --color-surface-bright: #f4f6ff;
+  --color-surface-dim: #cdd4e7;
+  --color-surface-container: #e3e8f7;
+  --color-surface-container-low: #ecf1ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #dce2f3;
+  --color-surface-container-highest: #d6ddee;
+  
+  --color-on-primary: #ffffff;
+  --color-on-secondary: #ffffff;
+  --color-on-tertiary: #ffffff;
+  
+  --color-on-surface: #2a2f38;
+  --color-on-surface-variant: #575c66;
+  --color-on-background: #2a2f38;
+  --color-outline: #727782;
+  --color-outline-variant: #a8adb9;
+
+  --color-primary-container: #9795ff;
+  --color-on-primary-container: #14007e;
+  --color-secondary-container: #dcc9ff;
+  --color-on-secondary-container: #5b00c7;
+  --color-tertiary-container: #69f6b8;
+  --color-on-tertiary-container: #005a3c;
+
+  --font-headline: "Plus Jakarta Sans", sans-serif;
+  --font-body: "Manrope", sans-serif;
+}
 :root {
   /* Light Theme Only */
   --background: #FFFFFF;
@@ -15,9 +49,9 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-background);
+  color: var(--color-on-background);
+  font-family: var(--font-body);
 }
 
 /* ✅ SMOOTH SCROLL */
