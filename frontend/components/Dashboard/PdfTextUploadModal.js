@@ -1,11 +1,37 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { Upload, X, ChevronLeft, ChevronRight, CheckCircle, Type, Loader2 } from 'lucide-react';
+import { Upload, X, ChevronLeft, ChevronRight, CheckCircle, Type, ImageIcon, Loader2, Link2, Trash2 } from 'lucide-react';
 import RichMathEditor from './RichMathEditor';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 // Initialize PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+
+const TEXT_LAYER_STYLE = `
+.textLayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  opacity: 0.2;
+  line-height: 1.0;
+  pointer-events: auto;
+}
+.textLayer span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+::selection {
+  background: rgba(0, 0, 255, 0.3);
+}
+`;
 
 const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
     const [file, setFile] = useState(null);
@@ -31,11 +57,12 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
     const [isSidebarDragging, setIsSidebarDragging] = useState(false);
     const sidebarDragRef = useRef(null);
 
-    // Extracted data for current question
     const [currentQuestionData, setCurrentQuestionData] = useState({
         text: '',
+        image: null,
+        optionImages: [null, null, null, null],
         options: ['', '', '', ''],
-        correctOption: '',        // For MCQ
+        correctOption: 'A',        // Default for MCQ
         correctOptions: [],       // For MSQ
         integerAnswer: '',         // For Integer
         type: 'mcq',
@@ -45,7 +72,10 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
         topic: '',
         marks: 4,
         negativeMarks: 1,
-        solution: ''
+        solution: '',
+        solutionImages: [],
+        questionImageSize: 'medium',
+        optionsImageSize: 'medium'
     });
 
     const [capturedHighlights, setCapturedHighlights] = useState([]);
@@ -54,6 +84,7 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
     const [isResizeMode, setIsResizeMode] = useState(false);
 
     const canvasRef = useRef(null);
+    const textLayerRef = useRef(null);
     const containerRef = useRef(null);
     const overlayRef = useRef(null);
     const renderTaskRef = useRef(null);
@@ -77,92 +108,91 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
     }, [isSidebarDragging]);
 
     const captureSelection = async () => {
-        if (!selection || !pdf) {
-            return;
-        }
+        if (!selection || !pdf) return;
 
         setIsCapturing(true);
         try {
             const page = await pdf.getPage(currentPage);
-            const viewport = page.getViewport({ scale });
-            const textContent = await page.getTextContent();
+            
+            // For images (Solution, etc.)
+            const HIGH_RES_SCALE = 3;
+            const viewport = page.getViewport({ scale: scale * HIGH_RES_SCALE });
+            
+            const captureCanvas = document.createElement('canvas');
+            captureCanvas.width = selection.width * HIGH_RES_SCALE;
+            captureCanvas.height = selection.height * HIGH_RES_SCALE;
+            const ctx = captureCanvas.getContext('2d');
+            
+            if (canvasRef.current) {
+                ctx.drawImage(
+                    canvasRef.current,
+                    selection.x * HIGH_RES_SCALE, selection.y * HIGH_RES_SCALE,
+                    selection.width * HIGH_RES_SCALE, selection.height * HIGH_RES_SCALE,
+                    0, 0,
+                    selection.width * HIGH_RES_SCALE, selection.height * HIGH_RES_SCALE
+                );
 
-            const selLeft   = selection.x;
-            const selRight  = selection.x + selection.width;
-            const selTop    = selection.y;
-            const selBottom = selection.y + selection.height;
+                const blob = await new Promise(resolve => captureCanvas.toBlob(resolve, 'image/png', 0.95));
+                const fileName = `questions/${Date.now()}_${activeSlot}.png`;
+                const storageRef = ref(storage, fileName);
+                const snapshot = await uploadBytes(storageRef, blob);
+                const url = await getDownloadURL(snapshot.ref);
 
-            const extracted = textContent.items
-                .filter(item => {
-                    const [screenX, screenY] = viewport.convertToViewportPoint(
-                        item.transform[4],
-                        item.transform[5]
-                    );
-                    return (
-                        screenX >= selLeft - 8 && screenX <= selRight + 8 &&
-                        screenY >= selTop - 8 && screenY <= selBottom + 8
-                    );
-                })
-                .sort((a, b) => {
-                    const [aX, aY] = viewport.convertToViewportPoint(a.transform[4], a.transform[5]);
-                    const [bX, bY] = viewport.convertToViewportPoint(b.transform[4], b.transform[5]);
-                    if (Math.abs(aY - bY) > 5) return aY - bY;
-                    return aX - bX;
-                })
-                .map(item => item.str)
-                .join(' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-
-            if (!extracted) {
-                alert('Koi text nahi mila. Yeh PDF scan ki hui (image-based) ho sakti hai.');
-                setIsCapturing(false);
-                return;
-            }
-
-            // Add highlight
-            setCapturedHighlights(prev => [...prev.filter(h => h.slot !== activeSlot || activeSlot === 'solution'), { ...selection, slot: activeSlot, page: currentPage }]);
-
-            // Update question data based on active slot
-            setCurrentQuestionData(prev => {
-                const newData = { ...prev };
-                if (activeSlot === 'question') {
-                    newData.text = (newData.text ? newData.text + '\n' : '') + extracted;
-                    setActiveSlot(prev.type === 'integer' ? 'solution' : 'optA');
-                } else if (activeSlot === 'optA') {
-                    newData.options[0] = (newData.options[0] ? newData.options[0] + ' ' : '') + extracted;
-                    setActiveSlot('optB');
-                } else if (activeSlot === 'optB') {
-                    newData.options[1] = (newData.options[1] ? newData.options[1] + ' ' : '') + extracted;
-                    setActiveSlot('optC');
-                } else if (activeSlot === 'optC') {
-                    newData.options[2] = (newData.options[2] ? newData.options[2] + ' ' : '') + extracted;
-                    setActiveSlot('optD');
-                } else if (activeSlot === 'optD') {
-                    newData.options[3] = (newData.options[3] ? newData.options[3] + ' ' : '') + extracted;
-                    setActiveSlot('solution');
-                } else if (activeSlot === 'solution') {
-                    newData.solution = (newData.solution ? newData.solution + '\n' : '') + extracted;
-                }
-                return newData;
-            });
-
-            // If it's one of the options (A, B, C) and we just captured, we can shift the selection box down automatically
-            if (activeSlot.startsWith('opt') && activeSlot !== 'optD') {
-                setSelection(prev => {
-                    if (!prev) return null;
-                    const newY = prev.y + prev.height + 15;
-                    return { ...prev, y: Math.min(newY, pdfSize.height - prev.height) };
+                setCurrentQuestionData(prev => {
+                    const newData = { ...prev };
+                    if (activeSlot === 'question') newData.image = url;
+                    else if (activeSlot === 'optA') newData.optionImages[0] = url;
+                    else if (activeSlot === 'optB') newData.optionImages[1] = url;
+                    else if (activeSlot === 'optC') newData.optionImages[2] = url;
+                    else if (activeSlot === 'optD') newData.optionImages[3] = url;
+                    else if (activeSlot === 'solution') {
+                        newData.solutionImages = [...(newData.solutionImages || []), url];
+                    }
+                    return newData;
                 });
-            } else {
-                setSelection(null);
+                
+                setCapturedHighlights(prev => [...prev.filter(h => h.slot !== activeSlot || activeSlot === 'solution'), { ...selection, slot: activeSlot, page: currentPage }]);
             }
+            
+            setSelection(null);
         } catch (error) {
-            console.error("Error capturing selection:", error);
-            alert("Failed to extract text: " + error.message);
+            console.error("Error capturing image:", error);
+            alert("Capture failed: " + error.message);
         } finally {
             setIsCapturing(false);
         }
+    };
+
+    const handleTextSelection = () => {
+        const selectedText = window.getSelection().toString().trim();
+        if (!selectedText) return;
+
+        setCurrentQuestionData(prev => {
+            const newData = { ...prev };
+            if (activeSlot === 'question') {
+                newData.text = (newData.text ? newData.text + '\n' : '') + selectedText;
+                if (prev.type !== 'integer') setActiveSlot('optA');
+                else setActiveSlot('solution');
+            } else if (activeSlot === 'optA') {
+                newData.options[0] = selectedText;
+                setActiveSlot('optB');
+            } else if (activeSlot === 'optB') {
+                newData.options[1] = selectedText;
+                setActiveSlot('optC');
+            } else if (activeSlot === 'optC') {
+                newData.options[2] = selectedText;
+                setActiveSlot('optD');
+            } else if (activeSlot === 'optD') {
+                newData.options[3] = selectedText;
+                setActiveSlot('solution');
+            } else if (activeSlot === 'solution') {
+                newData.solution = (newData.solution ? newData.solution + '\n' : '') + selectedText;
+            }
+            return newData;
+        });
+
+        // Clear selection to avoid double trigger
+        window.getSelection().removeAllRanges();
     };
 
     // Keyboard Shortcuts
@@ -212,9 +242,9 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
         loadPdf();
     }, [file]);
 
-    // Render Page
+    // Render Page + Text Layer
     useEffect(() => {
-        if (!pdf || !canvasRef.current) return;
+        if (!pdf || !canvasRef.current || !textLayerRef.current) return;
         const renderPage = async () => {
             try {
                 if (renderTaskRef.current) await renderTaskRef.current.cancel();
@@ -222,18 +252,36 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
                 const HIGH_RES_SCALE = 3;
                 const baseViewport = page.getViewport({ scale });
                 const viewport = page.getViewport({ scale: scale * HIGH_RES_SCALE });
+                
                 const canvas = canvasRef.current;
                 const context = canvas.getContext('2d');
                 if (!context) return;
+                
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
                 canvas.style.width = `${baseViewport.width}px`;
                 canvas.style.height = `${baseViewport.height}px`;
+                
+                const textLayerDiv = textLayerRef.current;
+                textLayerDiv.innerHTML = '';
+                textLayerDiv.style.width = `${baseViewport.width}px`;
+                textLayerDiv.style.height = `${baseViewport.height}px`;
+                
                 setPdfSize({ width: baseViewport.width, height: baseViewport.height });
+                
                 const renderTask = page.render({ canvasContext: context, viewport: viewport });
                 renderTaskRef.current = renderTask;
                 await renderTask.promise;
                 renderTaskRef.current = null;
+
+                // Render text layer
+                const textContent = await page.getTextContent();
+                pdfjsLib.renderTextLayer({
+                    textContentSource: textContent,
+                    container: textLayerDiv,
+                    viewport: baseViewport,
+                    enhanceTextSelection: true
+                });
             } catch (error) {
                 if (error.name !== 'RenderingCancelledException') console.error("Error rendering page:", error);
             }
@@ -308,21 +356,52 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
         if (w > 5 && h > 5) setSelection({ x, y, width: w, height: h });
     };
 
-    const handleAddToQueue = () => {
-        if (!currentQuestionData.text.trim()) { alert("Please extract or type the question text."); return; }
-        if ((currentQuestionData.type === 'mcq' || currentQuestionData.type === 'matching') && !currentQuestionData.correctOption) { alert('Please select the correct option.'); return; }
-        if (currentQuestionData.type === 'msq' && currentQuestionData.correctOptions.length === 0) { alert("Please mark at least one correct answer"); return; }
-        if (currentQuestionData.type === 'integer' && currentQuestionData.integerAnswer === '') { alert("Please enter the integer answer"); return; }
+    const handleDeleteImage = async (slotId, imageUrl, e) => {
+        if (e) e.stopPropagation();
+        
+        if (imageUrl && imageUrl.includes('firebase')) {
+            try {
+                const imageRef = ref(storage, imageUrl);
+                await deleteObject(imageRef);
+            } catch (error) {
+                console.error("Error deleting image from firebase:", error);
+            }
+        }
 
+        setCurrentQuestionData(prev => {
+            const newData = { ...prev };
+            if (slotId === 'question') newData.image = null;
+            else if (slotId.startsWith('opt')) {
+                const idx = ['optA', 'optB', 'optC', 'optD'].indexOf(slotId);
+                newData.optionImages[idx] = null;
+            } else if (slotId === 'solution') {
+                newData.solutionImages = (newData.solutionImages || []).filter(img => img !== imageUrl);
+            }
+            return newData;
+        });
+
+        setCapturedHighlights(prev => prev.filter(h => h.slot !== slotId || (slotId === 'solution' && h.page !== currentPage)));
+    };
+
+    const handleAddToQueue = () => {
+        if (!currentQuestionData.text.trim() && !currentQuestionData.image) { 
+            alert("Please extract or type the question text."); 
+            return; 
+        }
+        
+        // Final validation for complete question structure
         onUpload([{ ...currentQuestionData }]);
+        
         setCurrentQuestionData(prev => ({
             ...prev,
             text: '',
+            image: null,
+            optionImages: [null, null, null, null],
             options: ['', '', '', ''],
-            correctOption: '',
             correctOptions: [],
             integerAnswer: '',
-            solution: ''
+            solution: '',
+            solutionImages: []
         }));
         setGlobalHighlights(prev => [...prev, ...capturedHighlights]);
         setCapturedHighlights([]);
@@ -376,9 +455,19 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-auto custom-scrollbar relative" ref={containerRef}>
-                    <div className="relative inline-block m-4 shadow-2xl" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} ref={overlayRef}>
+                <div className="flex-1 overflow-auto custom-scrollbar relative bg-gray-100" ref={containerRef}>
+                    <style>{TEXT_LAYER_STYLE}</style>
+                    <div className="relative inline-block m-8 shadow-2xl bg-white" 
+                         onMouseDown={handleMouseDown} 
+                         onMouseMove={handleMouseMove} 
+                         onMouseUp={(e) => {
+                             handleMouseUp();
+                             handleTextSelection();
+                         }} 
+                         ref={overlayRef}>
                         <canvas ref={canvasRef} />
+                        <div ref={textLayerRef} className="textLayer absolute top-0 left-0" style={{ opacity: 0.2 }} />
+                        
                         {capturedHighlights.map((h, i) => h.page === currentPage && (
                             <div key={i} className={`absolute border-2 ${h.slot === activeSlot ? 'border-indigo-400 bg-indigo-400/20' : 'border-emerald-400/40 bg-emerald-400/10'} rounded-sm pointer-events-none`} style={{ left: h.x, top: h.y, width: h.width, height: h.height }} />
                         ))}
@@ -388,7 +477,7 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
                                     <div key={h} className={`absolute bg-transparent z-50 ${h.length === 2 ? 'w-5 h-5 -m-2.5' : 'w-5 h-5 -translate-x-1/2 -translate-y-1/2'} ${h.includes('n') ? 'top-0' : h.includes('s') ? 'bottom-0' : 'top-1/2'} ${h.includes('w') ? 'left-0' : h.includes('e') ? 'right-0' : 'left-1/2'} cursor-${h}-resize`} onMouseDown={(e) => handleResizeStart(e, h)} />
                                 ))}
                                 <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex gap-2">
-                                    <button onClick={(e) => { e.stopPropagation(); captureSelection(); }} className="bg-indigo-600 text-white px-4 py-2 rounded-full text-xs font-black shadow-xl flex items-center gap-1.5"><CheckCircle size={14} /> {isCapturing ? 'Extracting...' : `Extract to ${activeSlot}`}</button>
+                                    <button onClick={(e) => { e.stopPropagation(); captureSelection(); }} className="bg-emerald-600 text-white px-4 py-2 rounded-full text-xs font-black shadow-xl flex items-center gap-1.5"><ImageIcon size={14} /> Capture as Image</button>
                                     <button onClick={(e) => { e.stopPropagation(); setSelection(null); }} className="bg-red-500 text-white px-4 py-2 rounded-full text-xs font-black shadow-xl"><X size={13} /></button>
                                 </div>
                             </div>
@@ -410,23 +499,151 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
                 </div>
 
                 <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+                    {/* CARD 1: Core Details */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="px-4 pt-3 pb-1 border-b border-gray-50">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Core Details</span>
+                        </div>
+                        <div className="p-3 space-y-2.5">
+                            <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Type</label>
+                                    <select
+                                        value={currentQuestionData.type}
+                                        onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, type: e.target.value })}
+                                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-bold bg-gray-50"
+                                    >
+                                        <option value="mcq">MCQ</option>
+                                        <option value="msq">MSQ</option>
+                                        <option value="integer">Integer</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-[9px] font-bold text-emerald-500 uppercase mb-1">+ Marks</label>
+                                    <input type="number" value={currentQuestionData.marks} onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, marks: parseInt(e.target.value) || 0 })} className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-bold bg-emerald-50 text-emerald-700 text-center" />
+                                </div>
+                                <div>
+                                    <label className="block text-[9px] font-bold text-red-400 uppercase mb-1">- Negative</label>
+                                    <input type="number" value={currentQuestionData.negativeMarks} onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, negativeMarks: parseInt(e.target.value) || 0 })} className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-bold bg-red-50 text-red-600 text-center" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Subject</label>
+                                    <select value={currentQuestionData.subject} onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, subject: e.target.value })} className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-bold bg-gray-50">
+                                        <option value="Physics">Physics</option>
+                                        <option value="Chemistry">Chemistry</option>
+                                        <option value="Maths">Maths</option>
+                                        <option value="Biology">Biology</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-[9px] font-bold text-amber-500 uppercase mb-1">Section</label>
+                                    <input type="text" value={currentQuestionData.section} onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, section: e.target.value })} placeholder="e.g. A" className="w-full border border-amber-200 rounded-lg px-2 py-1.5 text-xs font-medium bg-amber-50" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* CARD 2: Slots */}
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-3 space-y-2.5">
-                        <div onClick={() => setActiveSlot('question')} className={`cursor-pointer border rounded-xl p-2.5 transition-all ${activeSlot === 'question' ? 'ring-2 ring-indigo-500 bg-indigo-50' : 'border-gray-200'}`}>
-                            <span className="text-[10px] font-black uppercase text-gray-400 mb-1 block">Question Text</span>
+                        <div onClick={() => setActiveSlot('question')} className={`cursor-pointer border rounded-xl p-2.5 transition-all ${activeSlot === 'question' ? 'ring-2 ring-indigo-500 bg-indigo-50 border-indigo-300' : 'border-gray-200'}`}>
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10px] font-black uppercase text-indigo-500">Question</span>
+                                {currentQuestionData.image && <CheckCircle size={12} className="text-emerald-500" />}
+                            </div>
+                            {currentQuestionData.image && (
+                                <div className="relative mb-2 group/img">
+                                    <img src={currentQuestionData.image} className="h-16 w-full object-contain bg-white border rounded-lg" />
+                                    <button onClick={(e) => handleDeleteImage('question', currentQuestionData.image, e)} className="absolute top-1 right-1 bg-red-500 text-white p-0.5 rounded opacity-0 group-hover/img:opacity-100"><X size={10} /></button>
+                                </div>
+                            )}
                             <RichMathEditor value={currentQuestionData.text} onChange={(val) => setCurrentQuestionData(prev => ({ ...prev, text: val }))} placeholder="Question text..." className="w-full text-xs" />
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            {['optA', 'optB', 'optC', 'optD'].map((opt, i) => (
-                                <div key={opt} onClick={() => setActiveSlot(opt)} className={`cursor-pointer border rounded-xl p-2.5 transition-all ${activeSlot === opt ? 'ring-2 ring-blue-500 bg-blue-50' : 'border-gray-200'}`}>
-                                    <span className="text-[10px] font-black uppercase text-gray-400 mb-1 block">Option {opt.slice(-1)}</span>
-                                    <RichMathEditor value={currentQuestionData.options[i]} onChange={(val) => { setCurrentQuestionData(prev => { const newOpts = [...prev.options]; newOpts[i] = val; return { ...prev, options: newOpts }; }); }} placeholder={`Option ${opt.slice(-1)}...`} className="w-full text-[10px]" />
+                        
+                        {currentQuestionData.type !== 'integer' && (
+                            <div className="grid grid-cols-2 gap-2">
+                                {['optA', 'optB', 'optC', 'optD'].map((opt, i) => {
+                                    const optChar = opt.slice(-1);
+                                    const isCorrect = currentQuestionData.type === 'msq' ? currentQuestionData.correctOptions.includes(optChar) : currentQuestionData.correctOption === optChar;
+                                    return (
+                                        <div key={opt} onClick={() => setActiveSlot(opt)} className={`cursor-pointer border rounded-xl p-2.5 transition-all ${activeSlot === opt ? 'ring-2 ring-blue-500 bg-blue-50 border-blue-300' : isCorrect ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200'}`}>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className={`text-[9px] font-black uppercase ${isCorrect ? 'text-emerald-600' : 'text-gray-400'}`}>Option {optChar}</span>
+                                                <input 
+                                                    type={currentQuestionData.type === 'msq' ? 'checkbox' : 'radio'} 
+                                                    checked={isCorrect}
+                                                    onChange={() => {
+                                                        if (currentQuestionData.type === 'msq') {
+                                                            const newCorrect = isCorrect ? currentQuestionData.correctOptions.filter(o => o !== optChar) : [...currentQuestionData.correctOptions, optChar];
+                                                            setCurrentQuestionData(prev => ({ ...prev, correctOptions: newCorrect }));
+                                                        } else {
+                                                            setCurrentQuestionData(prev => ({ ...prev, correctOption: optChar }));
+                                                        }
+                                                    }}
+                                                    className="w-3 h-3 accent-emerald-500"
+                                                />
+                                            </div>
+                                            {currentQuestionData.optionImages[i] && (
+                                                <div className="relative mb-1 group/img">
+                                                    <img src={currentQuestionData.optionImages[i]} className="h-10 w-full object-contain bg-white border rounded" />
+                                                    <button onClick={(e) => handleDeleteImage(opt, currentQuestionData.optionImages[i], e)} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded opacity-0 group-hover/img:opacity-100"><X size={8} /></button>
+                                                </div>
+                                            )}
+                                            <RichMathEditor value={currentQuestionData.options[i]} onChange={(val) => { setCurrentQuestionData(prev => { const newOpts = [...prev.options]; newOpts[i] = val; return { ...prev, options: newOpts }; }); }} placeholder={`Option ${optChar}...`} className="w-full text-[10px]" />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {currentQuestionData.type === 'integer' && (
+                            <div className="p-3 bg-indigo-50 rounded-xl border-2 border-indigo-100">
+                                <label className="block text-[10px] font-black uppercase text-indigo-500 mb-2">Integer Answer</label>
+                                <input type="number" value={currentQuestionData.integerAnswer} onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, integerAnswer: e.target.value })} placeholder="0" className="w-full bg-white border border-indigo-200 rounded-lg py-2 text-center text-xl font-black text-indigo-700 outline-none" />
+                            </div>
+                        )}
+
+                        <div onClick={() => setActiveSlot('solution')} className={`cursor-pointer border rounded-xl p-2.5 transition-all ${activeSlot === 'solution' ? 'ring-2 ring-violet-500 bg-violet-50 border-violet-300' : 'border-gray-200'}`}>
+                            <span className="text-[10px] font-black uppercase text-violet-500 mb-1 block">Solution</span>
+                            {currentQuestionData.solutionImages?.length > 0 && (
+                                <div className="flex flex-col gap-1 mb-2">
+                                    {currentQuestionData.solutionImages.map((img, idx) => (
+                                        <div key={idx} className="relative group/img">
+                                            <img src={img} className="h-12 w-full object-contain bg-white border rounded-lg" />
+                                            <button onClick={(e) => handleDeleteImage('solution', img, e)} className="absolute top-1 right-1 bg-red-500 text-white p-0.5 rounded opacity-0 group-hover/img:opacity-100"><X size={10} /></button>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                        <div onClick={() => setActiveSlot('solution')} className={`cursor-pointer border rounded-xl p-2.5 transition-all ${activeSlot === 'solution' ? 'ring-2 ring-violet-500 bg-violet-50' : 'border-gray-200'}`}>
-                            <span className="text-[10px] font-black uppercase text-gray-400 mb-1 block">Solution</span>
+                            )}
                             <RichMathEditor value={currentQuestionData.solution} onChange={(val) => setCurrentQuestionData(prev => ({ ...prev, solution: val }))} placeholder="Solution text..." className="w-full text-xs" />
                         </div>
+                    </div>
+
+                    {/* CARD 3: Advanced Details */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <button
+                            onClick={() => setShowAdvancedSettings(s => !s)}
+                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition"
+                        >
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Advanced Details</span>
+                            <span className={`text-gray-400 text-xs transition-transform ${showAdvancedSettings ? 'rotate-180' : ''}`}>▾</span>
+                        </button>
+                        {showAdvancedSettings && (
+                            <div className="px-3 pb-3 space-y-3 border-t border-gray-50 pt-3">
+                                <div>
+                                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1.5">Option Layout</label>
+                                    <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-xl">
+                                        <button onClick={() => setCurrentQuestionData({ ...currentQuestionData, optionsLayout: 'list' })} className={`py-1.5 rounded-lg text-[9px] font-bold uppercase ${currentQuestionData.optionsLayout === 'list' ? 'bg-white text-indigo-700 shadow' : 'text-gray-500'}`}>List (1x4)</button>
+                                        <button onClick={() => setCurrentQuestionData({ ...currentQuestionData, optionsLayout: 'grid' })} className={`py-1.5 rounded-lg text-[9px] font-bold uppercase ${currentQuestionData.optionsLayout === 'grid' ? 'bg-white text-indigo-700 shadow' : 'text-gray-500'}`}>Grid (2x2)</button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Topic / Tag</label>
+                                    <input type="text" value={currentQuestionData.topic} onChange={(e) => setCurrentQuestionData({ ...currentQuestionData, topic: e.target.value })} placeholder="e.g. Kinematics" className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-medium bg-gray-50" />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
