@@ -59,6 +59,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
     const [globalHighlights, setGlobalHighlights] = useState([]); // Persistent guides across all questions in this session
     const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
     const [isResizeMode, setIsResizeMode] = useState(false);
+    const [captureMode, setCaptureMode] = useState('image'); // 'image' or 'text'
 
     const canvasRef = useRef(null);
     const containerRef = useRef(null);
@@ -84,14 +85,14 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
     }, [isSidebarDragging]);
 
     // Extract text from the selected rectangular area on the current PDF page
-    const extractTextFromSelection = async () => {
+    const captureTextFromSelection = async () => {
         if (!selection || !pdf) {
             alert('Pehle PDF pe koi area select karo!');
             return;
         }
+        setIsCapturing(true);
         try {
             const page = await pdf.getPage(currentPage);
-            // Use base viewport (same scale used for CSS display)
             const viewport = page.getViewport({ scale });
             const textContent = await page.getTextContent();
 
@@ -102,7 +103,6 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
 
             const extracted = textContent.items
                 .filter(item => {
-                    // convertToViewportPoint correctly maps PDF coords → CSS screen coords
                     const [screenX, screenY] = viewport.convertToViewportPoint(
                         item.transform[4],
                         item.transform[5]
@@ -125,13 +125,43 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
 
             if (!extracted) {
                 alert('Koi text nahi mila. Yeh PDF scan ki hui (image-based) ho sakti hai.');
+                setIsCapturing(false);
                 return;
             }
-            await navigator.clipboard.writeText(extracted);
-            alert(`✅ Text copied!\n\n"${extracted.substring(0, 200)}${extracted.length > 200 ? '...' : ''}"`);
+
+            // Add highlight
+            setCapturedHighlights(prev => [...prev.filter(h => h.slot !== activeSlot || activeSlot === 'solution'), { ...selection, slot: activeSlot, page: currentPage }]);
+
+            // Update question data based on active slot
+            setCurrentQuestionData(prev => {
+                const newData = { ...prev };
+                if (activeSlot === 'question') {
+                    newData.text = (newData.text ? newData.text + '\n' : '') + extracted;
+                    setActiveSlot(prev.type === 'integer' ? 'solution' : 'optA');
+                } else if (activeSlot === 'optA') {
+                    newData.options[0] = (newData.options[0] ? newData.options[0] + ' ' : '') + extracted;
+                    setActiveSlot('optB');
+                } else if (activeSlot === 'optB') {
+                    newData.options[1] = (newData.options[1] ? newData.options[1] + ' ' : '') + extracted;
+                    setActiveSlot('optC');
+                } else if (activeSlot === 'optC') {
+                    newData.options[2] = (newData.options[2] ? newData.options[2] + ' ' : '') + extracted;
+                    setActiveSlot('optD');
+                } else if (activeSlot === 'optD') {
+                    newData.options[3] = (newData.options[3] ? newData.options[3] + ' ' : '') + extracted;
+                    setActiveSlot('solution');
+                } else if (activeSlot === 'solution') {
+                    newData.solution = (newData.solution ? newData.solution + '\n' : '') + extracted;
+                }
+                return newData;
+            });
+
+            setSelection(null);
         } catch (err) {
             console.error('Text extraction failed:', err);
-            alert('Text copy nahi hua. Error: ' + err.message);
+            alert('Text extract nahi hua. Error: ' + err.message);
+        } finally {
+            setIsCapturing(false);
         }
     };
 
@@ -155,7 +185,11 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
             }
             if ((e.ctrlKey || e.metaKey) && key === 't') {
                 e.preventDefault();
-                extractTextFromSelection();
+                if (selection) captureTextFromSelection();
+                return;
+            }
+            if (e.key === 'm' && !e.ctrlKey && !e.metaKey) {
+                setCaptureMode(prev => prev === 'image' ? 'text' : 'image');
                 return;
             }
             if (key === 'q') setActiveSlot('question');
@@ -164,8 +198,11 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
             if (key === '3') setActiveSlot('optC');
             if (key === '4') setActiveSlot('optD');
             if (key === 's') setActiveSlot('solution');
-            if (key === 'e') { extractTextFromSelection(); return; }
-            if (e.key === 'Enter' && selection) captureSelection();
+            if (key === 'e') { if (selection) captureTextFromSelection(); return; }
+            if (e.key === 'Enter' && selection) {
+                if (captureMode === 'text') captureTextFromSelection();
+                else captureSelection();
+            }
             if (e.key === 'Escape') setSelection(null);
         };
         window.addEventListener('keydown', handleKeyDown);
@@ -436,6 +473,10 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
     };
 
     const captureSelection = async () => {
+        if (captureMode === 'text') {
+            await captureTextFromSelection();
+            return;
+        }
         if (!selection || !canvasRef.current || !pdf) {
             console.warn("Capture aborted: selection, canvas, or PDF missing", { selection: !!selection, canvas: !!canvasRef.current, pdf: !!pdf });
             return;
@@ -657,9 +698,9 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                             { key: 'Q', label: 'Question' },
                             { key: '1–4', label: 'Options' },
                             { key: 'S', label: 'Solution' },
-                            { key: '↵', label: 'Crop' },
-                            { key: 'E', label: 'Extract Text' },
-                            { key: '^T', label: 'Copy Text' },
+                            { key: '↵', label: 'Capture/Extract' },
+                            { key: 'M', label: 'Toggle Mode' },
+                            { key: '^T', label: 'Quick Text' },
                             { key: '^R', label: 'Resize' },
                             { key: 'Esc', label: 'Clear' },
                         ].map(({ key, label }) => (
@@ -675,7 +716,26 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                         ))}
                     </div>
 
-                    {/* Right: Zoom + Close */}
+                    {/* Mode Toggle */}
+                    <div className="flex items-center bg-white/10 p-1 rounded-xl border border-white/10">
+                        <button
+                            onClick={() => setCaptureMode('image')}
+                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${captureMode === 'image' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'}`}
+                        >
+                            <div className="flex items-center gap-1.5">
+                                <ImageIcon size={12} /> Image Mode
+                            </div>
+                        </button>
+                        <button
+                            onClick={() => setCaptureMode('text')}
+                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${captureMode === 'text' ? 'bg-cyan-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'}`}
+                        >
+                            <div className="flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                                Text Mode
+                            </div>
+                        </button>
+                    </div>
                     <div className="flex items-center gap-2">
                         <div className="flex items-center bg-white/8 border border-white/10 rounded-lg overflow-hidden">
                             <button
@@ -924,23 +984,25 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                                 captureSelection();
                                             }}
                                             disabled={!pdf || isCapturing}
-                                            className={`bg-emerald-500 text-white px-4 py-2 rounded-full text-xs font-black shadow-2xl shadow-emerald-500/40 flex items-center gap-1.5 whitespace-nowrap ring-2 ring-black/20 ${(!pdf || isCapturing) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-emerald-400 active:scale-95'} transition-all`}
+                                            className={`${captureMode === 'text' ? 'bg-cyan-500 shadow-cyan-500/40' : 'bg-emerald-500 shadow-emerald-500/40'} text-white px-6 py-2.5 rounded-full text-xs font-black shadow-2xl flex items-center gap-2 whitespace-nowrap ring-2 ring-black/20 ${(!pdf || isCapturing) ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110 active:scale-95'} transition-all`}
                                         >
-                                            <CheckCircle size={14} /> {isCapturing ? 'Saving…' : `Capture → ${activeSlot === 'question' ? 'Q' : activeSlot === 'solution' ? 'S' : activeSlot.replace('opt', '')}`}
+                                            {captureMode === 'text' ? (
+                                                <><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg> {isCapturing ? 'Extracting…' : 'Extract Text'}</>
+                                            ) : (
+                                                <><CheckCircle size={14} /> {isCapturing ? 'Saving…' : 'Capture Image'}</>
+                                            )}
                                         </button>
+                                        
+                                        {/* Small secondary toggle only if needed OR just the clear button */}
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                extractTextFromSelection();
+                                                setCaptureMode(prev => prev === 'image' ? 'text' : 'image');
                                             }}
-                                            disabled={!pdf}
-                                            title="PDF se text copy karo (Ctrl+T)"
-                                            className={`bg-cyan-500 text-white px-4 py-2 rounded-full text-xs font-black shadow-xl shadow-cyan-500/30 flex items-center gap-1.5 whitespace-nowrap ring-2 ring-black/20 transition-all ${
-                                                !pdf ? 'opacity-50 cursor-not-allowed' : 'hover:bg-cyan-400 active:scale-95'
-                                            }`}
+                                            className="bg-gray-800 text-gray-300 px-3 py-2.5 rounded-full text-[10px] font-bold border border-white/20 hover:bg-gray-700 transition-all uppercase tracking-tighter"
+                                            title="Switch Mode (M)"
                                         >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                                            Copy Text <kbd className="ml-1 bg-cyan-600/60 px-1 rounded text-[9px] font-mono">^T</kbd>
+                                            {captureMode === 'image' ? 'Text ↵' : 'Image ↵'}
                                         </button>
                                         <button
                                             onClick={(e) => {
