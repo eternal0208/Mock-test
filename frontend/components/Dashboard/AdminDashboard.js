@@ -10,6 +10,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import PdfUploadModal from './PdfUploadModal';
+import PdfTextUploadModal from './PdfTextUploadModal';
 import PercentileConfig from './PercentileConfig';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import InteractiveMascot from './InteractiveMascot';
@@ -1653,6 +1654,7 @@ export default function AdminDashboard() {
 
     const [showBulkUpload, setShowBulkUpload] = useState(false);
     const [showPdfModal, setShowPdfModal] = useState(false);
+    const [showPdfTextModal, setShowPdfTextModal] = useState(false);
     const [showCustomMockModal, setShowCustomMockModal] = useState(false);
 
     // States for "Load to Edit" functionality
@@ -2420,6 +2422,7 @@ export default function AdminDashboard() {
             {viewingStudent && <StudentReportModal student={viewingStudent} user={user} onClose={() => setViewingStudent(null)} />}
             {showBulkUpload && <BulkUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowBulkUpload(false)} />}
             {showPdfModal && <PdfUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowPdfModal(false)} onZoom={(url) => setZoomedImg(url)} />}
+            {showPdfTextModal && <PdfTextUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowPdfTextModal(false)} onZoom={(url) => setZoomedImg(url)} />}
 
             {/* Manage Series Modal */}
             {managingSeries && (
@@ -3814,9 +3817,16 @@ export default function AdminDashboard() {
                                         <button
                                             onClick={() => setShowPdfModal(true)}
                                             className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white rounded-2xl shadow-lg shadow-indigo-500/25 font-bold flex items-center gap-2 hover:shadow-indigo-500/40 transition-all text-sm hover:-translate-y-0.5 border border-indigo-400/50"
-                                            title="Extract text or images from PDF"
+                                            title="Extract and upload images from PDF"
                                         >
-                                            <ImageIcon size={18} /> Smart PDF Extractor
+                                            <ImageIcon size={18} /> Upload by PDF Image
+                                        </button>
+                                        <button
+                                            onClick={() => setShowPdfTextModal(true)}
+                                            className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl shadow-lg shadow-emerald-500/25 font-bold flex items-center gap-2 hover:shadow-emerald-500/40 transition-all text-sm hover:-translate-y-0.5 border border-emerald-400/50"
+                                            title="Extract text directly from PDF"
+                                        >
+                                            <Type size={18} /> Upload by PDF Text
                                         </button>
                                     </div>
                                 </div>
