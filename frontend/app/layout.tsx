@@ -123,6 +123,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </AuthProvider>
         <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+        <Script src="/js/three.r134.min.js" strategy="lazyOnload" />
+        <Script src="/js/vanta.clouds.min.js" strategy="lazyOnload" />
       </body>
     </html>
   );

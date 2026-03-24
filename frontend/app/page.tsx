@@ -15,6 +15,8 @@ import SeriesCard from '@/components/ui/SeriesCard';
 
 
 export default function LandingPage() {
+  const vantaRef = useRef(null);
+  const [vantaEffect, setVantaEffect] = useState<any>(null);
   const { user } = useAuth();
   const [testSeries, setTestSeries] = useState<any[]>([]);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -28,6 +30,36 @@ export default function LandingPage() {
   }, [searchParams]);
 
   useEffect(() => {
+    let effect: any = null;
+    let interval: any = null;
+
+    const initVanta = () => {
+      // @ts-ignore
+      if (typeof window !== 'undefined' && window.VANTA && window.VANTA.CLOUDS && window.THREE && vantaRef.current && !vantaEffect) {
+        try {
+          // @ts-ignore
+          effect = window.VANTA.CLOUDS({
+            el: vantaRef.current,
+            mouseControls: true,
+            touchControls: true,
+            gyroControls: false,
+            minHeight: 200.00,
+            minWidth: 200.00,
+            skyColor: 0xEEF2FF,
+            cloudColor: 0x4F46E5,
+            cloudShadowColor: 0x702AE1,
+            sunColor: 0xffffff,
+            sunGlareColor: 0xffffff
+          });
+          setVantaEffect(effect);
+          clearInterval(interval);
+        } catch (e) {
+          console.error("Vanta initialization failed:", e);
+        }
+      }
+    };
+    interval = setInterval(initVanta, 100);
+
     // Fetch Test Series
     fetch(`${API_BASE_URL}/api/tests/series`)
       .then(res => res.json())
@@ -40,6 +72,12 @@ export default function LandingPage() {
         }
       })
       .catch(err => console.error(err));
+
+    return () => {
+      if (effect) effect.destroy();
+      if (interval) clearInterval(interval);
+      if (vantaEffect) vantaEffect.destroy();
+    };
   }, []);
 
   const openLogin = () => { setIsLoginModalOpen(true); };
@@ -102,14 +140,13 @@ export default function LandingPage() {
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       <GoogleLoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
 
-      <div className="min-h-[100dvh] w-full relative bg-background font-body text-on-background antialiased flex flex-col">
+      <div ref={vantaRef} className="min-h-[100dvh] w-full relative bg-background font-body text-on-background antialiased flex flex-col">
         
         {/* Top Navigation from Stitch Design */}
         <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(74,64,224,0.08)]">
           <div className="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-indigo-600">signal_cellular_alt</span>
-              <span className="text-2xl font-extrabold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent font-headline tracking-tight">Apex Mock Test</span>
+              <img src="/logo.png" alt="Apex Mock Test" className="h-14 md:h-20 w-auto object-contain" />
             </div>
             <div className="flex items-center gap-4">
               {user ? (
@@ -208,8 +245,7 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 md:grid-cols-4 gap-12">
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center gap-2 mb-4">
-                 <span className="material-symbols-outlined text-primary">signal_cellular_alt</span>
-                 <span className="text-xl font-extrabold text-white font-headline tracking-tight">Apex Mock Test</span>
+                 <img src="/logo.png" alt="Apex Mock Test" className="h-16 w-auto object-contain" />
               </div>
               <p className="font-body text-sm leading-relaxed text-slate-400 max-w-sm mb-6">
                 An initiative of SR Club. Dedicated to providing premium educational assessments and analytics to empower students worldwide.

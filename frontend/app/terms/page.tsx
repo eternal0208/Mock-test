@@ -10,9 +10,9 @@ export default function TermsPage() {
             {/* Navbar */}
             <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-white/80 border-b border-gray-200 shadow-sm">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-                    <Link href="/" className="flex items-center gap-2 text-2xl font-black text-slate-800 hover:text-indigo-600 transition">
-                        <ArrowLeft size={24} />
-                        <Target className="text-indigo-600" /> APEX<span className="text-indigo-600">MOCK</span>
+                    <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
+                        <ArrowLeft size={24} className="text-slate-800" />
+                        <img src="/logo.png" alt="Apex Mock Test" className="h-10 md:h-12 w-auto object-contain" />
                     </Link>
                 </div>
             </nav>
@@ -181,8 +181,9 @@ export default function TermsPage() {
 
             {/* Footer */}
             <footer className="bg-slate-900 text-slate-300 py-8">
-                <div className="max-w-7xl mx-auto px-6 text-center">
-                    <p className="mb-2">© 2025 Apex Mock - An initiative of SR Club. All rights reserved.</p>
+                <div className="max-w-7xl mx-auto px-6 flex flex-col items-center">
+                    <img src="/logo.png" alt="Apex Mock Test" className="h-12 w-auto object-contain mb-4 grayscale brightness-200" />
+                    <p className="mb-4">© 2025 Apex Mock - An initiative of SR Club. All rights reserved.</p>
                     <div className="flex justify-center gap-6 text-sm">
                         <Link href="/about" className="hover:text-white transition">About</Link>
                         <Link href="/terms" className="hover:text-white transition">Terms & Conditions</Link>
