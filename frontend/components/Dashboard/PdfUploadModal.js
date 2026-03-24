@@ -61,6 +61,56 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
     const overlayRef = useRef(null);
     const renderTaskRef = useRef(null);
 
+    // Extract text from the selected rectangular area on the current PDF page
+    const extractTextFromSelection = async () => {
+        if (!selection || !pdf) return;
+        try {
+            const page = await pdf.getPage(currentPage);
+            const viewport = page.getViewport({ scale });
+            const textContent = await page.getTextContent();
+
+            // Convert CSS-space selection to PDF coordinate space
+            const scaleX = viewport.width / pdfSize.width;
+            const scaleY = viewport.height / pdfSize.height;
+            const selLeft   = selection.x * scaleX;
+            const selRight  = (selection.x + selection.width) * scaleX;
+            const selTop    = selection.y * scaleY;
+            const selBottom = (selection.y + selection.height) * scaleY;
+
+            const extracted = textContent.items
+                .filter(item => {
+                    const [,, , , tx, ty] = item.transform;
+                    // PDF y-axis is bottom-up, viewport is top-down
+                    const screenY = viewport.height - ty;
+                    const screenX = tx;
+                    return (
+                        screenX >= selLeft - 5 && screenX <= selRight + 5 &&
+                        screenY >= selTop - 5 && screenY <= selBottom + 5
+                    );
+                })
+                .sort((a, b) => {
+                    const aY = viewport.height - a.transform[5];
+                    const bY = viewport.height - b.transform[5];
+                    if (Math.abs(aY - bY) > 5) return aY - bY;
+                    return a.transform[4] - b.transform[4];
+                })
+                .map(item => item.str)
+                .join(' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            if (!extracted) {
+                alert('کوئی text نہیں ملا۔ یہ PDF image-based ہو سکتی ہے۔');
+                return;
+            }
+            await navigator.clipboard.writeText(extracted);
+            alert(`✅ Text copied!\n\n"${extracted.substring(0, 120)}${extracted.length > 120 ? '…' : ''}"`);
+        } catch (err) {
+            console.error('Text extraction failed:', err);
+            alert('Text copy نہیں ہو سکا: ' + err.message);
+        }
+    };
+
     // Keyboard Shortcuts
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -70,6 +120,11 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
             if ((e.ctrlKey || e.metaKey) && key === 'r') {
                 e.preventDefault();
                 setIsResizeMode(prev => !prev);
+                return;
+            }
+            if ((e.ctrlKey || e.metaKey) && key === 't') {
+                e.preventDefault();
+                extractTextFromSelection();
                 return;
             }
             if (key === 'q') setActiveSlot('question');
@@ -83,7 +138,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selection, activeSlot, currentPage]);
+    }, [selection, activeSlot, currentPage, pdf, pdfSize]);
 
     // Load PDF
     useEffect(() => {
@@ -571,12 +626,17 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                             { key: '1–4', label: 'Options' },
                             { key: 'S', label: 'Solution' },
                             { key: '↵', label: 'Crop' },
+                            { key: '^T', label: 'Copy Text' },
                             { key: '^R', label: 'Resize' },
                             { key: 'Esc', label: 'Clear' },
                         ].map(({ key, label }) => (
-                            <span key={key} className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-md px-2 py-1 text-gray-400">
-                                <kbd className="text-white font-black">{key}</kbd>
-                                <span className="text-gray-600">·</span>
+                            <span key={key} className={`flex items-center gap-1 border rounded-md px-2 py-1 ${
+                                key === '^T'
+                                    ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
+                                    : 'bg-white/5 border-white/10 text-gray-400'
+                            }`}>
+                                <kbd className="font-black">{key}</kbd>
+                                <span className="opacity-50">·</span>
                                 {label}
                             </span>
                         ))}
@@ -834,6 +894,20 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                                             className={`bg-emerald-500 text-white px-4 py-2 rounded-full text-xs font-black shadow-2xl shadow-emerald-500/40 flex items-center gap-1.5 whitespace-nowrap ring-2 ring-black/20 ${(!pdf || isCapturing) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-emerald-400 active:scale-95'} transition-all`}
                                         >
                                             <CheckCircle size={14} /> {isCapturing ? 'Saving…' : `Capture → ${activeSlot === 'question' ? 'Q' : activeSlot === 'solution' ? 'S' : activeSlot.replace('opt', '')}`}
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                extractTextFromSelection();
+                                            }}
+                                            disabled={!pdf}
+                                            title="PDF se text copy karo (Ctrl+T)"
+                                            className={`bg-cyan-500 text-white px-4 py-2 rounded-full text-xs font-black shadow-xl shadow-cyan-500/30 flex items-center gap-1.5 whitespace-nowrap ring-2 ring-black/20 transition-all ${
+                                                !pdf ? 'opacity-50 cursor-not-allowed' : 'hover:bg-cyan-400 active:scale-95'
+                                            }`}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                            Copy Text <kbd className="ml-1 bg-cyan-600/60 px-1 rounded text-[9px] font-mono">^T</kbd>
                                         </button>
                                         <button
                                             onClick={(e) => {
