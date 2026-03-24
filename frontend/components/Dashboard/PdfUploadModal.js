@@ -28,7 +28,11 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
     const [pdfSize, setPdfSize] = useState({ width: 0, height: 0 });
     const [isPdfLoading, setIsPdfLoading] = useState(false);
     const [isCapturing, setIsCapturing] = useState(false);
-    const [activeSlot, setActiveSlot] = useState('question'); // question, optA, optB, optC, optD, solution
+    const [activeSlot, setActiveSlot] = useState('question');
+    // Resizable sidebar
+    const [sidebarWidth, setSidebarWidth] = useState(450);
+    const [isSidebarDragging, setIsSidebarDragging] = useState(false);
+    const sidebarDragRef = useRef(null);
 
     // Extracted data for current question
     const [currentQuestionData, setCurrentQuestionData] = useState({
@@ -61,6 +65,24 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
     const overlayRef = useRef(null);
     const renderTaskRef = useRef(null);
 
+    // Sidebar resize drag logic
+    useEffect(() => {
+        const onMouseMove = (e) => {
+            if (!isSidebarDragging) return;
+            const newWidth = window.innerWidth - e.clientX;
+            setSidebarWidth(Math.min(700, Math.max(280, newWidth)));
+        };
+        const onMouseUp = () => setIsSidebarDragging(false);
+        if (isSidebarDragging) {
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+        }
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+    }, [isSidebarDragging]);
+
     // Extract text from the selected rectangular area on the current PDF page
     const extractTextFromSelection = async () => {
         if (!selection || !pdf) {
@@ -69,16 +91,9 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
         }
         try {
             const page = await pdf.getPage(currentPage);
-            // Use the same HIGH_RES_SCALE as rendering so coords match
-            const HIGH_RES_SCALE = 3;
+            // Use base viewport (same scale used for CSS display)
             const viewport = page.getViewport({ scale });
-            const hiResViewport = page.getViewport({ scale: scale * HIGH_RES_SCALE });
             const textContent = await page.getTextContent();
-
-            // selection coords are in CSS-pixel space (baseViewport)
-            // baseViewport width = viewport.width (scale only, no HRS)
-            const cssW = viewport.width;
-            const cssH = viewport.height;
 
             const selLeft   = selection.x;
             const selRight  = selection.x + selection.width;
@@ -87,22 +102,21 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
 
             const extracted = textContent.items
                 .filter(item => {
-                    // PDF text item transforms are in un-scaled PDF space
-                    // Map to CSS space: tx * scale, flip y
-                    const tx = item.transform[4];
-                    const ty = item.transform[5];
-                    const screenX = tx * scale;
-                    const screenY = viewport.height - ty * scale;
+                    // convertToViewportPoint correctly maps PDF coords → CSS screen coords
+                    const [screenX, screenY] = viewport.convertToViewportPoint(
+                        item.transform[4],
+                        item.transform[5]
+                    );
                     return (
-                        screenX >= selLeft - 5 && screenX <= selRight + 5 &&
-                        screenY >= selTop - 5 && screenY <= selBottom + 5
+                        screenX >= selLeft - 8 && screenX <= selRight + 8 &&
+                        screenY >= selTop - 8 && screenY <= selBottom + 8
                     );
                 })
                 .sort((a, b) => {
-                    const aY = viewport.height - a.transform[5] * scale;
-                    const bY = viewport.height - b.transform[5] * scale;
+                    const [aX, aY] = viewport.convertToViewportPoint(a.transform[4], a.transform[5]);
+                    const [bX, bY] = viewport.convertToViewportPoint(b.transform[4], b.transform[5]);
                     if (Math.abs(aY - bY) > 5) return aY - bY;
-                    return a.transform[4] - b.transform[4];
+                    return aX - bX;
                 })
                 .map(item => item.str)
                 .join(' ')
@@ -110,11 +124,11 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
                 .trim();
 
             if (!extracted) {
-                alert('Koi text nahi mila. Yeh PDF image-based ho sakti hai (scanned PDF).');
+                alert('Koi text nahi mila. Yeh PDF scan ki hui (image-based) ho sakti hai.');
                 return;
             }
             await navigator.clipboard.writeText(extracted);
-            alert(`Text copied to clipboard!\n\n"${extracted.substring(0, 150)}${extracted.length > 150 ? '...' : ''}"`);
+            alert(`✅ Text copied!\n\n"${extracted.substring(0, 200)}${extracted.length > 200 ? '...' : ''}"`);
         } catch (err) {
             console.error('Text extraction failed:', err);
             alert('Text copy nahi hua. Error: ' + err.message);
@@ -604,7 +618,7 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
     }
 
     return (
-        <div className="fixed inset-0 bg-black/90 flex z-[70] overflow-hidden flex-col md:flex-row">
+        <div className="fixed inset-0 bg-black/90 flex z-[70] overflow-hidden flex-col md:flex-row" style={{ userSelect: isSidebarDragging ? 'none' : 'auto' }}>
             {/* Left: PDF Viewer */}
             <div className="flex-1 flex flex-col h-full bg-[#0f1117] min-w-0">
 
@@ -946,8 +960,17 @@ const PdfUploadModal = ({ onUpload, onClose, onZoom }) => {
             </div>
 
 
-            {/* Right: Redesigned Sidebar */}
-            <div className="w-[450px] bg-gray-100 flex flex-col shadow-2xl overflow-y-auto">
+            {/* Resize Handle */}
+            <div
+                className="w-1.5 flex-shrink-0 bg-white/5 hover:bg-indigo-500/60 cursor-col-resize transition-colors group relative flex items-center justify-center"
+                onMouseDown={(e) => { e.preventDefault(); setIsSidebarDragging(true); }}
+                title="Drag to resize sidebar"
+            >
+                <div className="w-0.5 h-12 rounded-full bg-white/20 group-hover:bg-indigo-400 transition-colors" />
+            </div>
+
+            {/* Right: Resizable Sidebar */}
+            <div className="flex flex-col shadow-2xl overflow-y-auto bg-gray-100 flex-shrink-0" style={{ width: sidebarWidth }}>
 
                 {/* Header */}
                 <div className="p-4 bg-white border-b flex items-center justify-between sticky top-0 z-10 shadow-sm">
