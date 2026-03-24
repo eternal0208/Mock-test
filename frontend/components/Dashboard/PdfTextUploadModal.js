@@ -51,6 +51,7 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
     const [pdfSize, setPdfSize] = useState({ width: 0, height: 0 });
     const [isPdfLoading, setIsPdfLoading] = useState(false);
     const [isCapturing, setIsCapturing] = useState(false);
+    const [captureMode, setCaptureMode] = useState('text'); // 'text' or 'image'
     const [activeSlot, setActiveSlot] = useState('question');
     // Resizable sidebar
     const [sidebarWidth, setSidebarWidth] = useState(450);
@@ -297,6 +298,7 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
     };
 
     const handleMouseDown = (e) => {
+        if (captureMode === 'text') return; // Let native text selection work
         if (!overlayRef.current) return;
         const rect = overlayRef.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -323,6 +325,7 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
     };
 
     const handleMouseMove = (e) => {
+        if (captureMode === 'text') return;
         if (!overlayRef.current) return;
         const rect = overlayRef.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -347,6 +350,7 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
     };
 
     const handleMouseUp = () => {
+        if (captureMode === 'text') return; // Prevent box creation in text mode
         if (isResizing) { setIsResizing(false); setResizeHandle(null); return; }
         if (isMoving) { setIsMoving(false); return; }
         if (!isDragging) return;
@@ -445,6 +449,11 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
                             <span key={key} className="flex items-center gap-1 border border-white/10 rounded-md px-2 py-1 bg-white/5 text-gray-400"><kbd className="font-black">{key}</kbd><span className="opacity-50">·</span>{label}</span>
                         ))}
                     </div>
+                    {/* Capture Mode Toggle */}
+                    <div className="flex bg-white/10 rounded-lg p-1 mx-2">
+                        <button onClick={() => { setCaptureMode('text'); setSelection(null); }} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${captureMode === 'text' ? 'bg-emerald-500 text-white shadow' : 'text-gray-400 hover:text-white'}`}><Type size={14} className="inline mr-1"/> Text Mode</button>
+                        <button onClick={() => setCaptureMode('image')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${captureMode === 'image' ? 'bg-indigo-500 text-white shadow' : 'text-gray-400 hover:text-white'}`}><ImageIcon size={14} className="inline mr-1"/> Image Mode</button>
+                    </div>
                     <div className="flex items-center gap-2">
                         <div className="flex items-center bg-white/8 border border-white/10 rounded-lg overflow-hidden">
                             <button onClick={() => setScale(s => Math.max(0.5, s - 0.2))} className="w-8 h-8 flex items-center justify-center text-gray-300 hover:bg-white/15">-</button>
@@ -461,8 +470,8 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
                          onMouseDown={handleMouseDown} 
                          onMouseMove={handleMouseMove} 
                          onMouseUp={(e) => {
-                             handleMouseUp();
-                             handleTextSelection();
+                             if (captureMode === 'image') handleMouseUp();
+                             if (captureMode === 'text') handleTextSelection();
                          }} 
                          ref={overlayRef}>
                         <canvas ref={canvasRef} />
