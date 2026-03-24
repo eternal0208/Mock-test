@@ -5,33 +5,10 @@ import { Upload, X, ChevronLeft, ChevronRight, CheckCircle, Type, ImageIcon, Loa
 import RichMathEditor from './RichMathEditor';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import 'pdfjs-dist/web/pdf_viewer.css'; // Add official pdf.js css for textLayer
 
 // Initialize PDF.js worker
 GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@5.4.624/build/pdf.worker.min.mjs`;
-
-const TEXT_LAYER_STYLE = `
-.textLayer {
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  overflow: hidden;
-  opacity: 0.2;
-  line-height: 1.0;
-  pointer-events: auto;
-}
-.textLayer span {
-  color: transparent;
-  position: absolute;
-  white-space: pre;
-  cursor: text;
-  transform-origin: 0% 0%;
-}
-::selection {
-  background: rgba(0, 0, 255, 0.3);
-}
-`;
 
 const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
     const [file, setFile] = useState(null);
@@ -228,7 +205,12 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
             setIsPdfLoading(true);
             try {
                 const arrayBuffer = await file.arrayBuffer();
-                const loadingTask = getDocument({ data: arrayBuffer });
+                const loadingTask = getDocument({ 
+                    data: arrayBuffer,
+                    cMapUrl: `https://unpkg.com/pdfjs-dist@5.4.624/cmaps/`,
+                    cMapPacked: true,
+                    standardFontDataUrl: `https://unpkg.com/pdfjs-dist@5.4.624/standard_fonts/`
+                });
                 const pdfDoc = await loadingTask.promise;
                 setPdf(pdfDoc);
                 setNumPages(pdfDoc.numPages);
@@ -465,7 +447,6 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
                 </div>
 
                 <div className="flex-1 overflow-auto custom-scrollbar relative bg-gray-100" ref={containerRef}>
-                    <style>{TEXT_LAYER_STYLE}</style>
                     <div className="relative inline-block m-8 shadow-2xl bg-white" 
                          onMouseDown={handleMouseDown} 
                          onMouseMove={handleMouseMove} 
@@ -475,7 +456,7 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
                          }} 
                          ref={overlayRef}>
                         <canvas ref={canvasRef} />
-                        <div ref={textLayerRef} className="textLayer absolute top-0 left-0" style={{ opacity: 0.2 }} />
+                        <div ref={textLayerRef} className="textLayer" style={{ position: 'absolute', top: 0, left: 0 }} />
                         
                         {capturedHighlights.map((h, i) => h.page === currentPage && (
                             <div key={i} className={`absolute border-2 ${h.slot === activeSlot ? 'border-indigo-400 bg-indigo-400/20' : 'border-emerald-400/40 bg-emerald-400/10'} rounded-sm pointer-events-none`} style={{ left: h.x, top: h.y, width: h.width, height: h.height }} />
