@@ -606,13 +606,13 @@ export default function ResultPage() {
                                                                 <div className={`text-[10px] sm:text-xs font-bold mb-1 ${attempted && !isCorrect ? 'text-red-600' : 'text-gray-500'}`}>YOUR ANSWER</div>
                                                                 <div className={`font-mono text-xl sm:text-2xl font-black
                                                                     ${isCorrect ? 'text-green-600' : attempted ? 'text-red-600' : 'text-gray-400'}`}>
-                                                                    {attempted ? String(selectedOpt) : '—'}
+                                                                    {attempted ? <MathText text={String(selectedOpt)} /> : '—'}
                                                                 </div>
                                                             </div>
                                                             <div>
                                                                 <div className="text-[10px] sm:text-xs font-bold mb-1 text-green-700">CORRECT ANSWER</div>
                                                                 <div className="font-mono text-xl sm:text-2xl font-black text-green-600">
-                                                                    {intAnswer ?? '—'}
+                                                                    {intAnswer != null ? <MathText text={String(intAnswer)} /> : '—'}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -624,24 +624,26 @@ export default function ResultPage() {
                                                     <div className={`p-3 rounded-xl border-2 mb-3
                                                         ${attempted ? (isCorrect ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300') : 'bg-yellow-50 border-yellow-300'}`}>
                                                         <div className="flex items-center justify-between gap-3">
-                                                            <div className="min-w-0">
+                                                            <div className="min-w-0 flex-1">
                                                                 <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Your Answer</div>
-                                                                <div className={`text-sm font-bold truncate ${attempted ? (isCorrect ? 'text-green-700' : 'text-red-700') : 'text-gray-400'}`}>
+                                                                <div className={`text-sm font-bold ${attempted ? (isCorrect ? 'text-green-700' : 'text-red-700') : 'text-gray-400'}`}>
                                                                     {attempted
                                                                         ? (Array.isArray(selectedOpt)
-                                                                            ? selectedOpt.map(formatPlaceholder).join(', ')
-                                                                            : formatPlaceholder(selectedOpt))
+                                                                            ? selectedOpt.map((o, i) => <MathText key={i} text={formatPlaceholder(o)} className="inline mr-1" />)
+                                                                            : <MathText text={formatPlaceholder(selectedOpt)} />)
                                                                         : 'Skipped'}
                                                                 </div>
                                                             </div>
-                                                            <div className="text-right min-w-0">
+                                                            <div className="text-right min-w-0 flex-1">
                                                                 <div className="text-[10px] font-bold uppercase tracking-widest text-green-700">Correct Answer</div>
-                                                                <div className="text-sm font-bold text-green-600 truncate">
+                                                                <div className="text-sm font-bold text-green-600">
                                                                     {qType === 'msq'
-                                                                        ? (correctOpts.length > 0 ? correctOpts.map(formatPlaceholder).join(', ') : '—')
+                                                                        ? (correctOpts.length > 0
+                                                                            ? correctOpts.map((o, i) => <MathText key={i} text={formatPlaceholder(o)} className="inline mr-1" />)
+                                                                            : '—')
                                                                         : (correctOptText
-                                                                            ? formatPlaceholder(correctOptText)
-                                                                            : (isCorrect && attempted ? formatPlaceholder(selectedOpt) : '—'))
+                                                                            ? <MathText text={formatPlaceholder(correctOptText)} />
+                                                                            : (isCorrect && attempted ? <MathText text={formatPlaceholder(selectedOpt)} /> : '—'))
                                                                     }
                                                                 </div>
                                                             </div>
