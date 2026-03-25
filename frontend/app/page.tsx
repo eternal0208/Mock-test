@@ -125,19 +125,19 @@ export default function LandingPage() {
               <Link href="/neet" className="text-slate-600 font-semibold hover:text-indigo-600 transition-colors">NEET</Link>
               <Link href="/cat" className="text-slate-600 font-semibold hover:text-indigo-600 transition-colors">CAT</Link>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               {user ? (
                 <Link href="/dashboard">
-                  <button className="px-6 py-2.5 rounded-xl text-white font-bold transition-all active:scale-95 text-sm" style={{ background: 'linear-gradient(135deg, #4a40e0, #702ae1)', boxShadow: '0 4px 20px rgba(74,64,224,0.3)' }}>
+                  <button className="px-4 py-2 sm:px-6 sm:py-2.5 rounded-xl text-white font-bold transition-all active:scale-95 text-xs sm:text-sm" style={{ background: 'linear-gradient(135deg, #4a40e0, #702ae1)', boxShadow: '0 4px 20px rgba(74,64,224,0.3)' }}>
                     Dashboard
                   </button>
                 </Link>
               ) : (
                 <>
-                  <button onClick={openLogin} className="px-5 py-2.5 rounded-xl font-bold text-indigo-700 hover:bg-indigo-50/60 transition-all text-sm">
+                  <button onClick={openLogin} className="px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl font-bold text-indigo-700 hover:bg-indigo-50/60 transition-all text-xs sm:text-sm">
                     Login
                   </button>
-                  <button onClick={openSignup} className="px-6 py-2.5 rounded-xl text-white font-bold transition-all active:scale-95 text-sm" style={{ background: 'linear-gradient(135deg, #4a40e0, #702ae1)', boxShadow: '0 4px 20px rgba(74,64,224,0.3)' }}>
+                  <button onClick={openSignup} className="px-4 py-2 sm:px-6 sm:py-2.5 rounded-xl text-white font-bold transition-all active:scale-95 text-xs sm:text-sm whitespace-nowrap" style={{ background: 'linear-gradient(135deg, #4a40e0, #702ae1)', boxShadow: '0 4px 20px rgba(74,64,224,0.3)' }}>
                     Sign Up
                   </button>
                 </>
@@ -148,7 +148,7 @@ export default function LandingPage() {
 
         {/* Hero Section - transparent so Vanta shows through */}
         <main className="flex-grow pt-20">
-          <section className="min-h-screen px-6 md:px-10 flex items-center max-w-screen-xl mx-auto py-16 md:py-24 relative overflow-hidden">
+          <section className="min-h-screen px-4 sm:px-6 md:px-10 flex items-center max-w-screen-xl mx-auto py-16 md:py-24 relative overflow-hidden">
             {/* Decorative glow blobs */}
             <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full pointer-events-none" style={{ background: 'rgba(112,42,225,0.08)', filter: 'blur(120px)' }} />
             <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full pointer-events-none" style={{ background: 'rgba(74,64,224,0.08)', filter: 'blur(100px)' }} />
@@ -174,10 +174,10 @@ export default function LandingPage() {
                   initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.1 }}
                   className="flex flex-col gap-1"
                 >
-                  <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight leading-none text-slate-900" style={{ fontFamily: 'var(--font-headline)' }}>
+                  <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight leading-none text-slate-900" style={{ fontFamily: 'var(--font-headline)' }}>
                     Apex Mock Test
                   </h1>
-                  <h2 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight" style={{ fontFamily: 'var(--font-headline)', background: 'linear-gradient(135deg, #4a40e0 0%, #702ae1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  <h2 className="text-3xl sm:text-4xl md:text-6xl font-extrabold tracking-tight leading-tight" style={{ fontFamily: 'var(--font-headline)', background: 'linear-gradient(135deg, #4a40e0 0%, #702ae1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                     Don't Just Compete,<br className="hidden md:block" /> Dominate.
                   </h2>
                 </motion.div>
@@ -213,7 +213,7 @@ export default function LandingPage() {
                 {/* Stats Row */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.45 }}
-                  className="flex items-center gap-8 md:gap-12 mt-4 py-6 px-8 rounded-2xl border w-full lg:w-fit"
+                  className="flex flex-wrap items-center justify-center sm:justify-start gap-6 sm:gap-8 md:gap-12 mt-6 py-6 px-4 sm:px-8 rounded-2xl border w-full lg:w-fit"
                   style={{ background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(16px)', borderColor: 'rgba(255,255,255,0.5)' }}
                 >
                   {[
@@ -222,10 +222,10 @@ export default function LandingPage() {
                     { value: '98%', label: 'Success Rate' },
                   ].map((stat, i) => (
                     <React.Fragment key={stat.label}>
-                      {i > 0 && <div className="h-10 w-px" style={{ background: 'rgba(168,173,185,0.3)' }} />}
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-3xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-headline)' }}>{stat.value}</span>
-                        <span className="text-xs font-bold uppercase tracking-widest text-slate-500">{stat.label}</span>
+                      {i > 0 && <div className="hidden sm:block h-10 w-px" style={{ background: 'rgba(168,173,185,0.3)' }} />}
+                      <div className="flex flex-col gap-0.5 items-center sm:items-start w-[28%] sm:w-auto">
+                        <span className="text-2xl sm:text-3xl font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-headline)' }}>{stat.value}</span>
+                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-slate-500 text-center sm:text-left">{stat.label}</span>
                       </div>
                     </React.Fragment>
                   ))}
@@ -285,21 +285,21 @@ export default function LandingPage() {
                   </div>
 
                   {/* Floating Rank Badge */}
-                  <div className="absolute -top-5 -right-5 px-5 py-3 rounded-xl border flex items-center gap-3" style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderColor: 'rgba(255,255,255,0.8)', boxShadow: '0 8px 32px rgba(0,105,71,0.12)' }}>
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,105,71,0.1)' }}>
+                  <div className="absolute -top-4 -right-2 sm:-top-5 sm:-right-5 px-4 py-2 sm:px-5 sm:py-3 rounded-xl border flex items-center gap-2 sm:gap-3 scale-90 sm:scale-100 origin-top-right" style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderColor: 'rgba(255,255,255,0.8)', boxShadow: '0 8px 32px rgba(0,105,71,0.12)' }}>
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,105,71,0.1)' }}>
                       🏆
                     </div>
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">India Rank</p>
-                      <p className="text-lg font-extrabold text-slate-900">#142</p>
+                      <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-slate-500">India Rank</p>
+                      <p className="text-base sm:text-lg font-extrabold text-slate-900">#142</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Floating Toast Below */}
-                <div className="absolute -bottom-5 left-8 px-5 py-3 rounded-full border flex items-center gap-2 animate-bounce" style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderColor: 'rgba(255,255,255,0.8)', boxShadow: '0 8px 32px rgba(74,64,224,0.12)' }}>
-                  <span>🎯</span>
-                  <span className="text-sm font-bold text-slate-700">New Mock Test Available</span>
+                <div className="absolute -bottom-4 left-4 sm:-bottom-5 sm:left-8 px-4 py-2 sm:px-5 sm:py-3 rounded-full border flex items-center gap-2 animate-bounce scale-90 sm:scale-100 origin-bottom-left" style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderColor: 'rgba(255,255,255,0.8)', boxShadow: '0 8px 32px rgba(74,64,224,0.12)' }}>
+                  <span className="text-sm sm:text-base">🎯</span>
+                  <span className="text-xs sm:text-sm font-bold text-slate-700 whitespace-nowrap">New Mock Test Available</span>
                 </div>
               </motion.div>
             </div>
