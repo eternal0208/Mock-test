@@ -43,64 +43,25 @@ export default function StudentDashboard() {
 
     useEffect(() => {
         const fetchData = async () => {
-            // Local Storage Keys scoped to User ID
             const uid = user.uid || user._id;
-            const cacheKeys = {
-                tests: `apex_cache_tests_${uid}`,
-                series: `apex_cache_series_${uid}`,
-                results: `apex_cache_results_${uid}`,
-                orders: `apex_cache_orders_${uid}`
-            };
 
-            // 1. Initial Load from Cache (Instant UI rendering)
-            const loadFromCache = () => {
-                let hasCache = false;
-                try {
-                    const cachedTests = localStorage.getItem(cacheKeys.tests);
-                    if (cachedTests) {
-                        const pd = JSON.parse(cachedTests);
-                        setTests(Array.isArray(pd) ? pd.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' })) : pd);
-                        hasCache = true;
-                    }
-
-
-                    // Series: NOT cached — always fetch fresh to reflect latest prices
-
-
-                    const cachedResults = localStorage.getItem(cacheKeys.results);
-                    if (cachedResults) { setResults(JSON.parse(cachedResults)); hasCache = true; }
-
-                    const cachedOrders = localStorage.getItem(cacheKeys.orders);
-                    if (cachedOrders) { setOrders(JSON.parse(cachedOrders)); hasCache = true; }
-
-                    const cachedPercentile = localStorage.getItem(`apex_cache_percentile`);
-                    if (cachedPercentile) { setPercentileData(JSON.parse(cachedPercentile)); }
-                } catch (e) { console.warn("Cache read failed", e); }
-
-                if (hasCache) {
-                    setLoading(false); // Disable loading overlay immediately if we have *any* cached data
-                }
-            };
-
-            loadFromCache();
-
-            // 2. Background Fetch (Update data silently)
+            // Background Fetch (Update data completely fresh, bypassing browser/nextjs cache)
             const fetchFreshData = async () => {
                 try {
                     const token = await user.getIdToken();
                     const headers = { 'Authorization': `Bearer ${token}` };
+                    const fetchConfig = { headers, cache: 'no-store' };
 
                     // Fetch Tests
-                    const testsRes = await fetch(`${API_BASE_URL}/api/tests`, { headers });
+                    const testsRes = await fetch(`${API_BASE_URL}/api/tests`, fetchConfig);
                     const testsData = await testsRes.json();
                     if (Array.isArray(testsData)) {
                         const sortedTests = testsData.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' }));
                         setTests(sortedTests);
-                        localStorage.setItem(cacheKeys.tests, JSON.stringify(sortedTests));
                     }
 
-                    // Fetch Series (always fresh — no caching to ensure latest prices)
-                    const seriesRes = await fetch(`${API_BASE_URL}/api/tests/series`, { headers });
+                    // Fetch Series
+                    const seriesRes = await fetch(`${API_BASE_URL}/api/tests/series`, fetchConfig);
                     const seriesData = await seriesRes.json();
                     if (Array.isArray(seriesData)) {
                         const sortedSeries = seriesData.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' }));
@@ -108,40 +69,36 @@ export default function StudentDashboard() {
                     }
 
                     // Fetch Results
-                    const resultsRes = await fetch(`${API_BASE_URL}/api/results/student/${uid}`, { headers });
+                    const resultsRes = await fetch(`${API_BASE_URL}/api/results/student/${uid}`, fetchConfig);
                     const resultsData = await resultsRes.json();
                     const validResults = Array.isArray(resultsData) ? resultsData : [];
                     setResults(validResults);
-                    localStorage.setItem(cacheKeys.results, JSON.stringify(validResults));
 
                     // Fetch Orders
                     try {
-                        const ordersRes = await fetch(`${API_BASE_URL}/api/purchases/my-orders`, { headers });
+                        const ordersRes = await fetch(`${API_BASE_URL}/api/purchases/my-orders`, fetchConfig);
                         if (ordersRes.ok) {
                             const ordersData = await ordersRes.json();
                             setOrders(ordersData);
-                            localStorage.setItem(cacheKeys.orders, JSON.stringify(ordersData));
                         }
-                    } catch (e) { console.error("Cache Orders Error", e) }
+                    } catch (e) { console.error("Fetch Orders Error", e) }
 
                     // Fetch Percentile Data (Global, not user scoped)
                     try {
-                        const percRes = await fetch(`${API_BASE_URL}/api/admin/percentile-data`, { headers });
+                        const percRes = await fetch(`${API_BASE_URL}/api/admin/percentile-data`, fetchConfig);
                         if (percRes.ok) {
                             const pData = await percRes.json();
                             setPercentileData(pData);
-                            localStorage.setItem(`apex_cache_percentile`, JSON.stringify(pData));
                         }
                     } catch (e) { console.error("Percentile Error", e) }
 
                 } catch (error) {
-                    console.error("Background fetch failed", error);
+                    console.error("Dashboard fetch failed", error);
                 } finally {
-                    setLoading(false); // Ensure loading is off even if cache was empty and fetch failed
+                    setLoading(false);
                 }
             };
 
-            // Trigger background fetch
             fetchFreshData();
         };
         fetchData();
@@ -437,14 +394,15 @@ export default function StudentDashboard() {
     // Filter Tests
     // 1. Filter by Paid/Free tab
     // 2. Filter out tests that belong to a SERIES (they should only show in Series section)
-    const seriesTestIds = new Set(series.flatMap(s => s.testIds || []));
+    const seriesTestIds = new Set(series.flatMap(s => s.testIds || []).map(String));
 
     // Build set of enrolled series IDs from purchase orders
-    const enrolledSeriesIds = new Set(orders.map(o => o.seriesId).filter(Boolean));
+    const enrolledSeriesIds = new Set(orders.map(o => o.seriesId).filter(Boolean).map(String));
 
     const relevantTests = tests.filter(test => {
-        // Exclude if part of a series
-        if (seriesTestIds.has(test._id)) return false;
+        // Exclude ALL tests that are part of ANY active series
+        // Since they will be displayed natively inside the enrolled or explore sections of the series tab
+        if (seriesTestIds.has(String(test._id))) return false;
 
         if (currentFilter === 'free') return test.price === 0 || test.accessType === 'free';
         if (currentFilter === 'paid') return test.price > 0 || test.accessType === 'paid';
