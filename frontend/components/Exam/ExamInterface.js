@@ -55,6 +55,10 @@ const ExamInterface = ({ test, onSubmit }) => {
     // Tools State
     const [showCalculator, setShowCalculator] = useState(false);
     const [zoomedImg, setZoomedImg] = useState(null);
+    // Anti-cheat state (desktop only)
+    const [tabSwitchCount, setTabSwitchCount] = useState(0);
+    const [tabWarningMsg, setTabWarningMsg] = useState(null);
+    const tabSwitchCountRef = useRef(0);
     const touchRef = useRef({ startX: 0, endX: 0 });
     // const { warnings } = useAntiCheating((msg) => alert(msg));
     const timerRef = useRef(null);
@@ -145,32 +149,56 @@ const ExamInterface = ({ test, onSubmit }) => {
         }
     }, [timeLeft, mode]);
 
-    // Anti-Cheating Logic
+    // Anti-Cheating Logic (Desktop Only)
     useEffect(() => {
         if (mode !== 'test') return;
 
+        // Only enforce on non-mobile devices
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isMobile) return;
+
+        const MAX_WARNINGS = 2;
+
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'hidden') {
-                console.log("Tab switched - Auto-submitting");
+            if (document.visibilityState === 'hidden') return; // only care when coming back
+            // We detect the tab-switch on `hidden`
+        };
+
+        const handleBlur = () => {
+            // window lost focus → user switched tab or browser
+            const newCount = tabSwitchCountRef.current + 1;
+            tabSwitchCountRef.current = newCount;
+            setTabSwitchCount(newCount);
+
+            if (newCount > MAX_WARNINGS) {
+                // 3rd violation → auto-submit immediately
                 handleSubmitTest(true);
+            } else {
+                // Show warning overlay
+                const remaining = MAX_WARNINGS - newCount + 1;
+                setTabWarningMsg(
+                    `⚠️ Warning ${newCount}/${MAX_WARNINGS}: Tab/browser switch detected! ${remaining > 0 ? `${remaining} warning${remaining > 1 ? 's' : ''} remaining before auto-submit.` : 'Next violation will auto-submit the test.'}`
+                );
+                // Auto-hide warning after 5 seconds
+                setTimeout(() => setTabWarningMsg(null), 5000);
             }
         };
 
         const handleBeforeUnload = (e) => {
-            console.log("Page refresh/back attempted - Auto-submitting");
+            // Browser close / refresh → immediate auto-submit on desktop
             handleSubmitTest(true);
-            // standard beforeunload behavior
             e.preventDefault();
             e.returnValue = '';
         };
 
-        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('blur', handleBlur);
         window.addEventListener('beforeunload', handleBeforeUnload);
 
         return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('blur', handleBlur);
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mode]);
 
     // Intelligent Image Preloading Queue
@@ -509,6 +537,16 @@ const ExamInterface = ({ test, onSubmit }) => {
 
     return (
         <div className="flex flex-col h-screen bg-white select-none">
+            {/* Tab Switch Warning Toast (Desktop Only) */}
+            {tabWarningMsg && (
+                <div className={`fixed top-0 left-0 right-0 z-[200] flex items-center justify-between px-4 py-3 text-white text-sm font-bold shadow-lg animate-in slide-in-from-top duration-300 ${tabSwitchCount >= 2 ? 'bg-red-700' : 'bg-orange-500'}`}>
+                    <div className="flex items-center gap-3">
+                        <span className="text-xl">⚠️</span>
+                        <span>{tabWarningMsg}</span>
+                    </div>
+                    <button onClick={() => setTabWarningMsg(null)} className="ml-4 text-white/80 hover:text-white text-lg leading-none">✕</button>
+                </div>
+            )}
             {/* Header */}
             <header className="bg-blue-700 text-white shadow sticky top-0 z-50">
                 <div className="h-14 md:h-16 flex justify-between items-center px-2 md:px-4">
