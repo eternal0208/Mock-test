@@ -1,23 +1,48 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 
-// Custom MathText component using MathLive to identically match RichMathEditor
+// Hybrid MathText: Uses MathLive for raw LaTeX to avoid double exponent errors,
+// but safely falls back to standard HTML injection + MathJax for text containing images/layout tags.
 const MathText = ({ text, className = '' }) => {
     const [isLoaded, setIsLoaded] = useState(false);
     const mfRef = useRef(null);
+    const containerRef = useRef(null);
+    
+    // Check if the content is HTML (like images or <p> tags from rich editors)
+    const containsHtml = typeof text === 'string' && /<[a-z][\s\S]*>/i.test(text);
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            // Dynamically import mathlive so it doesn't break SSR
+        if (typeof window !== 'undefined' && !containsHtml) {
             import('mathlive').then(() => {
                 setIsLoaded(true);
             }).catch(err => console.error("Error loading MathLive:", err));
         }
-    }, []);
+    }, [containsHtml]);
 
     useEffect(() => {
-        if (isLoaded && mfRef.current && text) {
-            // Strip any wrapping `$$` or `$` that might have been added to the RAW string
+        if (!text) return;
+
+        if (containsHtml) {
+            // HTML PATH: Safely Inject HTML and Typeset with MathJax
+            if (containerRef.current) {
+                let content = text;
+                const hasDelimiters = content.includes('$$') || content.includes('\\[') || content.includes('\\(') || (content.includes('$') && !content.includes('\\$'));
+                
+                // Only wrap if there are no delimiters AND it doesn't look like purely structural HTML
+                if (!hasDelimiters && !content.includes('<img')) {
+                    // It's text with some minor HTML tags, wrap it just in case it contains native latex
+                    // content = `\\( ${content} \\)`; 
+                    // Wait, wrapping HTML strings in \( usually breaks MathJax. Better to leave it RAW.
+                }
+
+                containerRef.current.innerHTML = content;
+
+                if (window.MathJax) {
+                    window.MathJax.typesetPromise([containerRef.current]).catch(err => console.error(err));
+                }
+            }
+        } else if (isLoaded && mfRef.current) {
+            // PURE LATEX PATH: Use MathLive exactly like the Editor
             let cleanValue = text;
             if (typeof cleanValue === 'string') {
                 if (cleanValue.startsWith('$$') && cleanValue.endsWith('$$')) {
@@ -26,22 +51,22 @@ const MathText = ({ text, className = '' }) => {
                     cleanValue = cleanValue.substring(1, cleanValue.length - 1);
                 }
             }
-            
-            // Set the value directly to the math-field
-            // Since it was saved from MathLive's RichMathEditor, it will render flawlessly
             mfRef.current.value = cleanValue || '';
         }
-    }, [isLoaded, text]);
+    }, [isLoaded, text, containsHtml]);
 
     if (!text) return null;
 
+    if (containsHtml) {
+        return <span ref={containerRef} className={`math-text-container inline-block w-full overflow-hidden ${className}`} />;
+    }
+
     if (!isLoaded) {
-        // Fallback before MathLive initializes
         return <span className={`math-text-container inline-block opacity-50 ${className}`}>{text}</span>;
     }
 
     return (
-        <span className={`math-text-container inline-block ${className}`}>
+        <span className={`math-text-container inline-block max-w-full overflow-x-auto no-scrollbar ${className}`}>
             <math-field 
                 ref={mfRef} 
                 read-only="true"
@@ -51,7 +76,7 @@ const MathText = ({ text, className = '' }) => {
                     backgroundColor: 'transparent',
                     boxShadow: 'none',
                     fontFamily: 'inherit',
-                    display: 'inline-block',
+                    display: 'block', // Ensures block behavior inside span for long formulas
                     padding: 0,
                     margin: 0
                 }}
