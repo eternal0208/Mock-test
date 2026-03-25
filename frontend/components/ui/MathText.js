@@ -58,15 +58,15 @@ const MathText = ({ text, className = '' }) => {
     if (!text) return null;
 
     if (containsHtml) {
-        return <span ref={containerRef} className={`math-text-container inline-block w-full overflow-hidden ${className}`} />;
+        return <span ref={containerRef} className={`math-text-container inline-block w-full overflow-hidden text-slate-900 ${className}`} />;
     }
 
     if (!isLoaded) {
-        return <span className={`math-text-container inline-block opacity-50 ${className}`}>{text}</span>;
+        return <span className={`math-text-container inline-block text-slate-900 ${className}`}>{text}</span>;
     }
 
     return (
-        <span className={`math-text-container inline-block max-w-full overflow-x-auto no-scrollbar ${className}`}>
+        <span className={`math-text-container inline-block max-w-full overflow-x-auto no-scrollbar text-slate-900 ${className}`}>
             <math-field 
                 ref={mfRef} 
                 read-only="true"
@@ -76,7 +76,9 @@ const MathText = ({ text, className = '' }) => {
                     backgroundColor: 'transparent',
                     boxShadow: 'none',
                     fontFamily: 'inherit',
-                    display: 'block', // Ensures block behavior inside span for long formulas
+                    color: '#1e293b',
+                    '--math-text-color': '#1e293b',
+                    display: 'block',
                     padding: 0,
                     margin: 0
                 }}
