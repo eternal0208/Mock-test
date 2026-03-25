@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Apex Mock Test | Don't Just Compete, Dominate</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-primary-fixed": "#000000",
+              "on-background": "#2a2f38",
+              "on-primary": "#f4f1ff",
+              "on-secondary-fixed-variant": "#6514d6",
+              "surface-container-highest": "#d6ddee",
+              "surface-container": "#e3e8f7",
+              "background": "#f4f6ff",
+              "surface-variant": "#d6ddee",
+              "tertiary-dim": "#005c3d",
+              "secondary-dim": "#6411d5",
+              "on-secondary": "#f8f0ff",
+              "on-surface": "#2a2f38",
+              "tertiary-fixed-dim": "#58e7ab",
+              "secondary-fixed-dim": "#d0b8ff",
+              "surface-container-high": "#dce2f3",
+              "error-container": "#f74b6d",
+              "inverse-on-surface": "#989da9",
+              "on-tertiary-fixed-variant": "#006544",
+              "primary": "#4a40e0",
+              "secondary": "#702ae1",
+              "inverse-surface": "#090e17",
+              "on-tertiary-container": "#005a3c",
+              "tertiary": "#006947",
+              "error-dim": "#a70138",
+              "on-tertiary": "#c8ffe0",
+              "tertiary-container": "#69f6b8",
+              "primary-container": "#9795ff",
+              "on-secondary-fixed": "#430097",
+              "outline": "#727782",
+              "secondary-container": "#dcc9ff",
+              "on-error-container": "#510017",
+              "on-primary-container": "#14007e",
+              "inverse-primary": "#8582ff",
+              "error": "#b41340",
+              "on-tertiary-fixed": "#00452d",
+              "surface": "#f4f6ff",
+              "on-primary-fixed-variant": "#1a0099",
+              "surface-container-lowest": "#ffffff",
+              "on-secondary-container": "#5b00c7",
+              "surface-tint": "#4a40e0",
+              "surface-bright": "#f4f6ff",
+              "on-surface-variant": "#575c66",
+              "primary-fixed": "#9795ff",
+              "primary-dim": "#3d30d4",
+              "surface-dim": "#cdd4e7",
+              "surface-container-low": "#ecf1ff",
+              "on-error": "#ffefef",
+              "secondary-fixed": "#dcc9ff",
+              "tertiary-fixed": "#69f6b8",
+              "primary-fixed-dim": "#8885ff",
+              "outline-variant": "#a8adb9"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background font-body text-on-background antialiased">
+<!-- TopAppBar -->
+<nav class="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(74,64,224,0.08)]">
+<div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400" data-icon="signal_cellular_alt">signal_cellular_alt</span>
+<span class="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent font-headline tracking-tight">Apex Mock Test</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-600 font-medium hover:bg-slate-100 px-4 py-2 rounded-xl transition-all duration-300 active:scale-90">Login</button>
+</div>
+</div>
+</nav>
+<main class="pt-24 pb-12 overflow-x-hidden">
+<!-- Hero Section -->
+<section class="px-6 py-12 text-center max-w-4xl mx-auto">
+<!-- Pill Badge -->
+<div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-tertiary-container text-on-tertiary-container text-xs font-bold tracking-wider uppercase mb-8 shadow-sm">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-tertiary"></span>
+</span>
+                Trusted by 10,000+ Students
+            </div>
+<!-- Headline -->
+<h1 class="text-4xl md:text-6xl font-extrabold font-headline leading-tight tracking-tight text-on-surface mb-6">
+                Apex Mock Test<br/>
+<span class="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Don't Just Compete, Dominate.</span>
+</h1>
+<!-- Subtext -->
+<p class="text-lg text-on-surface-variant leading-relaxed mb-10 max-w-2xl mx-auto">
+                The ultimate mock test platform for JEE, NEET, and CAT. Experience precision analytics and editorial-grade question sets.
+            </p>
+<!-- CTA -->
+<div class="flex flex-col gap-4 items-center">
+<button class="w-full max-w-xs py-4 px-8 bg-gradient-to-r from-primary to-secondary text-white font-bold rounded-xl shadow-[0_10px_30px_rgba(74,64,224,0.3)] hover:shadow-[0_15px_40px_rgba(74,64,224,0.4)] transition-all active:scale-95 text-lg">
+                    Start Free Test
+                </button>
+<p class="text-sm text-outline font-medium">No credit card required • Instant access</p>
+</div>
+<!-- Hero Image/Visual -->
+<div class="mt-16 relative">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-background z-10"></div>
+<img alt="Mock Test Interface" class="rounded-xl shadow-2xl w-full object-cover h-[300px] md:h-[500px]" data-alt="Modern digital interface showing complex analytics charts and clean educational dashboard with vibrant indigo and purple accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCcsUms1TpcuFKq5qFqWbjMNlOrHQo_tI_gWMEkrK3V-OPZpR9PsjFCasHD8XeXsikXcPJ7KKqTsZSLgJIoByhTeILG5c83H1lf_7B7qiqd0L1Xo2EA4tQIQG6SAvjk5YR5yWLPNK30noDASAa6R-WGgk_lUlMUtsMHGBwhYRY_Mma72yd4v7nWO3UhFCOLUvQ00TUhshbVcgPhjOz9v0zm9nvrHFEu4HlmEeBmXdVnUPIG67tzzwWuZf4UHuuf2Qc9ZNSTfQrU4sE"/>
+</div>
+</section>
+<!-- Exam Categories -->
+<section class="px-6 py-16 bg-surface-container-low">
+<div class="max-w-7xl mx-auto">
+<h2 class="text-2xl font-bold font-headline mb-10 text-center tracking-tight text-on-surface">Choose Your Path</h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- JEE Card -->
+<div class="bg-surface-container-lowest p-8 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.02)] border border-white hover:translate-y-[-4px] transition-all duration-300">
+<div class="w-12 h-12 bg-primary-container/20 rounded-xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="architecture">architecture</span>
+</div>
+<h3 class="text-xl font-bold font-headline mb-3 text-on-surface">JEE</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed mb-6">Master Physics, Chemistry, and Math with our advanced problem sets and mock papers.</p>
+<div class="flex items-center text-primary font-bold text-sm gap-2">
+                            Explore JEE <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+<!-- NEET Card -->
+<div class="bg-surface-container-lowest p-8 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.02)] border border-white hover:translate-y-[-4px] transition-all duration-300">
+<div class="w-12 h-12 bg-tertiary-container/20 rounded-xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-tertiary text-3xl" data-icon="medical_services">medical_services</span>
+</div>
+<h3 class="text-xl font-bold font-headline mb-3 text-on-surface">NEET</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed mb-6">Intensive biology focus with high-yield medical entrance simulations and performance tracking.</p>
+<div class="flex items-center text-tertiary font-bold text-sm gap-2">
+                            Explore NEET <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+<!-- CAT Card -->
+<div class="bg-surface-container-lowest p-8 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.02)] border border-white hover:translate-y-[-4px] transition-all duration-300">
+<div class="w-12 h-12 bg-secondary-container/20 rounded-xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-secondary text-3xl" data-icon="leaderboard">leaderboard</span>
+</div>
+<h3 class="text-xl font-bold font-headline mb-3 text-on-surface">CAT</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed mb-6">Sharpen your aptitude with adaptive testing and data interpretation mock series.</p>
+<div class="flex items-center text-secondary font-bold text-sm gap-2">
+                            Explore CAT <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Premium Test Series -->
+<section class="px-6 py-20">
+<div class="max-w-7xl mx-auto">
+<div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
+<div class="text-center md:text-left">
+<span class="text-primary font-bold tracking-widest text-xs uppercase mb-2 block">Exclusive Access</span>
+<h2 class="text-3xl font-bold font-headline tracking-tight text-on-surface">Premium Test Series</h2>
+</div>
+<div class="hidden md:flex gap-4">
+<button class="p-3 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="p-3 rounded-full bg-primary text-white shadow-lg hover:shadow-primary/20 transition-all">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+<!-- Premium Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-8 flex flex-col shadow-[0_20px_40px_rgba(74,64,224,0.04)] relative group overflow-hidden border border-white/50">
+<div class="absolute top-0 right-0 p-4">
+<span class="bg-primary/10 text-primary text-[10px] font-bold px-3 py-1 rounded-full uppercase">Most Popular</span>
+</div>
+<h4 class="text-2xl font-bold font-headline text-on-surface mb-2">JEE Full Syllabus Mock</h4>
+<div class="flex items-baseline gap-1 mb-6">
+<span class="text-4xl font-extrabold text-on-surface">₹1,499</span>
+<span class="text-on-surface-variant text-sm">/series</span>
+</div>
+<ul class="space-y-4 mb-10 flex-grow">
+<li class="flex items-center gap-3 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-tertiary text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                25 Full-length Mock Tests
+                            </li>
+<li class="flex items-center gap-3 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-tertiary text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                Performance Insight Analytics
+                            </li>
+<li class="flex items-center gap-3 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-tertiary text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                Video Solutions by Experts
+                            </li>
+</ul>
+<button class="w-full py-4 bg-surface-container-low text-primary font-bold rounded-xl group-hover:bg-primary group-hover:text-white transition-all duration-300">
+                            Enroll Now
+                        </button>
+</div>
+<!-- Premium Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl p-8 flex flex-col shadow-[0_20px_40px_rgba(74,64,224,0.04)] relative group overflow-hidden border border-white/50">
+<h4 class="text-2xl font-bold font-headline text-on-surface mb-2">NEET High-Yield Pack</h4>
+<div class="flex items-baseline gap-1 mb-6">
+<span class="text-4xl font-extrabold text-on-surface">₹1,999</span>
+<span class="text-on-surface-variant text-sm">/series</span>
+</div>
+<ul class="space-y-4 mb-10 flex-grow">
+<li class="flex items-center gap-3 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-tertiary text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                15 Topic-wise Flash Tests
+                            </li>
+<li class="flex items-center gap-3 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-tertiary text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                Real-time All India Rank (AIR)
+                            </li>
+<li class="flex items-center gap-3 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-tertiary text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                Personal Mentor Support
+                            </li>
+</ul>
+<button class="w-full py-4 bg-surface-container-low text-primary font-bold rounded-xl group-hover:bg-primary group-hover:text-white transition-all duration-300">
+                            Enroll Now
+                        </button>
+</div>
+<!-- Premium Card 3 -->
+<div class="bg-surface-container-lowest rounded-xl p-8 flex flex-col shadow-[0_20px_40px_rgba(74,64,224,0.04)] relative group overflow-hidden border border-white/50">
+<h4 class="text-2xl font-bold font-headline text-on-surface mb-2">CAT Aptitude Pro</h4>
+<div class="flex items-baseline gap-1 mb-6">
+<span class="text-4xl font-extrabold text-on-surface">₹2,499</span>
+<span class="text-on-surface-variant text-sm">/series</span>
+</div>
+<ul class="space-y-4 mb-10 flex-grow">
+<li class="flex items-center gap-3 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-tertiary text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                Adaptive Difficulty Engine
+                            </li>
+<li class="flex items-center gap-3 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-tertiary text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                50+ Sectional Drills
+                            </li>
+<li class="flex items-center gap-3 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-tertiary text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                Mock PI &amp; GD Guidance
+                            </li>
+</ul>
+<button class="w-full py-4 bg-surface-container-low text-primary font-bold rounded-xl group-hover:bg-primary group-hover:text-white transition-all duration-300">
+                            Enroll Now
+                        </button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-slate-900 dark:bg-slate-950 w-full pt-16 pb-8">
+<div class="max-w-7xl mx-auto px-8 grid grid-cols-1 md:grid-cols-4 gap-12">
+<div class="col-span-1 md:col-span-2">
+<span class="text-xl font-extrabold text-white mb-4 block font-headline tracking-tight">Apex Mock Test</span>
+<p class="font-manrope text-sm leading-relaxed text-slate-400 max-w-sm mb-6">
+                    An initiative of SR Club. Dedicated to providing premium educational assessments and analytics to empower students worldwide.
+                </p>
+<div class="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-widest">
+<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    System Operational.
+                </div>
+</div>
+<div>
+<h5 class="text-white font-bold mb-6 text-sm uppercase tracking-widest">Resources</h5>
+<ul class="space-y-4">
+<li><a class="text-slate-400 hover:text-white transition-colors font-manrope text-sm" href="#">JEE Prep</a></li>
+<li><a class="text-slate-400 hover:text-white transition-colors font-manrope text-sm" href="#">NEET Mock</a></li>
+<li><a class="text-slate-400 hover:text-white transition-colors font-manrope text-sm" href="#">CAT Analytics</a></li>
+</ul>
+</div>
+<div>
+<h5 class="text-white font-bold mb-6 text-sm uppercase tracking-widest">Company</h5>
+<ul class="space-y-4">
+<li><a class="text-slate-400 hover:text-white transition-colors font-manrope text-sm" href="#">Privacy Policy</a></li>
+<li><a class="text-slate-400 hover:text-white transition-colors font-manrope text-sm" href="#">Contact Us</a></li>
+</ul>
+</div>
+</div>
+<div class="max-w-7xl mx-auto px-8 mt-16 pt-8 border-t border-slate-800/50">
+<p class="font-manrope text-sm leading-relaxed text-slate-500 text-center">
+                © 2024 Apex Mock Test. System Operational.
+            </p>
+</div>
+</footer>
+</body></html>
