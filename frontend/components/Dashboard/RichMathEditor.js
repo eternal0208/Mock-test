@@ -94,12 +94,6 @@ const RichMathEditor = forwardRef(({
 
     return (
         <div className={`border border-slate-200 rounded-2xl overflow-hidden focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all shadow-sm ${className}`}>
-            {/* Lighter selection highlight override */}
-            <style>{`
-                math-field::part(virtual-keyboard-toggle) { display: none; }
-                math-field .ML__selection { background: rgba(99, 102, 241, 0.18) !important; }
-                math-field .ML__contains-caret { background: rgba(99, 102, 241, 0.10) !important; }
-            `}</style>
             
             {/* Toolbar - Header and Symbols */}
             {(!minimal || showToolbar) && (

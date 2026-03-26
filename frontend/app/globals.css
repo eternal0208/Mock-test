@@ -114,3 +114,22 @@ math-field[read-only] {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* MathLive Editor Styling */
+math-field .ML__selection {
+  background: rgba(99, 102, 241, 0.18) !important;
+}
+
+math-field .ML__contains-caret {
+  background: rgba(99, 102, 241, 0.10) !important;
+}
+
+/* Ensure the virtual keyboard toggle is visible but styled subtly */
+math-field::part(virtual-keyboard-toggle) {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+math-field::part(virtual-keyboard-toggle):hover {
+  opacity: 1;
+}
