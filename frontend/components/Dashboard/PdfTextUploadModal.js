@@ -65,7 +65,50 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
     const textLayerRef = useRef(null);
     const containerRef = useRef(null);
     const overlayRef = useRef(null);
+    const gridCanvasRef = useRef(null);
     const renderTaskRef = useRef(null);
+
+    const GRID_SIZE = 20; // px - grid cell size
+    const [showGrid, setShowGrid] = useState(true);
+
+    // Snap a value to the nearest grid line
+    const snapToGrid = (val) => Math.round(val / GRID_SIZE) * GRID_SIZE;
+
+    // Draw grid on the grid canvas whenever PDF size changes or grid toggle
+    useEffect(() => {
+        const gc = gridCanvasRef.current;
+        if (!gc || !showGrid || captureMode !== 'image') {
+            if (gc) {
+                const ctx = gc.getContext('2d');
+                ctx.clearRect(0, 0, gc.width, gc.height);
+            }
+            return;
+        }
+        gc.width = pdfSize.width;
+        gc.height = pdfSize.height;
+        const ctx = gc.getContext('2d');
+        ctx.clearRect(0, 0, gc.width, gc.height);
+
+        // Minor grid lines
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.12)';
+        ctx.lineWidth = 0.5;
+        for (let x = 0; x <= gc.width; x += GRID_SIZE) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, gc.height); ctx.stroke();
+        }
+        for (let y = 0; y <= gc.height; y += GRID_SIZE) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(gc.width, y); ctx.stroke();
+        }
+
+        // Major grid lines every 5 cells
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.22)';
+        ctx.lineWidth = 0.8;
+        for (let x = 0; x <= gc.width; x += GRID_SIZE * 5) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, gc.height); ctx.stroke();
+        }
+        for (let y = 0; y <= gc.height; y += GRID_SIZE * 5) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(gc.width, y); ctx.stroke();
+        }
+    }, [pdfSize, showGrid, captureMode]);
 
     // Sidebar resize drag logic
     useEffect(() => {
@@ -332,14 +375,23 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
     };
 
     const handleMouseUp = () => {
-        if (captureMode === 'text') return; // Prevent box creation in text mode
+        if (captureMode === 'text') return;
         if (isResizing) { setIsResizing(false); setResizeHandle(null); return; }
         if (isMoving) { setIsMoving(false); return; }
         if (!isDragging) return;
         setIsDragging(false);
-        const x = Math.min(startPos.x, currentPos.x), y = Math.min(startPos.y, currentPos.y);
-        const w = Math.abs(startPos.x - currentPos.x), h = Math.abs(startPos.y - currentPos.y);
-        if (w > 5 && h > 5) setSelection({ x, y, width: w, height: h });
+        let x = Math.min(startPos.x, currentPos.x);
+        let y = Math.min(startPos.y, currentPos.y);
+        let w = Math.abs(startPos.x - currentPos.x);
+        let h = Math.abs(startPos.y - currentPos.y);
+        if (w > 5 && h > 5) {
+            // Magnetic snapping: snap all corners to nearest grid line
+            const snappedX = snapToGrid(x);
+            const snappedY = snapToGrid(y);
+            const snappedW = snapToGrid(w);
+            const snappedH = snapToGrid(h);
+            setSelection({ x: snappedX, y: snappedY, width: Math.max(GRID_SIZE, snappedW), height: Math.max(GRID_SIZE, snappedH) });
+        }
     };
 
     const handleDeleteImage = async (slotId, imageUrl, e) => {
@@ -436,6 +488,18 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
                         <button onClick={() => { setCaptureMode('text'); setSelection(null); }} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${captureMode === 'text' ? 'bg-emerald-500 text-white shadow' : 'text-gray-400 hover:text-white'}`}><Type size={14} className="inline mr-1"/> Text Mode</button>
                         <button onClick={() => setCaptureMode('image')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${captureMode === 'image' ? 'bg-indigo-500 text-white shadow' : 'text-gray-400 hover:text-white'}`}><ImageIcon size={14} className="inline mr-1"/> Image Mode</button>
                     </div>
+                    {/* Grid toggle (visible only in image mode) */}
+                    {captureMode === 'image' && (
+                        <button
+                            onClick={() => setShowGrid(g => !g)}
+                            title="Toggle grid"
+                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all border ${
+                                showGrid ? 'bg-indigo-900/60 border-indigo-500/40 text-indigo-300' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+                            }`}
+                        >
+                            ▦ Grid
+                        </button>
+                    )}
                     <div className="flex items-center gap-2">
                         <div className="flex items-center bg-white/8 border border-white/10 rounded-lg overflow-hidden">
                             <button onClick={() => setScale(s => Math.max(0.5, s - 0.2))} className="w-8 h-8 flex items-center justify-center text-gray-300 hover:bg-white/15">-</button>
@@ -446,7 +510,7 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-auto custom-scrollbar relative bg-gray-100" ref={containerRef}>
+                <div className="flex-1 overflow-auto custom-scrollbar relative bg-gray-200" ref={containerRef}>
                     <div className="relative inline-block m-8 shadow-2xl bg-white" 
                          onMouseDown={handleMouseDown} 
                          onMouseMove={handleMouseMove} 
@@ -458,17 +522,102 @@ const PdfTextUploadModal = ({ onUpload, onClose, onZoom }) => {
                         <canvas ref={canvasRef} />
                         <div ref={textLayerRef} className="textLayer" style={{ position: 'absolute', top: 0, left: 0 }} />
                         
+                        {/* Grid overlay canvas */}
+                        {captureMode === 'image' && (
+                            <canvas
+                                ref={gridCanvasRef}
+                                style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', width: pdfSize.width, height: pdfSize.height }}
+                            />
+                        )}
+
+                        {/* Past captured highlights */}
                         {capturedHighlights.map((h, i) => h.page === currentPage && (
-                            <div key={i} className={`absolute border-2 ${h.slot === activeSlot ? 'border-indigo-400 bg-indigo-400/20' : 'border-emerald-400/40 bg-emerald-400/10'} rounded-sm pointer-events-none`} style={{ left: h.x, top: h.y, width: h.width, height: h.height }} />
+                            <div key={i}
+                                className={`absolute pointer-events-none rounded-sm`}
+                                style={{
+                                    left: h.x, top: h.y, width: h.width, height: h.height,
+                                    border: h.slot === activeSlot ? '2px solid #818cf8' : '1.5px solid #34d399',
+                                    background: h.slot === activeSlot ? 'rgba(99,102,241,0.12)' : 'rgba(52,211,153,0.08)',
+                                    boxShadow: h.slot === activeSlot ? '0 0 0 1px #c7d2fe' : '0 0 0 1px #a7f3d0',
+                                }}
+                            />
                         ))}
+
+                        {/* Live drag preview box */}
+                        {isDragging && (
+                            <div style={{
+                                position: 'absolute',
+                                left: Math.min(startPos.x, currentPos.x),
+                                top: Math.min(startPos.y, currentPos.y),
+                                width: Math.abs(currentPos.x - startPos.x),
+                                height: Math.abs(currentPos.y - startPos.y),
+                                border: '1.5px dashed #818cf8',
+                                background: 'rgba(99,102,241,0.06)',
+                                pointerEvents: 'none',
+                                borderRadius: 2,
+                            }} />
+                        )}
+
+                        {/* Selection box with resize handles + size label */}
                         {selection && (
-                            <div className={`absolute border-2 border-indigo-400 bg-indigo-400/10 rounded-sm ${isMoving ? 'cursor-grabbing' : 'cursor-grab'}`} style={{ left: selection.x, top: selection.y, width: selection.width, height: selection.height }}>
-                                {isResizeMode && ['nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'].map(h => (
-                                    <div key={h} className={`absolute bg-transparent z-50 ${h.length === 2 ? 'w-5 h-5 -m-2.5' : 'w-5 h-5 -translate-x-1/2 -translate-y-1/2'} ${h.includes('n') ? 'top-0' : h.includes('s') ? 'bottom-0' : 'top-1/2'} ${h.includes('w') ? 'left-0' : h.includes('e') ? 'right-0' : 'left-1/2'} cursor-${h}-resize`} onMouseDown={(e) => handleResizeStart(e, h)} />
-                                ))}
-                                <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex gap-2">
-                                    <button onClick={(e) => { e.stopPropagation(); captureSelection(); }} className="bg-emerald-600 text-white px-4 py-2 rounded-full text-xs font-black shadow-xl flex items-center gap-1.5"><ImageIcon size={14} /> Capture as Image</button>
-                                    <button onClick={(e) => { e.stopPropagation(); setSelection(null); }} className="bg-red-500 text-white px-4 py-2 rounded-full text-xs font-black shadow-xl"><X size={13} /></button>
+                            <div
+                                className={`absolute ${isMoving ? 'cursor-grabbing' : 'cursor-grab'}`}
+                                style={{
+                                    left: selection.x, top: selection.y, width: selection.width, height: selection.height,
+                                    border: '2px solid #6366f1',
+                                    background: 'rgba(99,102,241,0.08)',
+                                    boxShadow: '0 0 0 1px rgba(99,102,241,0.3), inset 0 0 0 1px rgba(99,102,241,0.15)',
+                                    borderRadius: 3,
+                                }}
+                            >
+                                {/* Size label */}
+                                <div style={{
+                                    position: 'absolute', top: 4, left: 4,
+                                    background: 'rgba(0,0,0,0.65)', color: '#fff',
+                                    fontSize: 10, fontWeight: 700, fontFamily: 'monospace',
+                                    padding: '1px 5px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.6,
+                                }}>
+                                    {Math.round(selection.width)} × {Math.round(selection.height)}
+                                </div>
+
+                                {/* 8 Resize handles — always visible */}
+                                {['nw','n','ne','w','e','sw','s','se'].map(h => {
+                                    const vert = h.includes('n') ? { top: -5 } : h.includes('s') ? { bottom: -5 } : { top: '50%', transform: 'translateY(-50%)' };
+                                    const horiz = h.includes('w') ? { left: -5 } : h.includes('e') ? { right: -5 } : { left: '50%', transform: 'translateX(-50%)' };
+                                    if (h === 'n' || h === 's') delete vert.transform;
+                                    const cursors = { nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize', w: 'w-resize', e: 'e-resize', sw: 'sw-resize', s: 's-resize', se: 'se-resize' };
+                                    return (
+                                        <div
+                                            key={h}
+                                            onMouseDown={(e) => handleResizeStart(e, h)}
+                                            style={{
+                                                position: 'absolute',
+                                                width: 10, height: 10,
+                                                background: '#6366f1',
+                                                border: '2px solid #fff',
+                                                borderRadius: 2,
+                                                cursor: cursors[h],
+                                                zIndex: 10,
+                                                ...vert, ...horiz,
+                                            }}
+                                        />
+                                    );
+                                })}
+
+                                {/* Action buttons */}
+                                <div className="absolute flex gap-2" style={{ bottom: -42, left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); captureSelection(); }}
+                                        style={{ background: '#059669', color: '#fff', padding: '5px 14px', borderRadius: 999, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5, boxShadow: '0 4px 12px rgba(5,150,105,0.4)' }}
+                                    >
+                                        <span>📷</span> Capture
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setSelection(null); }}
+                                        style={{ background: '#ef4444', color: '#fff', padding: '5px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, boxShadow: '0 4px 12px rgba(239,68,68,0.3)' }}
+                                    >
+                                        ✕
+                                    </button>
                                 </div>
                             </div>
                         )}
