@@ -13,6 +13,10 @@ const RichMathEditor = forwardRef(({
     const [isLoaded, setIsLoaded] = useState(false);
     const [showToolbar, setShowToolbar] = useState(!minimal);
     const mfRef = useRef(null);
+    // Guard: do NOT overwrite field value while user has focus (typing)
+    const isFocusedRef = useRef(false);
+    // Track last value we programmatically set to avoid redundant re-sets
+    const lastSetValueRef = useRef(null);
 
     useImperativeHandle(ref, () => ({
         insertLatex: (latex) => {
@@ -33,57 +37,51 @@ const RichMathEditor = forwardRef(({
 
     useEffect(() => {
         if (isLoaded && mfRef.current) {
-            // Configure MathLive for "Natural" typing
             mfRef.current.mathVirtualKeyboardPolicy = 'manual';
-            mfRef.current.smartMode = true; // Auto-detect text vs math
-            mfRef.current.defaultMode = 'text'; // Start as text
-            
-            // Set initial value only once
-            if (value !== undefined) {
-                let cleanValue = value;
-                if (typeof cleanValue === 'string') {
-                    if (cleanValue.startsWith('$$') && cleanValue.endsWith('$$')) {
-                        cleanValue = cleanValue.substring(2, cleanValue.length - 2);
-                    } else if (cleanValue.startsWith('$') && cleanValue.endsWith('$')) {
-                        cleanValue = cleanValue.substring(1, cleanValue.length - 1);
-                    }
-                }
-                if (mfRef.current.value !== cleanValue) {
-                    mfRef.current.value = cleanValue || '';
-                }
-            }
+            mfRef.current.smartMode = true;
+            mfRef.current.defaultMode = 'text';
+
+            // Set initial value once on mount
+            const cleanInitial = stripDelimiters(value);
+            mfRef.current.value = cleanInitial || '';
+            lastSetValueRef.current = cleanInitial || '';
 
             const handleInput = () => {
                 if (onChange) {
                     const rawLatex = mfRef.current.value;
-                    // Send raw LaTeX. Our improved MathText component handles raw strings now.
                     onChange(rawLatex || '');
                 }
             };
 
+            const handleFocus = () => { isFocusedRef.current = true; };
+            const handleBlur = () => { isFocusedRef.current = false; };
+
             mfRef.current.addEventListener('input', handleInput);
+            mfRef.current.addEventListener('focus', handleFocus);
+            mfRef.current.addEventListener('blur', handleBlur);
+
             return () => {
                 if (mfRef.current) {
                     mfRef.current.removeEventListener('input', handleInput);
+                    mfRef.current.removeEventListener('focus', handleFocus);
+                    mfRef.current.removeEventListener('blur', handleBlur);
                 }
             };
         }
-    }, [isLoaded, onChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoaded]);
 
-    // Handle external updates to the value
+    // Handle external/programmatic changes to value
+    // ONLY sync when user is NOT typing (not focused) AND value actually differs
     useEffect(() => {
-        if (isLoaded && mfRef.current && value !== undefined) {
-            let cleanValue = value;
-            if (typeof cleanValue === 'string') {
-                if (cleanValue.startsWith('$$') && cleanValue.endsWith('$$')) {
-                    cleanValue = cleanValue.substring(2, cleanValue.length - 2);
-                } else if (cleanValue.startsWith('$') && cleanValue.endsWith('$')) {
-                    cleanValue = cleanValue.substring(1, cleanValue.length - 1);
-                }
-            }
-            if (mfRef.current.value !== cleanValue) {
-                mfRef.current.value = cleanValue || '';
-            }
+        if (!isLoaded || !mfRef.current) return;
+        if (isFocusedRef.current) return; // Do NOT interrupt user typing
+
+        const cleanValue = stripDelimiters(value);
+        // Only update if it's genuinely different from what we last set
+        if (cleanValue !== lastSetValueRef.current) {
+            mfRef.current.value = cleanValue || '';
+            lastSetValueRef.current = cleanValue || '';
         }
     }, [value, isLoaded]);
 
@@ -96,6 +94,12 @@ const RichMathEditor = forwardRef(({
 
     return (
         <div className={`border border-slate-200 rounded-2xl overflow-hidden focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all shadow-sm ${className}`}>
+            {/* Lighter selection highlight override */}
+            <style>{`
+                math-field::part(virtual-keyboard-toggle) { display: none; }
+                math-field .ML__selection { background: rgba(99, 102, 241, 0.18) !important; }
+                math-field .ML__contains-caret { background: rgba(99, 102, 241, 0.10) !important; }
+            `}</style>
             
             {/* Toolbar - Header and Symbols */}
             {(!minimal || showToolbar) && (
@@ -165,5 +169,13 @@ const RichMathEditor = forwardRef(({
 });
 
 RichMathEditor.displayName = 'RichMathEditor';
+
+/** Strip outer $...$ or $$...$$ delimiters if present */
+function stripDelimiters(val) {
+    if (!val || typeof val !== 'string') return val || '';
+    if (val.startsWith('$$') && val.endsWith('$$')) return val.slice(2, -2);
+    if (val.startsWith('$') && val.endsWith('$')) return val.slice(1, -1);
+    return val;
+}
 
 export default RichMathEditor;
