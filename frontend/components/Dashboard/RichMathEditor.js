@@ -72,14 +72,16 @@ const RichMathEditor = forwardRef(({
     }, [isLoaded]);
 
     // Handle external/programmatic changes to value
-    // ONLY sync when user is NOT typing (not focused) AND value actually differs
+    // ONLY sync when user is NOT typing (not focused) OR value is being cleared
     useEffect(() => {
         if (!isLoaded || !mfRef.current) return;
-        if (isFocusedRef.current) return; // Do NOT interrupt user typing
-
+        
         const cleanValue = stripDelimiters(value);
-        // Only update if it's genuinely different from what we last set
-        if (cleanValue !== lastSetValueRef.current) {
+        
+        // Allow sync if NOT focused OR if value is being explicitly cleared
+        const shouldSync = !isFocusedRef.current || cleanValue === '';
+
+        if (shouldSync && cleanValue !== lastSetValueRef.current) {
             mfRef.current.value = cleanValue || '';
             lastSetValueRef.current = cleanValue || '';
         }
