@@ -91,21 +91,34 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
 
     const handleScan = async (base64Image = null, isSelection = false) => {
         console.log("🛠️ [GeminiWorkbench] Handle Scan Triggered!", { isSelection, hasImage: !!base64Image });
-        setIsScanning(true);
-        setScanStatus(isSelection ? 'Targeted OCR...' : 'AI Global Scan...');
         try {
+            setIsScanning(true);
+            setScanStatus(isSelection ? 'Targeted OCR...' : 'AI Global Scan...');
+            
             const token = await user.getIdToken();
-            const res = await fetch(`${API_BASE_URL}/api/admin/tests/parse-pdf-gemini`, {
+            const targetUrl = `${API_BASE_URL}/api/admin/tests/parse-pdf-gemini`;
+            console.log("🛠️ [Apex-Diagnostic] Targeting API:", targetUrl);
+
+            const res = await fetch(targetUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ 
                     pdfUrl: pdfFile ? URL.createObjectURL(pdfFile) : null,
-                    base64Image, // ✅ Renamed from selectionImage to match backend
+                    base64Image,
                     isSelection,
                     isImageDirect: !!base64Image
                 })
             });
 
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error("❌ [Apex-Diagnostic] API Error Response:", { status: res.status, body: errorText.substring(0, 200) });
+                setScanStatus(`Handshake Failure: ${res.status}`);
+                alert(`AI Sync Failed [${res.status}]. Check Console or Backend URL.`);
+                return;
+            }
+
+            console.log("✅ [Apex-Diagnostic] Connection Established (200 OK!)");
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let accumulated = '';
