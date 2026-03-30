@@ -273,7 +273,11 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                         {pdfFile ? (
                             <PdfViewer 
                                 file={pdfFile} 
+                                onScanPage={(img) => handleScan(img, false)}
                                 onScanSelection={(img) => handleScan(img, true)}
+                                onCropCapture={(img) => updateActiveQuestion('image', img)}
+                                onSolutionCropCapture={(img) => updateActiveQuestion('solutionImage', img)}
+                                onOptionCropCapture={(img, idx) => handleOptionImageUpdate(img, idx)}
                                 theme="light"
                             />
                         ) : (
