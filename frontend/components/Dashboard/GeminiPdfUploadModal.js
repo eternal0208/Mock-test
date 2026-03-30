@@ -642,6 +642,24 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                         </div>
                                     )}
 
+                                    {/* Solution Strategy */}
+                                    <div className="space-y-6">
+                                        <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-1.5"><Sparkles size={10} /> Solution Strategy</span>
+                                        <div className="p-6 bg-amber-50/30 rounded-[32px] border border-amber-100/50 shadow-sm transition-all group-hover:shadow-md">
+                                            <RichMathEditor 
+                                                value={activeQ.solution || ''} 
+                                                onChange={(val) => updateActiveQuestion('solution', val)}
+                                                className="bg-transparent text-slate-700 min-h-[100px]"
+                                                placeholder="Crafting the authoritative solution..."
+                                            />
+                                            {activeQ.solution && (
+                                                <div className="mt-4 pt-4 border-t border-amber-100/50">
+                                                    <MathText text={activeQ.solution} className="text-slate-600 text-sm leading-relaxed" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
                                     {/* Specialized Metadata */}
                                     <div className="bg-indigo-50/50 p-8 rounded-[40px] border border-indigo-100/50 space-y-6">
                                         <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1.5"><ShieldCheck size={12} /> Authority Controls</span>
