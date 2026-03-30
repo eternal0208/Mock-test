@@ -10,7 +10,7 @@ import {
     Calendar, Clock, AlignLeft, ShieldCheck, Check,
     Eye, Info, Activity, Wand2, Target, Type as TypeIcon
 } from 'lucide-react';
-import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../lib/config';
 import RichMathEditor from './RichMathEditor';
@@ -90,37 +90,21 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
     };
 
     const handleScan = async (base64Image = null, isSelection = false) => {
-        console.log("🛠️ [GeminiWorkbench] Handle Scan Triggered!", { isSelection, hasImage: !!base64Image });
+        setIsScanning(true);
+        setScanStatus(isSelection ? 'Targeted OCR...' : 'AI Global Scan...');
         try {
-            setIsScanning(true);
-            setScanStatus(isSelection ? 'Targeted OCR...' : 'AI Global Scan...');
-            
             const token = await user.getIdToken();
-            const targetUrl = `${API_BASE_URL}/api/admin/tests/parse-pdf-gemini`;
-            console.log("🛠️ [Apex-Diagnostic] Targeting API (Binary):", targetUrl);
-
-            // ✅ Use FormData for Binary Upload (Vercel Support)
-            const formData = new FormData();
-            if (pdfFile) formData.append('pdf', pdfFile);
-            if (base64Image) formData.append('base64Image', base64Image);
-            formData.append('isSelection', isSelection);
-            formData.append('isImageDirect', !!base64Image);
-
-            const res = await fetch(targetUrl, {
+            const res = await fetch(`${API_BASE_URL}/admin/tests/parse-pdf-gemini`, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }, // Browser sets Content-Type automatically for FormData
-                body: formData
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ 
+                    pdfUrl: pdfFile ? URL.createObjectURL(pdfFile) : null,
+                    selectionImage: base64Image,
+                    isSelection,
+                    isImageDirect: !!base64Image
+                })
             });
 
-            if (!res.ok) {
-                const errorText = await res.text();
-                console.error("❌ [Apex-Diagnostic] API Error Response:", { status: res.status, body: errorText.substring(0, 200) });
-                setScanStatus(`Handshake Failure: ${res.status}`);
-                alert(`AI Sync Failed [${res.status}]. Check Console or Backend URL.`);
-                return;
-            }
-
-            console.log("✅ [Apex-Diagnostic] Connection Established (200 OK!)");
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let accumulated = '';
@@ -134,33 +118,23 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                 const lines = accumulated.split('\n');
                 accumulated = lines.pop();
 
-                for (let line of lines) {
-                    let trimmed = line.trim();
-                    if (!trimmed) continue;
-                    
-                    // ✅ SSE STRIP: Remove the 'data: ' prefix before parsing JSON
-                    if (trimmed.startsWith('data: ')) {
-                        trimmed = trimmed.replace('data: ', '').trim();
-                    }
-
+                for (const line of lines) {
+                    if (!line.trim()) continue;
                     try {
-                        const data = JSON.parse(trimmed);
+                        const data = JSON.parse(line);
                         if (data.status) setScanStatus(data.status);
                         if (data.question) {
                             setExtractedQuestions(prev => [...prev, {
                                 ...data.question,
-                                id: `q-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, 
                                 marks: 4,
                                 negativeMarks: 1,
                                 type: data.question.type || 'mcq',
                                 subject: data.question.subject || testMeta.subject,
                                 section: data.question.section || '',
-                                isStaged: false 
+                                isStaged: false // ✅ Default to Pending
                             }]);
                         }
-                    } catch (e) { 
-                        // console.error("Parse Error:", e, "Line:", trimmed); 
-                    }
+                    } catch (e) { console.error("Parse Error:", e); }
                 }
             }
         } catch (error) { console.error("Scan Failed:", error); }
@@ -191,7 +165,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
         try {
             const token = await user.getIdToken();
             const payload = { ...testMeta, questions: stagedQuestions, status: 'published' };
-            const res = await fetch(`${API_BASE_URL}/api/admin/tests`, {
+            const res = await fetch(`${API_BASE_URL}/admin/tests`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload)
@@ -249,60 +223,47 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
 
                 <div className="flex-1 flex overflow-hidden h-[calc(100vh-64px)]">
                     {/* --- LEFT: APEX TRACKER (GLASS LIST) --- */}
-                    <aside className="w-72 bg-white/60 border-r border-slate-200/60 overflow-y-auto apex-scrollbar flex flex-col shadow-inner shrink-0 focus:outline-none">
+                    <aside className="w-72 bg-white/60 border-r border-slate-200/60 overflow-y-auto apex-scrollbar flex flex-col shadow-inner shrink-0">
                         <div className="p-4 border-b border-slate-200/30 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md z-10">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inventory</span>
                             <span className="text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{extractedQuestions.length} Items</span>
                         </div>
-                        
-                        <Reorder.Group 
-                            axis="y" 
-                            values={extractedQuestions} 
-                            onReorder={setExtractedQuestions} 
-                            className="flex-1 p-3 space-y-2 focus:outline-none"
-                        >
+                        <div className="flex-1 p-3 space-y-1.5">
                             {extractedQuestions.map((q, idx) => (
-                                <Reorder.Item
-                                    key={q.id || idx}
-                                    value={q}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    whileDrag={{ scale: 1.05, boxShadow: "0 20px 40px rgba(79, 70, 229, 0.15)", zIndex: 50 }}
-                                    className="relative focus:outline-none"
+                                <button
+                                    key={idx}
+                                    onClick={() => setActiveQuestionIndex(idx)}
+                                    onDoubleClick={() => { setActiveQuestionIndex(idx); editorScrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }}
+                                    className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all border ${activeQuestionIndex === idx ? 'bg-indigo-600 text-white border-indigo-500 shadow-xl shadow-indigo-500/30 scale-[1.02]' : 'bg-white hover:bg-indigo-50 text-slate-600 border-slate-200/40'}`}
                                 >
-                                    <button
-                                        onClick={() => setActiveQuestionIndex(idx)}
-                                        onDoubleClick={() => { setActiveQuestionIndex(idx); editorScrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }}
-                                        className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all border cursor-grab active:cursor-grabbing group ${activeQuestionIndex === idx ? 'bg-indigo-600 text-white border-indigo-500 shadow-xl shadow-indigo-500/30' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200/40'}`}
-                                    >
-                                        <div className={`w-7 h-7 flex items-center justify-center rounded-lg text-[10px] font-black shrink-0 ${activeQuestionIndex === idx ? 'bg-white/20' : 'bg-slate-100/50'}`}>
-                                            {idx + 1}
+                                    <div className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-black ${activeQuestionIndex === idx ? 'bg-white/20' : 'bg-slate-100/50'}`}>
+                                        {idx + 1}
+                                    </div>
+                                    <div className="flex-1 text-left">
+                                        <p className="text-[10px] font-black uppercase truncate tracking-tighter opacity-80">{q.subject || 'General'}</p>
+                                        <p className="text-[11px] font-bold truncate max-w-[120px]">{q.text?.substring(0, 20) || 'Empty Question...'}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex flex-col gap-0.5">
+                                            {(q.image || q.optionImages?.some(img => img)) && <div className={`w-1.5 h-1.5 rounded-full ${activeQuestionIndex === idx ? 'bg-indigo-200' : 'bg-blue-400'}`} />}
+                                            {(q.correctOption || q.correctValue !== undefined) && <div className={`w-1.5 h-1.5 rounded-full ${activeQuestionIndex === idx ? 'bg-emerald-200' : 'bg-emerald-400'}`} />}
                                         </div>
-                                        <div className="flex-1 text-left min-w-0">
-                                            <p className="text-[9px] font-black uppercase truncate tracking-widest opacity-60 m-0 leading-none mb-1">{q.subject || 'General'}</p>
-                                            <p className="text-[11px] font-bold truncate">{q.text?.substring(0, 30) || 'Empty Segment...'}</p>
-                                        </div>
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            {q.isStaged && (
-                                                <div className={`p-1 rounded-full ${activeQuestionIndex === idx ? 'bg-white text-indigo-600' : 'bg-emerald-500 text-white shadow-sm'}`}>
-                                                    <Check size={8} strokeWidth={4} />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </button>
-                                </Reorder.Item>
+                                        {q.isStaged && (
+                                            <div className={`p-1 rounded-full ${activeQuestionIndex === idx ? 'bg-white text-indigo-600' : 'bg-emerald-500 text-white shadow-sm'}`}>
+                                                <Check size={10} strokeWidth={4} />
+                                            </div>
+                                        )}
+                                    </div>
+                                </button>
                             ))}
-                        </Reorder.Group>
-
-                        <div className="p-3 mt-auto border-t border-slate-100 bg-slate-50/50 sticky bottom-0">
                             <button 
-                                onClick={() => setExtractedQuestions([...extractedQuestions, { id: `q-${Date.now()}`, text: '', options: ['', '', '', ''], type: 'mcq' }])}
-                                className="w-full flex items-center justify-center gap-3 p-4 border-2 border-dashed border-indigo-100 hover:border-indigo-400 rounded-3xl text-slate-400 hover:text-indigo-600 transition-all font-black text-xs group bg-white/80 hover:shadow-xl shadow-indigo-500/5"
+                                onClick={() => setExtractedQuestions([...extractedQuestions, { text: '', options: ['', '', '', ''], type: 'mcq' }])}
+                                className="w-full flex items-center justify-center gap-3 p-4 border-2 border-dashed border-indigo-100 hover:border-indigo-400 rounded-3xl text-slate-400 hover:text-indigo-600 transition-all font-black text-xs group bg-slate-50/30 hover:bg-white hover:shadow-xl shadow-indigo-500/5"
                             >
                                 <div className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-indigo-50 flex items-center justify-center transition-colors">
                                     <Plus size={16} className="group-hover:rotate-90 transition-transform" />
                                 </div>
-                                <span className="uppercase tracking-widest font-black">Append Segment</span>
+                                <span className="uppercase tracking-[0.2em] font-black">Append Segment</span>
                             </button>
                         </div>
                     </aside>
@@ -312,12 +273,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                         {pdfFile ? (
                             <PdfViewer 
                                 file={pdfFile} 
-                                onScanPage={(img) => handleScan(img, false)}
                                 onScanSelection={(img) => handleScan(img, true)}
-                                onCropCapture={(img) => updateActiveQuestion('image', img)}
-                                onSolutionCropCapture={(img) => updateActiveQuestion('solutionImage', img)}
-                                onOptionCropCapture={(img, idx) => handleOptionImageUpdate(img, idx)}
-                                onClose={() => setPdfFile(null)}
                                 theme="light"
                             />
                         ) : (

@@ -11,6 +11,10 @@ dotenv.config({ override: true });
 
 const app = express();
 
+// Middleware
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: true }));
+
 const allowedOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
@@ -18,36 +22,24 @@ const allowedOrigins = [
     'http://127.0.0.1:3002',
     'https://www.apexmocktest.com',
     'https://apexmocktest.com',
-    'https://apex-mock-test.vercel.app',
     process.env.FRONTEND_URL
 ].filter(Boolean);
 
-// ✅ 1. CORS PROTOCOL (MUST be first)
 app.use(cors({
     origin: function (origin, callback) {
+        // Allow requests with no origin (mobile apps, curl, etc.)
         if (!origin) return callback(null, true);
+        // Check exact match
         if (allowedOrigins.includes(origin)) return callback(null, true);
-        const isApex = origin.includes('apexmocktest.com');
-        const isVercel = origin.includes('vercel.app');
-        if (isApex || isVercel) return callback(null, true);
-        console.warn(`⚠️ Apex CORS Blocked: ["${origin}"]`);
+        // Check Vercel deployments
+        if (/\.vercel\.app$/.test(origin)) return callback(null, true);
+        console.warn(`⚠️ CORS blocked origin: ${origin}`);
         callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
-
-// ✅ 2. EXPLICIT PREFLIGHT HANDLE
-app.options('*', cors());
-
-// ✅ 3. MIDDLEWARE
-app.use(express.json({ limit: '200mb' }));
-app.use(express.urlencoded({ limit: '200mb', extended: true }));
-app.use(helmet({ 
-    crossOriginResourcePolicy: false, 
-    crossOriginOpenerPolicy: false,
-    contentSecurityPolicy: false
-}));
+app.use(helmet({ crossOriginResourcePolicy: false, crossOriginOpenerPolicy: false }));
 app.use(morgan('dev'));
 
 // Routes
