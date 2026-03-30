@@ -94,12 +94,12 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
         setScanStatus(isSelection ? 'Targeted OCR...' : 'AI Global Scan...');
         try {
             const token = await user.getIdToken();
-            const res = await fetch(`${API_BASE_URL}/admin/tests/parse-pdf-gemini`, {
+            const res = await fetch(`${API_BASE_URL}/api/admin/tests/parse-pdf-gemini`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ 
                     pdfUrl: pdfFile ? URL.createObjectURL(pdfFile) : null,
-                    selectionImage: base64Image,
+                    base64Image, // ✅ Renamed from selectionImage to match backend
                     isSelection,
                     isImageDirect: !!base64Image
                 })
