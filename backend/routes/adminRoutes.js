@@ -477,29 +477,19 @@ CRITICAL:
             const data = base64Image.split(',')[1] || base64Image;
             await processContent(data, 'image/png', isSelection ? 'Scanning Selection...' : 'Scanning Page View...');
         } 
-        // CASE 2: Full PDF Upload (Traditional Page-by-Page)
+        // CASE 2: Unified PDF Scan (Native Multi-Modal)
+        // Gemini 2.0 Flash handles up to 3,000 pages directly - bypassing memory slicing loops.
         else if (pdfPath) {
             const fullPdfBytes = fs.readFileSync(pdfPath);
-            const pdfDoc = await PDFDocument.load(fullPdfBytes);
-            const pageCount = pdfDoc.getPageCount();
+            const base64Pdf = fullPdfBytes.toString('base64');
 
             sendEvent({ 
                 status: 'started', 
-                message: `PDF Loaded: ${pageCount} pages. Starting extraction...`,
-                total_pages: pageCount
+                message: `PDF Received: ${fullPdfBytes.length} bytes. Initiating Apex Multi-Modal Intelligence...`,
+                total_pages: 'Whole Document'
             });
 
-            for (let i = 0; i < pageCount; i++) {
-                sendEvent({ status: 'page', current_page: i + 1, total_pages: pageCount });
-
-                const subPdfDoc = await PDFDocument.create();
-                const [copiedPage] = await subPdfDoc.copyPages(pdfDoc, [i]);
-                subPdfDoc.addPage(copiedPage);
-                const subPdfBytes = await subPdfDoc.save();
-                const base64Page = Buffer.from(subPdfBytes).toString('base64');
-
-                await processContent(base64Page, 'application/pdf', `Extracting from Page ${i + 1}...`);
-            }
+            await processContent(base64Pdf, 'application/pdf', `Scanning Entire Document with Apex Vision...`);
         }
 
         sendEvent({ 
