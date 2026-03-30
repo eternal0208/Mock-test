@@ -38,7 +38,12 @@ app.use(cors({
 app.options('*', cors());
 
 // 2. Global Safety & Logging
-app.use(helmet({ crossOriginResourcePolicy: false, crossOriginOpenerPolicy: false }));
+// Relaxed CSP to allow Google/Gemini services
+app.use(helmet({ 
+    crossOriginResourcePolicy: false, 
+    crossOriginOpenerPolicy: false,
+    contentSecurityPolicy: false // Disable CSP to unblock Google/Firestore services
+}));
 app.use(morgan('dev'));
 
 // 3. Parser Logic
