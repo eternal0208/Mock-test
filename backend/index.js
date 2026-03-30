@@ -22,6 +22,7 @@ const allowedOrigins = [
     'http://127.0.0.1:3002',
     'https://www.apexmocktest.com',
     'https://apexmocktest.com',
+    'https://apex-mock-test.vercel.app',
     process.env.FRONTEND_URL
 ].filter(Boolean);
 
@@ -29,12 +30,20 @@ app.use(cors({
     origin: function (origin, callback) {
         // Allow requests with no origin (mobile apps, curl, etc.)
         if (!origin) return callback(null, true);
-        // Check exact match
+        
+        // Exact match check
         if (allowedOrigins.includes(origin)) return callback(null, true);
-        // Check Vercel deployments
-        if (/\.vercel\.app$/.test(origin)) return callback(null, true);
-        console.warn(`⚠️ CORS blocked origin: ${origin}`);
-        callback(null, false);
+        
+        // Production Domain & Vercel Pattern Check
+        const isApex = origin.includes('apexmocktest.com');
+        const isVercel = origin.includes('vercel.app');
+        
+        if (isApex || isVercel) {
+            return callback(null, true);
+        }
+        
+        console.warn(`⚠️ Apex CORS Alert: Unauthorized Origin blocked: ${origin}`);
+        callback(null, new Error('Not allowed by Apex CORS Policy'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
