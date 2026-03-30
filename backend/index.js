@@ -11,9 +11,9 @@ dotenv.config({ override: true });
 
 const app = express();
 
-// 1. Edge Authority Handshake
-// CORS is now managed by the Vercel Gateway (vercel.json) for 
-// absolute cross-platform reliability and zero handoff latency.
+// 1. Total Gateway Authorization 🛰️
+// All CORS handshakes and Preflights are now managed at the 
+// Vercel Edge Gateway level in vercel.json for absolute authority.
 
 // 2. Global Safety & Logging
 app.use(helmet({ 
