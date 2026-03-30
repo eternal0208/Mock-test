@@ -11,10 +11,6 @@ dotenv.config({ override: true });
 
 const app = express();
 
-// Middleware
-app.use(express.json({ limit: '200mb' }));
-app.use(express.urlencoded({ limit: '200mb', extended: true }));
-
 const allowedOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
@@ -26,29 +22,32 @@ const allowedOrigins = [
     process.env.FRONTEND_URL
 ].filter(Boolean);
 
+// ✅ 1. CORS PROTOCOL (MUST be first)
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow requests with no origin (mobile apps, curl, etc.)
         if (!origin) return callback(null, true);
-        
-        // Exact match check
         if (allowedOrigins.includes(origin)) return callback(null, true);
-        
-        // Production Domain & Vercel Pattern Check
         const isApex = origin.includes('apexmocktest.com');
         const isVercel = origin.includes('vercel.app');
-        
-        if (isApex || isVercel) {
-            return callback(null, true);
-        }
-        
-        console.warn(`⚠️ Apex CORS Blocked: ["${origin}"] - Is this your production URL? Add it to allowedOrigins!`);
+        if (isApex || isVercel) return callback(null, true);
+        console.warn(`⚠️ Apex CORS Blocked: ["${origin}"]`);
         callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
-app.use(helmet({ crossOriginResourcePolicy: false, crossOriginOpenerPolicy: false }));
+
+// ✅ 2. EXPLICIT PREFLIGHT HANDLE
+app.options('*', cors());
+
+// ✅ 3. MIDDLEWARE
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: true }));
+app.use(helmet({ 
+    crossOriginResourcePolicy: false, 
+    crossOriginOpenerPolicy: false,
+    contentSecurityPolicy: false
+}));
 app.use(morgan('dev'));
 
 // Routes
