@@ -319,8 +319,13 @@ router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) =>
         try { res.write(`${JSON.stringify(data)}\n`); } catch(e) {}
     };
 
+    const heartbeat = setInterval(() => {
+        try { res.write(`${JSON.stringify({ heartbeat: true })}\n`); } catch(e) {}
+    }, 5000);
+
     const cleanup = () => {
-        try { if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath); } catch(e) {}
+        clearInterval(heartbeat);
+        try { if (pdfPath && fs.existsSync(pdfPath)) { fs.unlinkSync(pdfPath); }} catch(e) {}
     };
 
     // Phase 2: Handle Cloud Storage Proxy Download
