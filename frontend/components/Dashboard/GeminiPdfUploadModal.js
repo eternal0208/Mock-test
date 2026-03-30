@@ -6,7 +6,7 @@ import {
     Save, ChevronRight, ChevronLeft, Layers, 
     Hash, MinusCircle, Database,
     Edit3, Image as ImageIcon, Zap, Merge, Sparkle,
-    Command, ListChecks, ArrowUpCircle, MousePointer2,
+    Command, ListChecks, ArrowUpCircle, ArrowDownCircle, MousePointer2,
     Calendar, Clock, AlignLeft, ShieldCheck, Check,
     Eye, Info, Activity, Wand2, Target, Type as TypeIcon
 } from 'lucide-react';
