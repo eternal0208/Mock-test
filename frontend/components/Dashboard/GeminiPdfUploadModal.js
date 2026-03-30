@@ -118,10 +118,17 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                 const lines = accumulated.split('\n');
                 accumulated = lines.pop();
 
-                for (const line of lines) {
-                    if (!line.trim()) continue;
+                for (let line of lines) {
+                    let trimmed = line.trim();
+                    if (!trimmed) continue;
+                    
+                    // ✅ SSE STRIP: Remove the 'data: ' prefix before parsing JSON
+                    if (trimmed.startsWith('data: ')) {
+                        trimmed = trimmed.replace('data: ', '').trim();
+                    }
+
                     try {
-                        const data = JSON.parse(line);
+                        const data = JSON.parse(trimmed);
                         if (data.status) setScanStatus(data.status);
                         if (data.question) {
                             setExtractedQuestions(prev => [...prev, {
@@ -134,7 +141,9 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                 isStaged: false // ✅ Default to Pending
                             }]);
                         }
-                    } catch (e) { console.error("Parse Error:", e); }
+                    } catch (e) { 
+                        // console.error("Parse Error:", e, "Line:", trimmed); 
+                    }
                 }
             }
         } catch (error) { console.error("Scan Failed:", error); }
