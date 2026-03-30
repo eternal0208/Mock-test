@@ -141,6 +141,12 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
             return;
         }
 
+        // Vercel Serverless Limit: 4.5MB
+        if (file.size > 4.5 * 1024 * 1024) {
+            alert('PDF is too large (>4.5MB). Please compress it for Vercel Serverless or use a smaller file.');
+            return;
+        }
+
         setScanError('');
         setScanStatus('');
         setPdfFile(file);
