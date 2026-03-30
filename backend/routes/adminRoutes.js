@@ -384,39 +384,59 @@ CRITICAL:
                 ]);
 
                 const responseText = result.response.text();
-                const lines = responseText.split('\n');
+                
+                // ✅ APEX BULLETPROOF PARSER: Char-by-char scanner for multi-line JSON
+                let braceCount = 0;
+                let currentBlock = "";
+                let inString = false;
+                let escaped = false;
 
-                for (const line of lines) {
-                    let trimmed = line.trim();
-                    if (!trimmed) continue;
+                for (let i = 0; i < responseText.length; i++) {
+                    const char = responseText[i];
                     
-                    // Remove Markdown block starters/enders
-                    if (trimmed.startsWith('```')) {
-                        trimmed = trimmed.replace(/```json|```/g, '').trim();
-                        if (!trimmed) continue;
+                    if (char === '\\' && !escaped) {
+                        escaped = true;
+                        if (braceCount > 0) currentBlock += char;
+                        continue;
                     }
 
-                    try {
-                        // Find the first JSON object in the line if it's not a direct JSON
-                        let jsonStr = trimmed;
-                        if (!trimmed.startsWith('{')) {
-                            const match = trimmed.match(/\{.*\}/);
-                            if (match) jsonStr = match[0];
+                    if (char === '"' && !escaped) {
+                        inString = !inString;
+                    }
+
+                    if (!inString) {
+                        if (char === '{') {
+                            if (braceCount === 0) currentBlock = "";
+                            braceCount++;
                         }
-
-                        const q = JSON.parse(jsonStr);
-                        if (!q.text) continue;
-
-                        totalQuestionsCount++;
-                        sendEvent({ 
-                            status: 'question', 
-                            question: { ...q, qNumber: totalQuestionsCount }, 
-                            index: totalQuestionsCount 
-                        });
-                    } catch (e) {
-                        // Logic for multi-line JSON or just messy output
-                        // console.error('Failed to parse line:', trimmed);
                     }
+
+                    if (braceCount > 0) currentBlock += char;
+
+                    if (!inString) {
+                        if (char === '}') {
+                            braceCount--;
+                            if (braceCount === 0) {
+                                // Finalize the block
+                                try {
+                                    const q = JSON.parse(currentBlock);
+                                    if (q.text) {
+                                        totalQuestionsCount++;
+                                        sendEvent({ 
+                                            status: 'question', 
+                                            question: { ...q, qNumber: totalQuestionsCount }, 
+                                            index: totalQuestionsCount 
+                                        });
+                                    }
+                                } catch (e) {
+                                    console.error('[Parser Warning] Snippet failed JSON.parse');
+                                }
+                                currentBlock = "";
+                            }
+                        }
+                    }
+                    
+                    escaped = false;
                 }
             } catch (err) {
                 console.error('Gemini Extraction Page/Image Error:', err.message);
@@ -549,28 +569,59 @@ CRITICAL:
         ]);
 
         const responseText = result.response.text();
-        const lines = responseText.split('\n');
         
+        // ✅ APEX BULLETPROOF PARSER: Char-by-char scanner for multi-line JSON
+        let braceCount = 0;
+        let currentBlock = "";
+        let inString = false;
+        let escaped = false;
         let questionCount = 0;
-        let errorCount = 0;
 
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith('```')) continue;
-
-            try {
-                const q = JSON.parse(trimmed);
-                if (!q.text) continue;
-                
-                questionCount++;
-                sendEvent({ 
-                    status: 'question', 
-                    question: { ...q, qNumber: questionCount }, 
-                    index: questionCount 
-                });
-            } catch (e) {
-                errorCount++;
+        for (let i = 0; i < responseText.length; i++) {
+            const char = responseText[i];
+            
+            if (char === '\\' && !escaped) {
+                escaped = true;
+                if (braceCount > 0) currentBlock += char;
+                continue;
             }
+
+            if (char === '"' && !escaped) {
+                inString = !inString;
+            }
+
+            if (!inString) {
+                if (char === '{') {
+                    if (braceCount === 0) currentBlock = "";
+                    braceCount++;
+                }
+            }
+
+            if (braceCount > 0) currentBlock += char;
+
+            if (!inString) {
+                if (char === '}') {
+                    braceCount--;
+                    if (braceCount === 0) {
+                        try {
+                            const q = JSON.parse(currentBlock);
+                            if (q.text) {
+                                questionCount++;
+                                sendEvent({ 
+                                    status: 'question', 
+                                    question: { ...q, qNumber: questionCount }, 
+                                    index: questionCount 
+                                });
+                            }
+                        } catch (e) {
+                            console.error('[Parser Warning] Selection snippet failed JSON.parse');
+                        }
+                        currentBlock = "";
+                    }
+                }
+            }
+            
+            escaped = false;
         }
 
         sendEvent({ 
