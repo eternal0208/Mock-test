@@ -34,6 +34,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
     const [isScanning, setIsScanning] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
     const [scanStatus, setScanStatus] = useState('');
+    const [scanError, setScanError] = useState('');
     const [showMeta, setShowMeta] = useState(false);
     const [showCommandCentre, setShowCommandCentre] = useState(false);
 
@@ -69,6 +70,8 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
             return next;
         });
     };
+
+
 
     const handleDeleteQuestion = (idx) => {
         setExtractedQuestions(prev => {
@@ -131,12 +134,23 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
 
     const handleFileUpload = (e) => {
         const file = e.target.files[0];
-        if (file) setPdfFile(file);
+        if (!file) return;
+
+        if (file.type !== 'application/pdf') {
+            alert('Please upload a PDF file only.');
+            return;
+        }
+
+        setScanError('');
+        setScanStatus('');
+        setPdfFile(file);
     };
 
     const handleScan = async (base64Image = null, isSelection = false) => {
         setIsScanning(true);
+        setScanError('');
         setScanStatus(isSelection ? 'Targeted OCR...' : 'AI Global Scan...');
+
         try {
             const token = await user.getIdToken();
 
@@ -168,7 +182,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                
+
                 const chunk = decoder.decode(value, { stream: true });
                 accumulated += chunk;
                 const lines = accumulated.split('\n');
@@ -186,7 +200,15 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
 
                     try {
                         const data = JSON.parse(payload);
-                        if (data.status) setScanStatus(data.status);
+
+                        if (data.status) {
+                            const message = data.message || data.status;
+                            setScanStatus(message);
+                            if (data.status === 'error' || data.status === 'fatal_error') {
+                                setScanError(message);
+                            }
+                        }
+
                         if (data.question) {
                             setExtractedQuestions(prev => [...prev, {
                                 ...data.question,
@@ -195,14 +217,21 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                 type: data.question.type || 'mcq',
                                 subject: data.question.subject || testMeta.subject,
                                 section: data.question.section || '',
-                                isStaged: false // ✅ Default to Pending
+                                isStaged: false
                             }]);
                         }
-                    } catch (e) { console.error("Parse Error:", e); }
+                    } catch (e) {
+                        console.error('Parse Error:', e);
+                    }
                 }
             }
-        } catch (error) { console.error("Scan Failed:", error); }
-        finally { setIsScanning(false); setScanStatus(''); }
+        } catch (error) {
+            console.error('Scan Failed:', error);
+            setScanError(error.message);
+            setScanStatus('Scan failed. Check console and backend logs.');
+        } finally {
+            setIsScanning(false);
+        }
     };
 
     const handlePublish = async () => {
@@ -405,6 +434,9 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                     APEX AI EXTRACTION
                                 </h4>
                                 <p className="mt-2 text-slate-500 font-bold uppercase tracking-widest text-[10px] bg-slate-100 px-4 py-1.5 rounded-full border border-slate-200">{scanStatus || 'Analysing structure...'}</p>
+                                {scanError && (
+                                    <p className="mt-2 text-rose-600 font-black uppercase tracking-widest text-[10px] bg-rose-50 px-4 py-1.5 rounded-full border border-rose-100">{scanError}</p>
+                                )}
                                 <div className="mt-6 w-64 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                                     <motion.div 
                                         initial={{ x: '-100%' }} animate={{ x: '100%' }} transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}

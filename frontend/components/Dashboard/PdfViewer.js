@@ -34,6 +34,13 @@ const PdfViewer = ({ file, onScanPage, onScanSelection, onCropCapture, onSolutio
     const [isPanning, setIsPanning] = useState(false);
     const [lastPanPos, setLastPanPos] = useState({ x: 0, y: 0 });
     const [spacePressed, setSpacePressed] = useState(false);
+    const [scannedPages, setScannedPages] = useState(new Set());
+
+    // Sync from parent if needed, or handle locally
+    const handleSurgicalScan = () => {
+        onScanPage?.(canvasRef.current.toDataURL('image/png', 0.8), pageNum);
+        setScannedPages(prev => new Set([...prev, pageNum]));
+    };
 
     // ✅ SHORTCUTS: Spacebar for temporary panning
     useEffect(() => {
@@ -185,7 +192,10 @@ const PdfViewer = ({ file, onScanPage, onScanSelection, onCropCapture, onSolutio
                         <button onClick={() => setInteractionMode('select')} className={`p-2 rounded-lg transition-all ${interactionMode === 'select' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`} title="Select (S)"><Crosshair size={16} /></button>
                         <button onClick={() => setInteractionMode('pan')} className={`p-2 rounded-lg transition-all ${interactionMode === 'pan' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`} title="Pan (H / Space)"><Hand size={16} /></button>
                     </div>
-                    <button onClick={() => onScanPage?.(canvasRef.current.toDataURL('image/png', 0.8), pageNum)} className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-black shadow-lg shadow-indigo-500/20 transition-all uppercase tracking-widest active:scale-95"><Brain size={13} className="animate-pulse" /> AI Page Scan</button>
+                    <button onClick={handleSurgicalScan} className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[10px] font-black shadow-lg transition-all uppercase tracking-widest active:scale-95 ${scannedPages.has(pageNum) ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-emerald-500/10' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20'}`}>
+                        {scannedPages.has(pageNum) ? <Check size={13} strokeWidth={4} /> : <Brain size={13} className="animate-pulse" />}
+                        {scannedPages.has(pageNum) ? 'P-Extracted' : 'AI Page Scan'}
+                    </button>
                     <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 transition"><X size={20} /></button>
                 </div>
             </div>
@@ -199,6 +209,21 @@ const PdfViewer = ({ file, onScanPage, onScanSelection, onCropCapture, onSolutio
                 <div className="min-w-full min-h-full flex items-center justify-center p-24">
                     <div className="relative inline-block shadow-[0_30px_100px_rgba(0,0,0,0.12)] border border-slate-200 bg-white rounded-sm group/canvas overflow-hidden transition-shadow">
                         <canvas ref={canvasRef} className="block selection-none pointer-events-none" />
+                        
+                        {/* SURGICAL OVERLAY: Click to Scan current context */}
+                        {!scannedPages.has(pageNum) && (
+                            <div className="absolute top-8 left-8 z-[60] pointer-events-auto opacity-0 group-hover/canvas:opacity-100 transition-opacity">
+                                <button 
+                                    onClick={handleSurgicalScan}
+                                    className="flex items-center gap-3 px-6 py-3.5 bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl text-slate-800 text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl hover:bg-white hover:scale-105 transition-all active:scale-95 group/scanbtn"
+                                >
+                                    <div className="w-8 h-8 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 group-hover/scanbtn:rotate-12 transition-transform">
+                                        <Zap size={16} />
+                                    </div>
+                                    Extract Page {pageNum}
+                                </button>
+                            </div>
+                        )}
                         
                         <AnimatePresence>
                             {selection && (
