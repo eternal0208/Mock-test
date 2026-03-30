@@ -11,10 +11,7 @@ dotenv.config({ override: true });
 
 const app = express();
 
-// Middleware
-app.use(express.json({ limit: '200mb' }));
-app.use(express.urlencoded({ limit: '200mb', extended: true }));
-
+// 1. Authoritative Handshake (MUST BE FIRST)
 const allowedOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
@@ -27,20 +24,26 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow requests with no origin (mobile apps, curl, etc.)
-        if (!origin) return callback(null, true);
-        // Check exact match
-        if (allowedOrigins.includes(origin)) return callback(null, true);
-        // Check Vercel deployments
-        if (/\.vercel\.app$/.test(origin)) return callback(null, true);
+        if (!origin || allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+            return callback(null, true);
+        }
         console.warn(`⚠️ CORS blocked origin: ${origin}`);
         callback(null, false);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+app.options('*', cors());
+
+// 2. Global Safety & Logging
 app.use(helmet({ crossOriginResourcePolicy: false, crossOriginOpenerPolicy: false }));
 app.use(morgan('dev'));
+
+// 3. Parser Logic
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: true }));
 
 // Authoritative OPTIONS Handshake
 app.options('*', cors());

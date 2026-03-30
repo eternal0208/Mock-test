@@ -314,7 +314,6 @@ router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) =>
     res.setHeader('Content-Type', 'application/x-ndjson');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', '*');
 
     const sendEvent = (data) => {
         try {
@@ -497,7 +496,6 @@ router.post('/tests/parse-image-gemini', async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', '*');
 
     const sendEvent = (data) => {
         try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch(e) {}
