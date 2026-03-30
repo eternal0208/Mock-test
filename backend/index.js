@@ -11,47 +11,21 @@ dotenv.config({ override: true });
 
 const app = express();
 
-// 1. Authoritative Handshake (MUST BE FIRST)
-const allowedOrigins = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:3002',
-    'http://127.0.0.1:3002',
-    'https://www.apexmocktest.com',
-    'https://apexmocktest.com',
-    process.env.FRONTEND_URL
-].filter(Boolean);
-
-app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
-            return callback(null, true);
-        }
-        console.warn(`⚠️ CORS blocked origin: ${origin}`);
-        callback(null, false);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
-
-app.options('*', cors());
+// 1. Edge Authority Handshake
+// CORS is now managed by the Vercel Gateway (vercel.json) for 
+// absolute cross-platform reliability and zero handoff latency.
 
 // 2. Global Safety & Logging
-// Relaxed CSP to allow Google/Gemini services
 app.use(helmet({ 
     crossOriginResourcePolicy: false, 
     crossOriginOpenerPolicy: false,
-    contentSecurityPolicy: false // Disable CSP to unblock Google/Firestore services
+    contentSecurityPolicy: false
 }));
 app.use(morgan('dev'));
 
 // 3. Parser Logic
 app.use(express.json({ limit: '200mb' }));
 app.use(express.urlencoded({ limit: '200mb', extended: true }));
-
-// Authoritative OPTIONS Handshake
-app.options('*', cors());
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
