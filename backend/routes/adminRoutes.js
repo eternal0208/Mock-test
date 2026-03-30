@@ -302,13 +302,13 @@ router.post('/tests/parse-pdf-marker', upload.single('pdf'), async (req, res) =>
 // --- Gemini AI PDF Parsing (Page-by-Page for Accuracy) ---
 // POST /api/admin/tests/parse-pdf-gemini
 router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) => {
-    const { base64Image, isSelection } = req.body;
+    const { base64Image, isSelection, pdfUrl } = req.body;
     
-    if (!req.file && !base64Image) {
-        return res.status(400).json({ error: 'No PDF file or Image selection provided' });
+    if (!req.file && !base64Image && !pdfUrl) {
+        return res.status(400).json({ error: 'No PDF file, Image selection, or Storage URL provided' });
     }
 
-    const pdfPath = req.file ? req.file.path : null;
+    let pdfPath = req.file ? req.file.path : null;
 
     // Set streaming NDJSON headers for compatibility with client parser
     res.setHeader('Content-Type', 'application/x-ndjson');
@@ -316,14 +316,37 @@ router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) =>
     res.setHeader('Connection', 'keep-alive');
 
     const sendEvent = (data) => {
-        try {
-            res.write(`${JSON.stringify(data)}\n`);
-        } catch(e) {}
+        try { res.write(`${JSON.stringify(data)}\n`); } catch(e) {}
     };
 
     const cleanup = () => {
-        try { if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath); } catch(e) {}
+        try { if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath); } catch(e) {}
     };
+
+    // Phase 2: Handle Cloud Storage Proxy Download
+    if (pdfUrl && !pdfPath && !base64Image) {
+        try {
+            sendEvent({ status: 'Handshaking with Cloud Storage... 🛰️' });
+            const https = require('https');
+            const tempFileName = path.join(os.tmpdir(), `dl_${Date.now()}.pdf`);
+            
+            const downloadFile = (url, dest) => new Promise((resolve, reject) => {
+                const file = fs.createWriteStream(dest);
+                https.get(url, (res) => {
+                    res.pipe(file);
+                    file.on('finish', () => { file.close(); resolve(); });
+                }).on('error', (err) => { fs.unlink(dest); reject(err); });
+            });
+
+            await downloadFile(pdfUrl, tempFileName);
+            pdfPath = tempFileName;
+            sendEvent({ status: 'Cloud Handoff Successful 🟢' });
+        } catch (error) {
+            console.error("Storage download failed:", error);
+            sendEvent({ error: 'Failed to retrieve file from Cloud Storage.' });
+            return res.end();
+        }
+    }
 
     try {
         const apiKey = process.env.GEMINI_API_KEY;
