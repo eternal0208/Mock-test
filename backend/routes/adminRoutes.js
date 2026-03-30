@@ -14,7 +14,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { PDFDocument } = require('pdf-lib');
 
 const execPromise = util.promisify(exec);
-const upload = multer({ dest: 'uploads/' });
+// ✅ Switch to Memory Storage for Vercel (Read-Only FS)
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Protect all admin routes
 router.use(protect);
@@ -307,7 +308,8 @@ router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) =>
         return res.status(400).json({ error: 'No PDF file or Image selection provided' });
     }
 
-    const pdfPath = req.file ? req.file.path : null;
+    const pdfPath = null; // Legacy path placeholder (unused in memory mode)
+    const pdfBuffer = req.file ? req.file.buffer : null;
 
     // Set SSE headers for streaming
     res.setHeader('Content-Type', 'text/event-stream');
@@ -322,7 +324,7 @@ router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) =>
     };
 
     const cleanup = () => {
-        try { if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath); } catch(e) {}
+        // No cleanup needed for memory buffers (GC handles it)
     };
 
     try {
@@ -416,9 +418,8 @@ Schema:
             await processContent(data, 'image/png', isSelection ? 'Scanning Selection...' : 'Scanning Page View...');
         } 
         // CASE 2: Full PDF Upload (Traditional Page-by-Page)
-        else if (pdfPath) {
-            const fullPdfBytes = fs.readFileSync(pdfPath);
-            const pdfDoc = await PDFDocument.load(fullPdfBytes);
+        else if (pdfBuffer) {
+            const pdfDoc = await PDFDocument.load(pdfBuffer);
             const pageCount = pdfDoc.getPageCount();
 
             sendEvent({ 

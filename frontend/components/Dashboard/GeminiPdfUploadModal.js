@@ -97,17 +97,19 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
             
             const token = await user.getIdToken();
             const targetUrl = `${API_BASE_URL}/api/admin/tests/parse-pdf-gemini`;
-            console.log("🛠️ [Apex-Diagnostic] Targeting API:", targetUrl);
+            console.log("🛠️ [Apex-Diagnostic] Targeting API (Binary):", targetUrl);
+
+            // ✅ Use FormData for Binary Upload (Vercel Support)
+            const formData = new FormData();
+            if (pdfFile) formData.append('pdf', pdfFile);
+            if (base64Image) formData.append('base64Image', base64Image);
+            formData.append('isSelection', isSelection);
+            formData.append('isImageDirect', !!base64Image);
 
             const res = await fetch(targetUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ 
-                    pdfUrl: pdfFile ? URL.createObjectURL(pdfFile) : null,
-                    base64Image,
-                    isSelection,
-                    isImageDirect: !!base64Image
-                })
+                headers: { 'Authorization': `Bearer ${token}` }, // Browser sets Content-Type automatically for FormData
+                body: formData
             });
 
             if (!res.ok) {
