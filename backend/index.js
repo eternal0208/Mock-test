@@ -42,8 +42,8 @@ app.use(cors({
             return callback(null, true);
         }
         
-        console.warn(`⚠️ Apex CORS Alert: Unauthorized Origin blocked: ${origin}`);
-        callback(null, new Error('Not allowed by Apex CORS Policy'));
+        console.warn(`⚠️ Apex CORS Blocked: ["${origin}"] - Is this your production URL? Add it to allowedOrigins!`);
+        callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
