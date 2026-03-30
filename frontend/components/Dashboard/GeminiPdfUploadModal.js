@@ -90,6 +90,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
     };
 
     const handleScan = async (base64Image = null, isSelection = false) => {
+        console.log("🛠️ [GeminiWorkbench] Handle Scan Triggered!", { isSelection, hasImage: !!base64Image });
         setIsScanning(true);
         setScanStatus(isSelection ? 'Targeted OCR...' : 'AI Global Scan...');
         try {
@@ -287,6 +288,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                 onCropCapture={(img) => updateActiveQuestion('image', img)}
                                 onSolutionCropCapture={(img) => updateActiveQuestion('solutionImage', img)}
                                 onOptionCropCapture={(img, idx) => handleOptionImageUpdate(img, idx)}
+                                onClose={() => setPdfFile(null)}
                                 theme="light"
                             />
                         ) : (

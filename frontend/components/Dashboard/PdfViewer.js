@@ -166,7 +166,7 @@ const PdfViewer = ({ file, onScanPage, onScanSelection, onCropCapture, onSolutio
     return (
         <div className="flex flex-col h-full bg-slate-50 border-r border-slate-200/60 overflow-hidden relative">
             {/* TOOLBAR */}
-            <div className="bg-white border-b border-slate-200/40 p-3 flex items-center justify-between z-30 shadow-sm px-6">
+            <div className="bg-white border-b border-slate-200/40 p-3 flex items-center justify-between z-[100] shadow-sm px-6 pointer-events-auto">
                 <div className="flex items-center gap-5">
                     <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200/60 shadow-inner">
                         <button onClick={() => setPageNum(p => Math.max(1, p - 1))} disabled={pageNum <= 1} className="p-2 text-slate-400 hover:text-indigo-600 transition disabled:opacity-20"><ChevronLeft size={16} /></button>
@@ -185,7 +185,16 @@ const PdfViewer = ({ file, onScanPage, onScanSelection, onCropCapture, onSolutio
                         <button onClick={() => setInteractionMode('select')} className={`p-2 rounded-lg transition-all ${interactionMode === 'select' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`} title="Select (S)"><Crosshair size={16} /></button>
                         <button onClick={() => setInteractionMode('pan')} className={`p-2 rounded-lg transition-all ${interactionMode === 'pan' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`} title="Pan (H / Space)"><Hand size={16} /></button>
                     </div>
-                    <button onClick={() => onScanPage?.(canvasRef.current.toDataURL('image/png', 0.8), pageNum)} className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-black shadow-lg shadow-indigo-500/20 transition-all uppercase tracking-widest active:scale-95"><Brain size={13} className="animate-pulse" /> AI Page Scan</button>
+                    <button 
+                        onClick={() => {
+                            console.log("🚀 [PdfViewer] AI Page Scan Clicked! Page:", pageNum);
+                            const imgData = canvasRef.current.toDataURL('image/png', 0.8);
+                            onScanPage?.(imgData, pageNum);
+                        }} 
+                        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-black shadow-lg shadow-indigo-500/20 transition-all uppercase tracking-widest active:scale-95"
+                    >
+                        <Brain size={13} className="animate-pulse" /> AI Page Scan
+                    </button>
                     <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 transition"><X size={20} /></button>
                 </div>
             </div>
