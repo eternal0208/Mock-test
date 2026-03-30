@@ -189,7 +189,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
         try {
             const token = await user.getIdToken();
             const payload = { ...testMeta, questions: stagedQuestions, status: 'published' };
-            const res = await fetch(`${API_BASE_URL}/admin/tests`, {
+            const res = await fetch(`${API_BASE_URL}/api/admin/tests`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload)
