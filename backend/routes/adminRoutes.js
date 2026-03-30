@@ -336,26 +336,26 @@ router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) =>
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
         const masterPrompt = `You are an expert exam question extraction AI.
-Extract EVERY question from this image/PDF page.
+Extract EVERY question from this image/PDF page. 
 
-OUTPUT: NDJSON (One JSON object per question per line).
+OUTPUT: A JSON array of question objects.
 
 STYLE:
 - Use NATURAL TEXT for words.
 - Use LaTeX ($...$) ONLY for math symbols, values, and equations.
-- Example: "A force of $F=10\text{ N}$ is applied."
+- Example: \"A force of $F=10\\text{ N}$ is applied.\"
 
 Schema:
 {
   "qNumber": <number>,
-  "type": "mcq" | "msq" | "integer",
-  "subject": "Physics" | "Chemistry" | "Mathematics" | "Biology" | "General",
-  "text": "<natural text with LaTeX>",
-  "options": ["A", "B", "C", "D"],
-  "correctOption": "A/B/C/D",
-  "correctOptions": ["A"],
-  "integerAnswer": "",
-  "solution": "<solution text>",
+  "type": \"mcq\" | \"msq\" | \"integer\",
+  "subject": \"Physics\" | \"Chemistry\" | \"Mathematics\" | \"Biology\" | \"General\",
+  "text": \"<natural text with LaTeX>\",
+  "options": [\"Option A text\", \"Option B text\", \"Option C text\", \"Option D text\"],
+  "correctOption": \"A/B/C/D\",
+  "correctOptions": [\"A\"],
+  "correctValue": \"\", // For integer type
+  "solution": \"<solution text>\",
   "hasQuestionImage": <true if diagram exists>
 }`;
 
@@ -372,39 +372,37 @@ Schema:
                 ]);
 
                 const responseText = result.response.text();
-                const lines = responseText.split('\n');
+                
+                // ✅ ROBUST PARSER: Handle markdown blocks and JSON arrays
+                let jsonContent = responseText.trim();
+                if (jsonContent.startsWith('```')) {
+                    jsonContent = jsonContent.replace(/```json|```/g, '').trim();
+                }
 
-                for (const line of lines) {
-                    let trimmed = line.trim();
-                    if (!trimmed) continue;
-                    
-                    // Remove Markdown block starters/enders
-                    if (trimmed.startsWith('```')) {
-                        trimmed = trimmed.replace(/```json|```/g, '').trim();
-                        if (!trimmed) continue;
+                // Try parsing as array first
+                let questions = [];
+                try {
+                    questions = JSON.parse(jsonContent);
+                    if (!Array.isArray(questions)) questions = [questions];
+                } catch (e) {
+                    // Fallback to line-by-line if it's NDJSON or messy
+                    const lines = jsonContent.split('\n');
+                    for (const line of lines) {
+                        try {
+                            const q = JSON.parse(line.trim().replace(/^,+|,+$/g, ''));
+                            questions.push(q);
+                        } catch (lE) {}
                     }
+                }
 
-                    try {
-                        // Find the first JSON object in the line if it's not a direct JSON
-                        let jsonStr = trimmed;
-                        if (!trimmed.startsWith('{')) {
-                            const match = trimmed.match(/\{.*\}/);
-                            if (match) jsonStr = match[0];
-                        }
-
-                        const q = JSON.parse(jsonStr);
-                        if (!q.text) continue;
-
-                        totalQuestionsCount++;
-                        sendEvent({ 
-                            status: 'question', 
-                            question: { ...q, qNumber: totalQuestionsCount }, 
-                            index: totalQuestionsCount 
-                        });
-                    } catch (e) {
-                        // Logic for multi-line JSON or just messy output
-                        // console.error('Failed to parse line:', trimmed);
-                    }
+                for (const q of questions) {
+                    if (!q || !q.text) continue;
+                    totalQuestionsCount++;
+                    sendEvent({ 
+                        status: 'question', 
+                        question: { ...q, qNumber: totalQuestionsCount }, 
+                        index: totalQuestionsCount 
+                    });
                 }
             } catch (err) {
                 console.error('Gemini Extraction Page/Image Error:', err.message);
