@@ -14,7 +14,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { PDFDocument } = require('pdf-lib');
 
 const execPromise = util.promisify(exec);
-const upload = multer({ dest: 'uploads/' });
+const os = require('os');
+const upload = multer({ dest: path.join(os.tmpdir(), 'uploads') });
 
 // Protect all admin routes
 router.use(protect);

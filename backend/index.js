@@ -42,6 +42,9 @@ app.use(cors({
 app.use(helmet({ crossOriginResourcePolicy: false, crossOriginOpenerPolicy: false }));
 app.use(morgan('dev'));
 
+// Authoritative OPTIONS Handshake
+app.options('*', cors());
+
 // Routes
 const authRoutes = require('./routes/authRoutes');
 const testRoutes = require('./routes/testRoutes');
