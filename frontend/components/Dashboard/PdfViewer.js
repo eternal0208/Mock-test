@@ -4,7 +4,7 @@ import * as pdfjs from 'pdfjs-dist';
 import { 
     ZoomIn, ZoomOut, ChevronLeft, ChevronRight, X, 
     Brain, Sparkles, Image as ImageIcon, MousePointer, Hand,
-    ChevronDown, Loader2, Database, Layers, FileText,
+    ChevronDown, Loader2, Database, Layers, FileText, Check,
     Target, Zap, Crosshair
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
