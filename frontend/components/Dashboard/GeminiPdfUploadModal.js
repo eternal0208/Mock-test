@@ -212,8 +212,8 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                         if (data.question) {
                             setExtractedQuestions(prev => [...prev, {
                                 ...data.question,
-                                marks: 4,
-                                negativeMarks: 1,
+                                marks: data.question.marks || 4,
+                                negativeMarks: data.question.negativeMarks || 1,
                                 type: data.question.type || 'mcq',
                                 subject: data.question.subject || testMeta.subject,
                                 section: data.question.section || '',

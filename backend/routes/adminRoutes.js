@@ -338,26 +338,38 @@ router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) =>
         const masterPrompt = `You are an expert exam question extraction AI.
 Extract EVERY question from this image/PDF page.
 
-OUTPUT: NDJSON (One JSON object per question per line).
+OUTPUT FORMAT:
+Output each question as a SINGLE LINE JSON object (NDJSON).
 
-STYLE:
-- Use NATURAL TEXT for words.
-- Use LaTeX ($...$) ONLY for math symbols, values, and equations.
-- Example: "A force of $F=10\text{ N}$ is applied."
+TEXT STYLE:
+- Use NATURAL HUMAN TEXT for all words and sentences.
+- Use LaTeX ($...$) ONLY for mathematical symbols, values, units, and equations.
+- Example: "A block of mass $m=2\\text{ kg}$ is placed on a $30^{\\circ}$ inclined plane."
+- NOT: "$\\text{A block of mass } m=2\\text{ kg} ...$" (Don't wrap everything in LaTeX).
 
-Schema:
+JSON Schema:
 {
   "qNumber": <number>,
   "type": "mcq" | "msq" | "integer",
   "subject": "Physics" | "Chemistry" | "Mathematics" | "Biology" | "General",
-  "text": "<natural text with LaTeX>",
-  "options": ["A", "B", "C", "D"],
+  "section": "<section name>",
+  "marks": 4,
+  "negativeMarks": 1,
+  "text": "<natural text with LaTeX $math$ symbols>",
+  "hasQuestionImage": <true if diagram/figure present>,
+  "options": ["<A text>", "<B text>", "<C text>", "<D text>"],
+  "hasOptionImages": [false, false, false, false],
   "correctOption": "A/B/C/D",
-  "correctOptions": ["A"],
-  "integerAnswer": "",
-  "solution": "<solution text>",
-  "hasQuestionImage": <true if diagram exists>
-}`;
+  "correctOptions": ["A","C"],
+  "integerAnswer": "42",
+  "solution": "<solution with LaTeX symbols>",
+  "hasSolutionImage": false,
+  "topic": ""
+}
+
+CRITICAL: 
+1. LaTeX usage: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10\\text{ m/s}$.
+2. If this is just a fragment of a question, still extract it - the admin will merge it later.`;
 
         let totalQuestionsCount = 0;
         let totalErrorCount = 0;
