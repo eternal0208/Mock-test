@@ -233,6 +233,21 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
             setIsScanning(false);
         }
     };
+    
+    const handleCropCapture = (data) => {
+        if (!activeQ) return;
+        updateActiveQuestion('image', data);
+    };
+
+    const handleSolutionCropCapture = (data) => {
+        if (!activeQ) return;
+        updateActiveQuestion('solutionImage', data);
+    };
+
+    const handleOptionCropCapture = (data, idx) => {
+        if (!activeQ) return;
+        handleOptionImageUpdate(data, idx);
+    };
 
     const handlePublish = async () => {
         if (!testMeta.title || !testMeta.seriesId) return alert("Title and Series are mandatory.");
@@ -402,7 +417,11 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                 file={pdfFile} 
                                 onScanPage={(img) => handleScan(img, false)}
                                 onScanSelection={(img) => handleScan(img, true)}
+                                onCropCapture={handleCropCapture}
+                                onSolutionCropCapture={handleSolutionCropCapture}
+                                onOptionCropCapture={handleOptionCropCapture}
                                 theme="light"
+                                onClose={() => setPdfFile(null)}
                             />
                         ) : (
                             <div className="h-full flex flex-col items-center justify-center p-12 text-center">
