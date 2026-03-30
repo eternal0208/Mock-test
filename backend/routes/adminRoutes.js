@@ -5,6 +5,17 @@ const TestSeries = require('../models/TestSeries');
 const { getPercentileData, updatePercentileData } = require('../models/PercentileData');
 const { protect } = require('../middleware/authMiddleware');
 
+const multer = require('multer');
+const { exec } = require('child_process');
+const util = require('util');
+const path = require('path');
+const fs = require('fs');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { PDFDocument } = require('pdf-lib');
+
+const execPromise = util.promisify(exec);
+const upload = multer({ dest: 'uploads/' });
+
 // Protect all admin routes
 router.use(protect);
 
@@ -135,6 +146,431 @@ router.delete('/tests/:id', async (req, res) => {
     } catch (error) {
         console.error('Delete Test Error:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Native Markdown to JSON parser ---
+const parseMockTestMarkdown = (markdown) => {
+    // Split by question numbers "1. ", "Q1.", "2)"
+    const sections = markdown.split(/(?:^|\n)(?:Q\d+\.|\d+\.|\d+\)|\*\*Q\d+\.\*\*|\*\*?\d+\.\*\*?)/i).filter(s => s.trim().length > 10);
+    const questions = [];
+
+    for (let sec of sections) {
+        // Find options: A), (A), A., a)
+        const optRegex = /(?:^|\n)\s*(?:\([a-d]\)|[a-d]\)|\([A-D]\)|[A-D]\)|[A-D]\.|\*\*[A-D]\.\*\*)\s+/g;
+        const parts = sec.split(optRegex);
+        
+        let text = parts[0] ? parts[0].trim() : "Parsed Text Here...";
+        let options = ['', '', '', ''];
+        
+        // Extract up to 4 options
+        if (parts.length > 1) {
+             for(let i=1; i<=4 && i<parts.length; i++) {
+                 options[i-1] = parts[i].trim();
+             }
+        }
+
+        // Add to questions
+        if (text.length > 5) {
+             questions.push({
+                 text: text,
+                 type: "mcq", // Default to MCQ
+                 options: options,
+                 correctOption: "A", 
+                 correctOptions: [],
+                 integerAnswer: "",
+                 solution: ""
+             });
+        }
+    }
+
+    // Fallback if regex split fails
+    if (questions.length === 0 && markdown.trim().length > 0) {
+        questions.push({
+             text: markdown.trim(),
+             type: "mcq",
+             options: ['', '', '', ''],
+             correctOption: "A",
+             correctOptions: [],
+             integerAnswer: "",
+             solution: ""
+        });
+    }
+
+    return questions;
+};
+
+
+// --- Marker PDF Parsing ---
+// POST /api/admin/tests/parse-pdf-marker
+router.post('/tests/parse-pdf-marker', upload.single('pdf'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No PDF file uploaded' });
+    }
+
+    const pdfPath = req.file.path;
+    let mainPdfDoc;
+    
+    // Set headers for streaming response
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Transfer-Encoding', 'chunked');
+
+    const cleanup = (dirs = [], files = []) => {
+        dirs.forEach(d => { try { if (fs.existsSync(d)) fs.rmSync(d, { recursive: true, force: true }); } catch(e) {} });
+        files.forEach(f => { try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch(e) {} });
+    };
+
+    try {
+        console.log(`[Marker Stream] Starting incremental parsing for: ${req.file.originalname}`);
+        
+        const existingPdfBytes = fs.readFileSync(pdfPath);
+        mainPdfDoc = await PDFDocument.load(existingPdfBytes);
+        const pageCount = mainPdfDoc.getPageCount();
+
+        // Send initial metadata
+        res.write(JSON.stringify({ status: 'started', totalPages: pageCount }) + "\n");
+
+        for (let i = 0; i < pageCount; i++) {
+            console.log(`[Marker Stream] Processing page ${i + 1}/${pageCount}...`);
+            
+            const tempPageDir = path.join(__dirname, '../uploads', `page_in_${Date.now()}_${i}`);
+            const tempOutputDir = path.join(__dirname, '../uploads', `page_out_${Date.now()}_${i}`);
+            fs.mkdirSync(tempPageDir, { recursive: true });
+
+            // Create a new PDF for the single page
+            const subPdfDoc = await PDFDocument.create();
+            const [copiedPage] = await subPdfDoc.copyPages(mainPdfDoc, [i]);
+            subPdfDoc.addPage(copiedPage);
+            const pdfBytes = await subPdfDoc.save();
+            
+            const pagePdfPath = path.join(tempPageDir, `page_${i + 1}.pdf`);
+            fs.writeFileSync(pagePdfPath, pdfBytes);
+
+            try {
+                // Run marker on just this page
+                await execPromise(
+                    `marker "${tempPageDir}" --output_dir "${tempOutputDir}" --disable_multiprocessing`,
+                    { timeout: 120000 } // 2 mins per page
+                );
+
+                // Find .md file
+                let mdContent = "";
+                const findAndReadMd = (dir) => {
+                    if (!fs.existsSync(dir)) return;
+                    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                        const full = path.join(dir, entry.name);
+                        if (entry.isDirectory()) findAndReadMd(full);
+                        else if (entry.name.endsWith('.md')) { mdContent = fs.readFileSync(full, 'utf-8'); return; }
+                    }
+                };
+                findAndReadMd(tempOutputDir);
+
+                if (mdContent) {
+                    const questions = parseMockTestMarkdown(mdContent);
+                    // Stream this page's results
+                    res.write(JSON.stringify({ 
+                        status: 'progress', 
+                        page: i + 1, 
+                        questions: questions 
+                    }) + "\n");
+                } else {
+                    res.write(JSON.stringify({ status: 'warning', message: `No content extracted from page ${i+1}` }) + "\n");
+                }
+
+            } catch (pageErr) {
+                console.error(`Error processing page ${i+1}:`, pageErr.message);
+                res.write(JSON.stringify({ status: 'error', page: i + 1, message: pageErr.message }) + "\n");
+            } finally {
+                cleanup([tempPageDir, tempOutputDir]);
+            }
+        }
+
+        res.write(JSON.stringify({ status: 'complete' }) + "\n");
+        res.end();
+
+    } catch (error) {
+        console.error('Marker Streaming Error:', error.message);
+        res.write(JSON.stringify({ status: 'fatal_error', error: error.message }) + "\n");
+        res.end();
+    } finally {
+        cleanup([], [pdfPath]);
+    }
+});
+
+
+// --- Gemini AI PDF Parsing (Page-by-Page for Accuracy) ---
+// POST /api/admin/tests/parse-pdf-gemini
+router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) => {
+    const { base64Image, isSelection } = req.body;
+    
+    if (!req.file && !base64Image) {
+        return res.status(400).json({ error: 'No PDF file or Image selection provided' });
+    }
+
+    const pdfPath = req.file ? req.file.path : null;
+
+    // Set SSE headers for streaming
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    const sendEvent = (data) => {
+        try {
+            res.write(`data: ${JSON.stringify(data)}\n\n`);
+        } catch(e) {}
+    };
+
+    const cleanup = () => {
+        try { if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath); } catch(e) {}
+    };
+
+    try {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error('GEMINI_API_KEY not set in .env');
+
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        const { PDFDocument } = require('pdf-lib');
+        
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+        const masterPrompt = `You are an expert exam question extraction AI.
+Extract EVERY question from this image/PDF page.
+
+OUTPUT: NDJSON (One JSON object per question per line).
+
+STYLE:
+- Use NATURAL TEXT for words.
+- Use LaTeX ($...$) ONLY for math symbols, values, and equations.
+- Example: "A force of $F=10\text{ N}$ is applied."
+
+Schema:
+{
+  "qNumber": <number>,
+  "type": "mcq" | "msq" | "integer",
+  "subject": "Physics" | "Chemistry" | "Mathematics" | "Biology" | "General",
+  "text": "<natural text with LaTeX>",
+  "options": ["A", "B", "C", "D"],
+  "correctOption": "A/B/C/D",
+  "correctOptions": ["A"],
+  "integerAnswer": "",
+  "solution": "<solution text>",
+  "hasQuestionImage": <true if diagram exists>
+}`;
+
+        let totalQuestionsCount = 0;
+        let totalErrorCount = 0;
+
+        const processContent = async (base64Data, mimeType, message) => {
+            sendEvent({ status: 'info', message });
+            
+            try {
+                const result = await model.generateContent([
+                    { inlineData: { mimeType, data: base64Data } },
+                    { text: masterPrompt }
+                ]);
+
+                const responseText = result.response.text();
+                const lines = responseText.split('\n');
+
+                for (const line of lines) {
+                    let trimmed = line.trim();
+                    if (!trimmed) continue;
+                    
+                    // Remove Markdown block starters/enders
+                    if (trimmed.startsWith('```')) {
+                        trimmed = trimmed.replace(/```json|```/g, '').trim();
+                        if (!trimmed) continue;
+                    }
+
+                    try {
+                        // Find the first JSON object in the line if it's not a direct JSON
+                        let jsonStr = trimmed;
+                        if (!trimmed.startsWith('{')) {
+                            const match = trimmed.match(/\{.*\}/);
+                            if (match) jsonStr = match[0];
+                        }
+
+                        const q = JSON.parse(jsonStr);
+                        if (!q.text) continue;
+
+                        totalQuestionsCount++;
+                        sendEvent({ 
+                            status: 'question', 
+                            question: { ...q, qNumber: totalQuestionsCount }, 
+                            index: totalQuestionsCount 
+                        });
+                    } catch (e) {
+                        // Logic for multi-line JSON or just messy output
+                        // console.error('Failed to parse line:', trimmed);
+                    }
+                }
+            } catch (err) {
+                console.error('Gemini Extraction Page/Image Error:', err.message);
+                throw err;
+            }
+        };
+
+        // CASE 1: Single Image Selection from Canvas
+        if (base64Image) {
+            const data = base64Image.split(',')[1] || base64Image;
+            await processContent(data, 'image/png', isSelection ? 'Scanning Selection...' : 'Scanning Page View...');
+        } 
+        // CASE 2: Full PDF Upload (Traditional Page-by-Page)
+        else if (pdfPath) {
+            const fullPdfBytes = fs.readFileSync(pdfPath);
+            const pdfDoc = await PDFDocument.load(fullPdfBytes);
+            const pageCount = pdfDoc.getPageCount();
+
+            sendEvent({ 
+                status: 'started', 
+                message: `PDF Loaded: ${pageCount} pages. Starting extraction...`,
+                total_pages: pageCount
+            });
+
+            for (let i = 0; i < pageCount; i++) {
+                sendEvent({ status: 'page', current_page: i + 1, total_pages: pageCount });
+
+                const subPdfDoc = await PDFDocument.create();
+                const [copiedPage] = await subPdfDoc.copyPages(pdfDoc, [i]);
+                subPdfDoc.addPage(copiedPage);
+                const subPdfBytes = await subPdfDoc.save();
+                const base64Page = Buffer.from(subPdfBytes).toString('base64');
+
+                await processContent(base64Page, 'application/pdf', `Extracting from Page ${i + 1}...`);
+            }
+        }
+
+        sendEvent({ 
+            status: 'complete', 
+            totalQuestions: totalQuestionsCount, 
+            message: `Extraction complete! Found ${totalQuestionsCount} items.` 
+        });
+        res.end();
+
+    } catch (error) {
+        console.error('[Gemini Workbench Backend Error]', error.message);
+        sendEvent({ status: 'error', message: error.message });
+        res.end();
+    } finally {
+        cleanup();
+    }
+});
+
+// POST /api/admin/tests/parse-image-gemini
+router.post('/tests/parse-image-gemini', async (req, res) => {
+    // Set SSE headers for streaming
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    const sendEvent = (data) => {
+        try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch(e) {}
+    };
+
+    try {
+        const { image } = req.body;
+        if (!image) {
+            sendEvent({ status: 'error', message: 'No image provided' });
+            return res.end();
+        }
+
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error('GEMINI_API_KEY not set in .env');
+
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+        // image format: data:image/png;base64,...
+        const base64Data = image.split(',')[1];
+        if (!base64Data) throw new Error("Invalid image format");
+
+        sendEvent({ status: 'started', message: 'Extracting questions from selection...' });
+
+        const masterPrompt = `You are an expert exam question extraction AI.
+Extract EVERY question from this image snippet. 
+
+OUTPUT FORMAT:
+Output each question as a SINGLE LINE JSON object (NDJSON).
+
+TEXT STYLE:
+- Use NATURAL HUMAN TEXT for all words and sentences.
+- Use LaTeX ($...$) ONLY for mathematical symbols, values, units, and equations.
+- Example: "A block of mass $m=2\\text{ kg}$ is placed on a $30^{\\circ}$ inclined plane."
+- NOT: "$\\text{A block of mass } m=2\\text{ kg} ...$" (Don't wrap everything in LaTeX).
+
+JSON Schema:
+{
+  "qNumber": <number>,
+  "type": "mcq" | "msq" | "integer",
+  "subject": "Physics" | "Chemistry" | "Mathematics" | "Biology" | "General",
+  "section": "<section name>",
+  "marks": 4,
+  "negativeMarks": 1,
+  "text": "<natural text with LaTeX $math$ symbols>",
+  "hasQuestionImage": <true if diagram/figure present>,
+  "options": ["<A text>", "<B text>", "<C text>", "<D text>"],
+  "hasOptionImages": [false, false, false, false],
+  "correctOption": "A/B/C/D",
+  "correctOptions": ["A","C"],
+  "integerAnswer": "42",
+  "solution": "<solution with LaTeX symbols>",
+  "hasSolutionImage": false,
+  "topic": ""
+}
+
+CRITICAL: 
+1. LaTeX usage: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10\\text{ m/s}$.
+2. If this is just a fragment of a question, still extract it - the admin will merge it later.`;
+
+        const result = await model.generateContent([
+            {
+                inlineData: {
+                    mimeType: 'image/png',
+                    data: base64Data
+                }
+            },
+            { text: masterPrompt }
+        ]);
+
+        const responseText = result.response.text();
+        const lines = responseText.split('\n');
+        
+        let questionCount = 0;
+        let errorCount = 0;
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('```')) continue;
+
+            try {
+                const q = JSON.parse(trimmed);
+                if (!q.text) continue;
+                
+                questionCount++;
+                sendEvent({ 
+                    status: 'question', 
+                    question: { ...q, qNumber: questionCount }, 
+                    index: questionCount 
+                });
+            } catch (e) {
+                errorCount++;
+            }
+        }
+
+        sendEvent({ 
+            status: 'complete', 
+            totalQuestions: questionCount, 
+            message: `Successfully extracted ${questionCount} questions!` 
+        });
+        res.end();
+    } catch (error) {
+        console.error('[Gemini Image Error]', error.message);
+        sendEvent({ status: 'error', message: error.message });
+        res.end();
     }
 });
 

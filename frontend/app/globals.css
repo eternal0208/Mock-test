@@ -115,6 +115,34 @@ math-field[read-only] {
   scrollbar-width: none;
 }
 
+/* ✅ APEX PREVENT OVERFLOW UTILITY */
+.apex-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.apex-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.apex-scrollbar::-webkit-scrollbar-thumb {
+  background: #e2e8f0; /* slate-200 */
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.apex-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: #6366f1; /* indigo-500 */
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.apex-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #4f46e5; /* indigo-600 */
+}
+
 /* MathLive Editor Styling */
 math-field .ML__selection {
   background: rgba(99, 102, 241, 0.18) !important;

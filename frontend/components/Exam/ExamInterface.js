@@ -681,7 +681,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                 <span className="font-bold text-lg md:text-xl text-gray-500 w-8 pt-1 flex-shrink-0">Q{currentQuestionIndex + 1}.</span>
                                 <div className="flex-1">
                                     {currentQ.text && (
-                                        <div className="text-lg md:text-xl text-gray-900 leading-relaxed font-serif mb-4 whitespace-pre-wrap">
+                                        <div className="text-lg md:text-xl text-gray-900 leading-relaxed font-serif mb-4 whitespace-pre-wrap break-words overflow-hidden">
                                             <MathText text={currentQ.text} />
                                         </div>
                                     )}
@@ -738,7 +738,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                             </div>
                                                             <div className="flex-1">
                                                                 {opt && (
-                                                                    <div className={`text-base md:text-lg ${answers[currentQ._id] === effectiveOpt ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
+                                                                    <div className={`text-base md:text-lg break-words overflow-hidden ${answers[currentQ._id] === effectiveOpt ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
                                                                         <MathText text={opt} />
                                                                     </div>
                                                                 )}
@@ -779,7 +779,7 @@ const ExamInterface = ({ test, onSubmit }) => {
                                                             </div>
                                                             <div className="flex-1">
                                                                 {opt && (
-                                                                    <div className={`text-base md:text-lg ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
+                                                                    <div className={`text-base md:text-lg break-words overflow-hidden ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
                                                                         <MathText text={opt} />
                                                                     </div>
                                                                 )}

@@ -1,7 +1,7 @@
 'use client';
 // Admin Dashboard Updated: 2026-02-04
 import { useState, useEffect } from 'react';
-import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X, Download, Loader2, Layers, RefreshCcw, Zap, ChevronUp, ChevronDown, Upload, Info, Combine, AlertTriangle, Edit3, Award, Type } from 'lucide-react';
+import { Plus, Trash, Save, BookOpen, Clock, AlertCircle, User, List, LogOut, Users, Calendar, Image as ImageIcon, BarChart2, Eye, EyeOff, Search, Edit2, CheckCircle, UploadCloud, X, Download, Loader2, Layers, RefreshCcw, Zap, ChevronUp, ChevronDown, Upload, Info, Combine, AlertTriangle, Edit3, Award, Type, Sparkles } from 'lucide-react';
 import RichMathEditor from './RichMathEditor';
 import MathText from '@/components/ui/MathText';
 import { API_BASE_URL } from '@/lib/config';
@@ -11,6 +11,8 @@ import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import PdfUploadModal from './PdfUploadModal';
 import PdfTextUploadModal from './PdfTextUploadModal';
+import PdfMarkerUploadModal from './PdfMarkerUploadModal';
+import GeminiPdfUploadModal from './GeminiPdfUploadModal';
 import PercentileConfig from './PercentileConfig';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import InteractiveMascot from './InteractiveMascot';
@@ -169,7 +171,7 @@ const TestPreviewModal = ({ test, onClose }) => {
                                         {/* Question Text & Image */}
                                         <div className="mb-8">
                                             {q.text && (
-                                                <div className="text-slate-800 text-base sm:text-lg font-medium leading-relaxed">
+                                                <div className="text-slate-800 text-base sm:text-lg font-medium leading-relaxed break-words overflow-hidden">
                                                     <MathText text={q.text} />
                                                 </div>
                                             )}
@@ -242,7 +244,7 @@ const TestPreviewModal = ({ test, onClose }) => {
                                                                 {label}
                                                             </div>
                                                             <div className="flex-1 ml-3 sm:ml-4 py-1 pr-6 text-slate-700 min-w-0">
-                                                                <div className="font-medium text-sm sm:text-base overflow-hidden break-words">
+                                                                <div className="font-medium text-sm sm:text-base break-words overflow-hidden">
                                                                     {optValue !== label && <MathText text={optValue} />}
                                                                     {optValue === label && !q.optionImages?.[i] && <span className="text-gray-400 italic text-sm">Empty text option</span>}
                                                                 </div>
@@ -1655,6 +1657,8 @@ export default function AdminDashboard() {
     const [showBulkUpload, setShowBulkUpload] = useState(false);
     const [showPdfModal, setShowPdfModal] = useState(false);
     const [showPdfTextModal, setShowPdfTextModal] = useState(false);
+    const [showMarkerModal, setShowMarkerModal] = useState(false);
+    const [showGeminiModal, setShowGeminiModal] = useState(false);
     const [showCustomMockModal, setShowCustomMockModal] = useState(false);
 
     // States for "Load to Edit" functionality
@@ -2423,6 +2427,8 @@ export default function AdminDashboard() {
             {showBulkUpload && <BulkUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowBulkUpload(false)} />}
             {showPdfModal && <PdfUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowPdfModal(false)} onZoom={(url) => setZoomedImg(url)} />}
             {showPdfTextModal && <PdfTextUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowPdfTextModal(false)} onZoom={(url) => setZoomedImg(url)} />}
+            {showMarkerModal && <PdfMarkerUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowMarkerModal(false)} onZoom={(url) => setZoomedImg(url)} />}
+            {showGeminiModal && <GeminiPdfUploadModal onUpload={fetchTests} onClose={() => setShowGeminiModal(false)} allSeries={seriesList || []} />}
 
             {/* Manage Series Modal */}
             {managingSeries && (
@@ -3827,6 +3833,24 @@ export default function AdminDashboard() {
                                             title="Extract text directly from PDF"
                                         >
                                             <Type size={18} /> Upload by PDF Text
+                                        </button>
+                                        <button
+                                            onClick={() => setShowMarkerModal(true)}
+                                            className="px-6 py-3 bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white rounded-2xl shadow-lg shadow-pink-500/25 font-bold flex items-center gap-2 hover:shadow-pink-500/40 transition-all text-sm hover:-translate-y-0.5 border border-pink-400/50 relative overflow-hidden group"
+                                            title="Extract text and equations automatically using Marker AI"
+                                        >
+                                            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                                            <Zap size={18} className="relative z-10" /> <span className="relative z-10">Upload via Marker AI</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setShowGeminiModal(true)}
+                                            className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-violet-700 text-white rounded-3xl shadow-2xl shadow-indigo-500/30 font-black flex items-center gap-3 hover:shadow-indigo-500/50 transition-all text-base hover:-translate-y-1 border border-indigo-400/50 relative overflow-hidden group"
+                                            title="Apex AI high-precision Digitizer — MCQs, MSQs, & LaTeX"
+                                        >
+                                            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                                            <Sparkles size={20} className="relative z-10 text-amber-300" /> 
+                                            <span className="relative z-10">Apex AI Digitizer</span>
+                                            <span className="relative z-10 bg-white/20 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">Pro</span>
                                         </button>
                                     </div>
                                 </div>
