@@ -70,6 +70,51 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
         });
     };
 
+    const handleDeleteQuestion = (idx) => {
+        setExtractedQuestions(prev => {
+            const next = prev.filter((_, i) => i !== idx);
+            if (activeQuestionIndex === idx) {
+                setActiveQuestionIndex(Math.min(idx, next.length - 1));
+            } else if (activeQuestionIndex > idx) {
+                setActiveQuestionIndex(activeQuestionIndex - 1);
+            }
+            return next;
+        });
+    };
+
+    const handleMergeQuestions = (sourceIdx, targetIdx) => {
+        setExtractedQuestions(prev => {
+            const next = [...prev];
+            const source = next[sourceIdx];
+            const target = { ...next[targetIdx] };
+
+            // Core Concatenation Logic
+            target.text = (target.text + "\n" + (source.text || "")).trim();
+            target.solution = (target.solution + "\n" + (source.solution || "")).trim();
+            
+            // Transfer missing image
+            if (!target.image && source.image) target.image = source.image;
+            
+            // Transfer metadata if missing
+            if (!target.subject && source.subject) target.subject = source.subject;
+            if (!target.section && source.section) target.section = source.section;
+
+            // Simple option merge if target is empty
+            if ((!target.options || target.options.every(o => !o)) && source.options) {
+                target.options = source.options;
+            }
+
+            next[targetIdx] = target;
+            next.splice(sourceIdx, 1);
+
+            // Correct active index
+            if (activeQuestionIndex === sourceIdx) setActiveQuestionIndex(targetIdx > sourceIdx ? targetIdx - 1 : targetIdx);
+            else if (activeQuestionIndex > sourceIdx) setActiveQuestionIndex(activeQuestionIndex - 1);
+
+            return next;
+        });
+    };
+
     const handleBulkAction = (action, payload) => {
         setExtractedQuestions(prev => prev.map(q => {
             if (action === 'setMarks') return { ...q, marks: payload };
@@ -94,16 +139,27 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
         setScanStatus(isSelection ? 'Targeted OCR...' : 'AI Global Scan...');
         try {
             const token = await user.getIdToken();
-            const res = await fetch(`${API_BASE_URL}/admin/tests/parse-pdf-gemini`, {
+
+            const formData = new FormData();
+            if (pdfFile) {
+                formData.append('pdf', pdfFile);
+            }
+            if (base64Image) {
+                formData.append('base64Image', base64Image);
+            }
+            formData.append('isSelection', isSelection ? 'true' : 'false');
+            formData.append('isImageDirect', !!base64Image ? 'true' : 'false');
+
+            const res = await fetch(`${API_BASE_URL}/api/admin/tests/parse-pdf-gemini`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ 
-                    pdfUrl: pdfFile ? URL.createObjectURL(pdfFile) : null,
-                    selectionImage: base64Image,
-                    isSelection,
-                    isImageDirect: !!base64Image
-                })
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
             });
+
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(`Scan server error ${res.status}: ${text.slice(0, 700)}`);
+            }
 
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
@@ -120,8 +176,16 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
 
                 for (const line of lines) {
                     if (!line.trim()) continue;
+
+                    let payload = line.trim();
+                    if (payload.startsWith('data:')) {
+                        payload = payload.replace(/^data:\s*/, '');
+                    }
+
+                    if (!payload.startsWith('{')) continue;
+
                     try {
-                        const data = JSON.parse(line);
+                        const data = JSON.parse(payload);
                         if (data.status) setScanStatus(data.status);
                         if (data.question) {
                             setExtractedQuestions(prev => [...prev, {
@@ -165,7 +229,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
         try {
             const token = await user.getIdToken();
             const payload = { ...testMeta, questions: stagedQuestions, status: 'published' };
-            const res = await fetch(`${API_BASE_URL}/admin/tests`, {
+            const res = await fetch(`${API_BASE_URL}/api/admin/tests`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload)
@@ -230,31 +294,65 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                         </div>
                         <div className="flex-1 p-3 space-y-1.5">
                             {extractedQuestions.map((q, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => setActiveQuestionIndex(idx)}
-                                    onDoubleClick={() => { setActiveQuestionIndex(idx); editorScrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }}
-                                    className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all border ${activeQuestionIndex === idx ? 'bg-indigo-600 text-white border-indigo-500 shadow-xl shadow-indigo-500/30 scale-[1.02]' : 'bg-white hover:bg-indigo-50 text-slate-600 border-slate-200/40'}`}
-                                >
-                                    <div className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-black ${activeQuestionIndex === idx ? 'bg-white/20' : 'bg-slate-100/50'}`}>
-                                        {idx + 1}
-                                    </div>
-                                    <div className="flex-1 text-left">
-                                        <p className="text-[10px] font-black uppercase truncate tracking-tighter opacity-80">{q.subject || 'General'}</p>
-                                        <p className="text-[11px] font-bold truncate max-w-[120px]">{q.text?.substring(0, 20) || 'Empty Question...'}</p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex flex-col gap-0.5">
-                                            {(q.image || q.optionImages?.some(img => img)) && <div className={`w-1.5 h-1.5 rounded-full ${activeQuestionIndex === idx ? 'bg-indigo-200' : 'bg-blue-400'}`} />}
-                                            {(q.correctOption || q.correctValue !== undefined) && <div className={`w-1.5 h-1.5 rounded-full ${activeQuestionIndex === idx ? 'bg-emerald-200' : 'bg-emerald-400'}`} />}
+                                <div key={idx} className="relative group">
+                                    <button
+                                        onClick={() => setActiveQuestionIndex(idx)}
+                                        onDoubleClick={() => { setActiveQuestionIndex(idx); editorScrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }}
+                                        className={`w-full flex items-center gap-3 p-3 pl-4 rounded-2xl transition-all border ${activeQuestionIndex === idx ? 'bg-indigo-600 text-white border-indigo-500 shadow-xl shadow-indigo-500/30 scale-[1.02]' : 'bg-white hover:bg-indigo-50 text-slate-600 border-slate-200/40'}`}
+                                    >
+                                        <div className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-black ${activeQuestionIndex === idx ? 'bg-white/20' : 'bg-slate-100/50'}`}>
+                                            {idx + 1}
                                         </div>
-                                        {q.isStaged && (
-                                            <div className={`p-1 rounded-full ${activeQuestionIndex === idx ? 'bg-white text-indigo-600' : 'bg-emerald-500 text-white shadow-sm'}`}>
-                                                <Check size={10} strokeWidth={4} />
+                                        <div className="flex-1 text-left">
+                                            <p className="text-[10px] font-black uppercase truncate tracking-tighter opacity-80">{q.subject || 'General'}</p>
+                                            <p className="text-[11px] font-bold truncate max-w-[120px]">{q.text?.substring(0, 20) || 'Empty Question...'}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex flex-col gap-0.5">
+                                                {(q.image || q.optionImages?.some(img => img)) && <div className={`w-1.5 h-1.5 rounded-full ${activeQuestionIndex === idx ? 'bg-indigo-200' : 'bg-blue-400'}`} />}
+                                                {(q.correctOption || q.correctValue !== undefined) && <div className={`w-1.5 h-1.5 rounded-full ${activeQuestionIndex === idx ? 'bg-emerald-200' : 'bg-emerald-400'}`} />}
                                             </div>
-                                        )}
+                                            {q.isStaged && (
+                                                <div className={`p-1 rounded-full ${activeQuestionIndex === idx ? 'bg-white text-indigo-600' : 'bg-emerald-500 text-white shadow-sm'}`}>
+                                                    <Check size={10} strokeWidth={4} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </button>
+
+                                    {/* APEX WORKBENCH: QUICK TOOLS ON HOVER */}
+                                    <div className="absolute right-0 top-0 bottom-0 pr-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 z-20 pointer-events-none">
+                                        <div className="bg-white/80 backdrop-blur-md p-1.5 rounded-xl border border-slate-200/40 shadow-xl flex items-center gap-1.5 pointer-events-auto scale-90 origin-right transition-transform group-hover:scale-100">
+                                            {idx > 0 && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleMergeQuestions(idx, idx - 1); }}
+                                                    className="p-1 px-1.5 hover:bg-indigo-50 text-indigo-600 rounded-md transition-all flex flex-col items-center gap-0.5"
+                                                    title="Merge into Previous"
+                                                >
+                                                    <ArrowUpCircle size={12} />
+                                                    <span className="text-[7px] font-black uppercase">Up</span>
+                                                </button>
+                                            )}
+                                            {idx < extractedQuestions.length - 1 && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleMergeQuestions(idx, idx + 1); }}
+                                                    className="p-1 px-1.5 hover:bg-slate-50 text-slate-600 rounded-md transition-all flex flex-col items-center gap-0.5"
+                                                    title="Merge into Next"
+                                                >
+                                                    <ArrowDownCircle size={12} />
+                                                    <span className="text-[7px] font-black uppercase">Down</span>
+                                                </button>
+                                            )}
+                                            <div className="h-4 w-px bg-slate-200 mx-0.5" />
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteQuestion(idx); }}
+                                                className="p-1 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all"
+                                            >
+                                                <Trash2 size={13} />
+                                            </button>
+                                        </div>
                                     </div>
-                                </button>
+                                </div>
                             ))}
                             <button 
                                 onClick={() => setExtractedQuestions([...extractedQuestions, { text: '', options: ['', '', '', ''], type: 'mcq' }])}
@@ -273,6 +371,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                         {pdfFile ? (
                             <PdfViewer 
                                 file={pdfFile} 
+                                onScanPage={(img) => handleScan(img, false)}
                                 onScanSelection={(img) => handleScan(img, true)}
                                 theme="light"
                             />

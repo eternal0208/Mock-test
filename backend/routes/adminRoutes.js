@@ -309,15 +309,15 @@ router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) =>
 
     const pdfPath = req.file ? req.file.path : null;
 
-    // Set SSE headers for streaming
-    res.setHeader('Content-Type', 'text/event-stream');
+    // Set streaming NDJSON headers for compatibility with client parser
+    res.setHeader('Content-Type', 'application/x-ndjson');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('Access-Control-Allow-Origin', '*');
 
     const sendEvent = (data) => {
         try {
-            res.write(`data: ${JSON.stringify(data)}\n\n`);
+            res.write(`${JSON.stringify(data)}\n`);
         } catch(e) {}
     };
 
