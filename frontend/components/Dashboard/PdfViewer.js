@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const PDFJS_VERSION = '4.0.379'; 
-const workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version || PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+const PDFJS_VERSION = '5.4.624'; 
+const workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
 pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 
 /**
@@ -57,13 +57,23 @@ const PdfViewer = ({ file, onScanPage, onScanSelection, onCropCapture, onSolutio
         if (!file) return;
         const load = async () => {
             setLoading(true);
+            setError(null);
             try {
                 const arrayBuffer = await file.arrayBuffer();
-                const loadingTask = pdfjs.getDocument({ data: arrayBuffer, cMapUrl: 'https://unpkg.com/pdfjs-dist@5.4.624/cmaps/', cMapPacked: true });
+                const loadingTask = pdfjs.getDocument({ 
+                    data: arrayBuffer, 
+                    cMapUrl: `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/cmaps/`, 
+                    cMapPacked: true 
+                });
                 const loadedPdf = await loadingTask.promise;
                 setPdf(loadedPdf);
                 setPageNum(1);
-            } catch (err) { setError(err.message); } finally { setLoading(false); }
+            } catch (err) { 
+                setError(`Decoding Authority Failure: ${err.message}`); 
+                console.error('[PDF Load Error]', err);
+            } finally { 
+                setLoading(false); 
+            }
         };
         load();
     }, [file]);
