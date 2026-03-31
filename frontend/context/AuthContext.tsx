@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, signOut as firebaseSignOut, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, signOut as firebaseSignOut, User as FirebaseUser, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { API_BASE_URL } from '@/lib/config';
 import { useRouter } from 'next/navigation';
@@ -63,12 +63,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     const logout = async () => {
+        try {
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem('apex_student_data_v1');
+            }
+        } catch (e) { console.error('Error clearing cache', e); }
         await firebaseSignOut(auth);
         router.push('/');
     };
 
     const signInWithGoogle = async () => {
-        const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth');
         const provider = new GoogleAuthProvider();
         try {
             await signInWithPopup(auth, provider);

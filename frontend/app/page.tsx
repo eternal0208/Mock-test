@@ -124,6 +124,7 @@ export default function LandingPage() {
               <Link href="/jee-mains" className="text-slate-600 font-semibold hover:text-indigo-600 transition-colors">JEE</Link>
               <Link href="/neet" className="text-slate-600 font-semibold hover:text-indigo-600 transition-colors">NEET</Link>
               <Link href="/cat" className="text-slate-600 font-semibold hover:text-indigo-600 transition-colors">CAT</Link>
+              <Link href="/notes" className="text-slate-600 font-semibold hover:text-indigo-600 transition-colors">📚 Notes</Link>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
               {user ? (

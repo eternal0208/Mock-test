@@ -15,6 +15,8 @@ import PdfMarkerUploadModal from './PdfMarkerUploadModal';
 import GeminiPdfUploadModal from './GeminiPdfUploadModal';
 import PercentileConfig from './PercentileConfig';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import dynamic from 'next/dynamic';
+const NotesManager = dynamic(() => import('./NotesManager'), { ssr: false, loading: () => <div className="flex items-center justify-center py-20"><div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div> });
 import InteractiveMascot from './InteractiveMascot';
 
 const ImageZoomModal = ({ imageUrl, onClose }) => {
@@ -877,6 +879,30 @@ const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
         expiryDate: initialData?.expiryDate || ''
     });
     const [loading, setLoading] = useState(false);
+    const [includedSections, setIncludedSections] = useState(initialData?.includedSections || []);
+    const [includedNotes, setIncludedNotes] = useState(initialData?.includedNotes || []);
+    const [allSections, setAllSections] = useState([]);
+    const [sectionsLoading, setSectionsLoading] = useState(false);
+
+    // Fetch all notes sections when category changes
+    const fetchSectionsForCategory = async (category) => {
+        setSectionsLoading(true);
+        try {
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/notes/admin/sections?field=${encodeURIComponent(category)}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setAllSections(data.sections || []);
+            }
+        } catch (e) { console.error('Failed to fetch sections', e); }
+        finally { setSectionsLoading(false); }
+    };
+
+    React.useEffect(() => {
+        if (formData.category) fetchSectionsForCategory(formData.category);
+    }, [formData.category]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -909,7 +935,9 @@ const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
             const token = await user?.getIdToken();
             const payload = {
                 ...formData,
-                features: formData.features.split(',').map(f => f.trim()).filter(f => f)
+                features: formData.features.split(',').map(f => f.trim()).filter(f => f),
+                includedSections,
+                includedNotes
             };
 
             const url = initialData
@@ -1001,6 +1029,53 @@ const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
             <div>
                 <label className="block text-sm font-medium text-gray-700">Expiry Date (Optional)</label>
                 <input type="date" name="expiryDate" value={formData.expiryDate || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded p-2" />
+            </div>
+
+            {/* Notes Bundling Section */}
+            <div className="border-t pt-4 mt-2">
+                <div className="flex items-center gap-2 mb-3">
+                    <span className="text-lg">📚</span>
+                    <h4 className="text-sm font-bold text-gray-800">Bundle Notes Sections with this Series</h4>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">
+                    Students who buy this series will automatically get access to all notes in the selected sections.
+                </p>
+                {sectionsLoading ? (
+                    <p className="text-xs text-gray-400 animate-pulse">Loading sections for {formData.category}...</p>
+                ) : allSections.length === 0 ? (
+                    <p className="text-xs text-gray-400">No notes sections found for {formData.category}. Add sections in the Notes Manager first.</p>
+                ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {allSections.map(section => {
+                            const isChecked = includedSections.includes(section.id);
+                            return (
+                                <label key={section.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                                    isChecked ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200'
+                                }`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                            setIncludedSections(prev =>
+                                                isChecked ? prev.filter(id => id !== section.id) : [...prev, section.id]
+                                            );
+                                        }}
+                                        className="h-4 w-4 text-indigo-600 rounded"
+                                    />
+                                    <span className="text-base">{section.icon || '📁'}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-gray-800 truncate">{section.title}</p>
+                                        <p className="text-xs text-gray-500">{section.type === 'paid' ? '👑 Premium' : '✅ Free'} • {section._noteCount || 0} notes</p>
+                                    </div>
+                                    {isChecked && <span className="text-xs font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">Bundled ✓</span>}
+                                </label>
+                            );
+                        })}
+                    </div>
+                )}
+                {includedSections.length > 0 && (
+                    <p className="text-xs font-semibold text-indigo-600 mt-2">✓ {includedSections.length} section(s) will be included with this series.</p>
+                )}
             </div>
             <button type="submit" disabled={loading} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700 disabled:opacity-50">
                 {loading ? (initialData ? 'Updating...' : 'Creating...') : (initialData ? 'Update Series' : 'Create Series')}
@@ -1660,6 +1735,9 @@ export default function AdminDashboard() {
     const [showMarkerModal, setShowMarkerModal] = useState(false);
     const [showGeminiModal, setShowGeminiModal] = useState(false);
     const [showCustomMockModal, setShowCustomMockModal] = useState(false);
+    const [allNotes, setAllNotes] = useState([]);
+    const [allSections, setAllSections] = useState([]);
+    const [seriesTab, setSeriesTab] = useState('tests'); // 'tests' | 'notes'
 
     // States for "Load to Edit" functionality
     const [isUpdatingExisting, setIsUpdatingExisting] = useState(false);
@@ -1792,6 +1870,57 @@ export default function AdminDashboard() {
         } catch (error) {
             console.error("Error fetching series:", error);
         }
+    };
+
+    const fetchNotesAndSections = async () => {
+        const token = await user?.getIdToken();
+        if (!token) return;
+        try {
+            const [nRes, sRes] = await Promise.all([
+                fetch(`${API_BASE_URL}/api/notes`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${API_BASE_URL}/api/notes/sections`, { headers: { Authorization: `Bearer ${token}` } })
+            ]);
+            if (nRes.ok) setAllNotes(await nRes.json());
+            if (sRes.ok) setAllSections(await sRes.json());
+        } catch (err) { console.error("Fetch library error", err); }
+    };
+
+    const handleToggleNoteInSeries = async (noteId) => {
+        if (!managingSeries) return;
+        const currentNotes = managingSeries.includedNotes || [];
+        const isIncluded = currentNotes.includes(noteId);
+        const updatedNotes = isIncluded ? currentNotes.filter(id => id !== noteId) : [...currentNotes, noteId];
+
+        try {
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/admin/series/${managingSeries.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ includedNotes: updatedNotes })
+            });
+            if (res.ok) {
+                setSeriesList(seriesList.map(s => s.id === managingSeries.id ? { ...s, includedNotes: updatedNotes } : s));
+            }
+        } catch (e) { alert('Update failed'); }
+    };
+
+    const handleToggleSectionInSeries = async (sectionId) => {
+        if (!managingSeries) return;
+        const currentSections = managingSeries.includedSections || [];
+        const isIncluded = currentSections.includes(sectionId);
+        const updatedSections = isIncluded ? currentSections.filter(id => id !== sectionId) : [...currentSections, sectionId];
+
+        try {
+            const token = await user?.getIdToken();
+            const res = await fetch(`${API_BASE_URL}/api/admin/series/${managingSeries.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ includedSections: updatedSections })
+            });
+            if (res.ok) {
+                setSeriesList(seriesList.map(s => s.id === managingSeries.id ? { ...s, includedSections: updatedSections } : s));
+            }
+        } catch (e) { alert('Update failed'); }
     };
 
     const fetchTeamStats = async () => {
@@ -2368,6 +2497,13 @@ export default function AdminDashboard() {
 
     // URL Driven Series Management
     const managingSeriesId = searchParams.get('series');
+    
+    // Fetch notes/sections when managing a series
+    useEffect(() => {
+        if (user && managingSeriesId) {
+            fetchNotesAndSections();
+        }
+    }, [user, managingSeriesId, fetchNotesAndSections]);
     const managingSeries = managingSeriesId ? seriesList.find(s => s.id === managingSeriesId) : null;
     const setManagingSeries = (series) => updateParams('series', series?.id);
 
@@ -2447,84 +2583,221 @@ export default function AdminDashboard() {
                                 <X size={24} strokeWidth={2.5} />
                             </button>
                         </div>
-
-                        <div className="flex-1 overflow-hidden flex flex-col md:flex-row bg-slate-50/50">
-                            {/* Left: Available Tests */}
-                            <div className="flex-1 flex flex-col border-b md:border-b-0 md:border-r border-gray-200 bg-white">
-                                <div className="p-4 sm:p-6 border-b border-gray-100 bg-white sticky top-0 z-10 shadow-sm flex justify-between items-center">
-                                    <h4 className="font-extrabold text-slate-700 uppercase tracking-tight text-sm">Available Tests</h4>
-                                    <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">{availableTests.length} found</span>
-                                </div>
-                                <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3">
-                                    {availableTests.length > 0 ? availableTests.map(t => (
-                                        <div key={t._id} className="p-3 sm:p-4 rounded-xl border-2 border-slate-100 hover:border-indigo-300 bg-white transition-all group flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:shadow-md">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <p className="font-bold text-slate-800 text-[13px] sm:text-[15px] truncate">{t.title}</p>
-                                                    {(() => {
-                                                        const otherSeries = seriesList.filter(s => s.id !== managingSeries.id && s.testIds?.includes(t._id));
-                                                        return otherSeries.length > 0 && (
-                                                            <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 text-[9px] font-black rounded border border-amber-200 uppercase leading-none">
-                                                                In {otherSeries.length} Other {otherSeries.length === 1 ? 'Series' : 'Series'}
-                                                            </span>
-                                                        );
-                                                    })()}
-                                                </div>
-                                                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                                    <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100"><BookOpen size={10} /> {t.questionCount || t.questions?.length || 0} Qs</span>
-                                                    <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100"><Clock size={10} /> {t.duration_minutes || t.duration || 0}m</span>
-                                                    <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">{t.total_marks || 0} Marks</span>
-                                                </div>
-                                            </div>
-                                            <button onClick={() => handleAddTestToSeries(t._id)} className="w-full sm:w-auto px-4 py-2 sm:py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-600 hover:text-white transition-colors flex items-center justify-center gap-1 border border-indigo-100 hover:border-indigo-600 shadow-sm">
-                                                <Plus size={14} strokeWidth={3} /> Add
-                                            </button>
-                                        </div>
-                                    )) : (
-                                        <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400">
-                                            <Search size={48} className="text-gray-200 mb-4" />
-                                            <p className="font-bold">No tests available</p>
-                                            <p className="text-sm mt-1">All compatible tests have been added.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Right: Included Tests */}
-                            <div className="flex-1 flex flex-col bg-slate-50/80">
-                                <div className="p-4 sm:p-6 border-b border-gray-200/60 sticky top-0 z-10 bg-slate-50/80 backdrop-blur-md flex justify-between items-center shadow-sm">
-                                    <h4 className="font-extrabold text-indigo-900 uppercase tracking-tight text-sm">Included Tests</h4>
-                                    <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-full">{seriesTests.length} items</span>
-                                </div>
-                                <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3">
-                                    {seriesTests.length > 0 ? seriesTests.map((t, idx) => (
-                                        <div key={t._id} className="p-3 sm:p-4 bg-white border-2 border-indigo-100/50 shadow-sm hover:shadow relative rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-3 transition-all">
-                                            <div className="absolute top-0 left-0 bottom-0 w-1 bg-indigo-500 rounded-l-xl"></div>
-                                            <div className="flex-1 min-w-0 pl-3">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className="bg-slate-900 text-white text-[9px] font-black px-1.5 rounded uppercase">#{idx + 1}</span>
-                                                    <p className="font-bold text-indigo-950 text-[13px] sm:text-[15px] truncate">{t.title}</p>
-                                                </div>
-                                                <div className="flex items-center gap-2 mt-[2px] flex-wrap">
-                                                    <span className="text-[10px] uppercase font-bold text-gray-500 opacity-80 bg-gray-50 px-1 py-[1px] rounded">ID: {t._id.substr(0, 6)}</span>
-                                                    <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-200"><BookOpen size={10} /> {t.questionCount || t.questions?.length || 0} Qs</span>
-                                                </div>
-                                            </div>
-                                            <button onClick={() => handleRemoveTestFromSeries(t._id)} className="p-2 w-full sm:w-auto text-red-500 hover:text-white rounded-lg bg-red-50 hover:bg-red-500 transition-colors border border-red-100 hover:border-red-500 flex items-center justify-center group/btn shadow-sm">
-                                                <Trash size={16} className="group-hover/btn:scale-110 transition-transform" />
-                                                <span className="sm:hidden ml-2 font-bold text-xs uppercase">Remove</span>
-                                            </button>
-                                        </div>
-                                    )) : (
-                                        <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400">
-                                            <Layers size={48} className="text-gray-200 mb-4" />
-                                            <p className="font-bold text-indigo-900/40">Series is Empty</p>
-                                            <p className="text-sm mt-1 text-gray-500/70">Add tests from the available list on the left.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                        
+                        {/* Tab Switcher */}
+                        <div className="flex bg-gray-100 p-1.5 rounded-2xl mx-8 mb-4 self-start border border-gray-200 shadow-inner shrink-0 scale-90 origin-left">
+                            <button
+                                onClick={() => setSeriesTab('tests')}
+                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${seriesTab === 'tests' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-800 hover:bg-white/50'}`}
+                            >
+                                📝 Manage Tests
+                            </button>
+                            <button
+                                onClick={() => setSeriesTab('notes')}
+                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${seriesTab === 'notes' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-800 hover:bg-white/50'}`}
+                            >
+                                📂 Study Materials (Bundled)
+                            </button>
                         </div>
+
+                        {seriesTab === 'tests' ? (
+                            <div className="flex-1 overflow-hidden flex flex-col md:flex-row bg-slate-50/50 animate-in slide-in-from-right-4 duration-300">
+                                {/* Left: Available Tests */}
+                                <div className="flex-1 flex flex-col border-b md:border-b-0 md:border-r border-gray-200 bg-white">
+                                    <div className="p-4 sm:p-6 border-b border-gray-100 bg-white sticky top-0 z-10 shadow-sm flex justify-between items-center">
+                                        <h4 className="font-extrabold text-slate-700 uppercase tracking-tight text-sm">Available Tests</h4>
+                                        <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">{availableTests.length} found</span>
+                                    </div>
+                                    <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3">
+                                        {availableTests.length > 0 ? availableTests.map(t => (
+                                            <div key={t._id} className="p-3 sm:p-4 rounded-xl border-2 border-slate-100 hover:border-indigo-300 bg-white transition-all group flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:shadow-md">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <p className="font-bold text-slate-800 text-[13px] sm:text-[15px] truncate">{t.title}</p>
+                                                        {(() => {
+                                                            const otherSeries = seriesList.filter(s => s.id !== managingSeries.id && s.testIds?.includes(t._id));
+                                                            return otherSeries.length > 0 && (
+                                                                <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 text-[9px] font-black rounded border border-amber-200 uppercase leading-none">
+                                                                    In {otherSeries.length} Other {otherSeries.length === 1 ? 'Series' : 'Series'}
+                                                                </span>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                                        <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100"><BookOpen size={10} /> {t.questionCount || t.questions?.length || 0} Qs</span>
+                                                        <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100"><Clock size={10} /> {t.duration_minutes || t.duration || 0}m</span>
+                                                        <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">{t.total_marks || 0} Marks</span>
+                                                    </div>
+                                                </div>
+                                                <button onClick={() => handleAddTestToSeries(t._id)} className="w-full sm:w-auto px-4 py-2 sm:py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-600 hover:text-white transition-colors flex items-center justify-center gap-1 border border-indigo-100 hover:border-indigo-600 shadow-sm">
+                                                    <Plus size={14} strokeWidth={3} /> Add
+                                                </button>
+                                            </div>
+                                        )) : (
+                                            <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400">
+                                                <Search size={48} className="text-gray-200 mb-4" />
+                                                <p className="font-bold">No tests available</p>
+                                                <p className="text-sm mt-1">All compatible tests have been added.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right: Included Tests */}
+                                <div className="flex-1 flex flex-col bg-slate-50/80">
+                                    <div className="p-4 sm:p-6 border-b border-gray-200/60 sticky top-0 z-10 bg-slate-50/80 backdrop-blur-md flex justify-between items-center shadow-sm">
+                                        <h4 className="font-extrabold text-indigo-900 uppercase tracking-tight text-sm">Included Tests</h4>
+                                        <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-full">{seriesTests.length} items</span>
+                                    </div>
+                                    <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3">
+                                        {seriesTests.length > 0 ? seriesTests.map((t, idx) => (
+                                            <div key={t._id} className="p-3 sm:p-4 bg-white border-2 border-indigo-100/50 shadow-sm hover:shadow relative rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-3 transition-all">
+                                                <div className="absolute top-0 left-0 bottom-0 w-1 bg-indigo-500 rounded-l-xl"></div>
+                                                <div className="flex-1 min-w-0 pl-3">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="bg-slate-900 text-white text-[9px] font-black px-1.5 rounded uppercase">#{idx + 1}</span>
+                                                        <p className="font-bold text-indigo-950 text-[13px] sm:text-[15px] truncate">{t.title}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-[2px] flex-wrap">
+                                                        <span className="text-[10px] uppercase font-bold text-gray-500 opacity-80 bg-gray-50 px-1 py-[1px] rounded">ID: {t._id.substr(0, 6)}</span>
+                                                        <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-200"><BookOpen size={10} /> {t.questionCount || t.questions?.length || 0} Qs</span>
+                                                    </div>
+                                                </div>
+                                                <button onClick={() => handleRemoveTestFromSeries(t._id)} className="p-2 w-full sm:w-auto text-red-500 hover:text-white rounded-lg bg-red-50 hover:bg-red-500 transition-colors border border-red-100 hover:border-red-500 flex items-center justify-center group/btn shadow-sm">
+                                                    <Trash size={16} className="group-hover/btn:scale-110 transition-transform" />
+                                                    <span className="sm:hidden ml-2 font-bold text-xs uppercase">Remove</span>
+                                                </button>
+                                            </div>
+                                        )) : (
+                                            <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400">
+                                                <Layers size={48} className="text-gray-200 mb-4" />
+                                                <p className="font-bold text-indigo-900/40">Series is Empty</p>
+                                                <p className="text-sm mt-1 text-gray-500/70">Add tests from the available list on the left.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex-1 overflow-hidden flex flex-col md:flex-row bg-slate-50/50 animate-in slide-in-from-left-4 duration-300">
+                                {/* Left: Available Library Items */}
+                                <div className="flex-1 flex flex-col border-r border-gray-200 bg-white">
+                                    <div className="p-6 border-b border-gray-100 sticky top-0 z-10 bg-white shadow-sm">
+                                        <h4 className="font-extrabold text-slate-700 uppercase tracking-tight text-sm mb-1">Available Premium Library</h4>
+                                        <p className="text-[10px] text-gray-400 font-medium">Select paid sections or notes to bundle with this series</p>
+                                    </div>
+                                    <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
+                                        {/* Sections List */}
+                                        <div>
+                                            <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                <Layers size={14} /> Available Sections
+                                            </h5>
+                                            <div className="space-y-2">
+                                                {allSections.filter(s => s.field === managingSeries.field && s.type === 'paid').map(s => {
+                                                    const isIncluded = managingSeries.includedSections?.includes(s.id);
+                                                    return (
+                                                        <div key={s.id} className="p-3 rounded-xl border-2 border-slate-50 hover:border-indigo-200 transition-all flex items-center justify-between group">
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-lg">{s.icon || '📂'}</span>
+                                                                <div>
+                                                                    <p className="font-bold text-slate-700 text-sm leading-tight">{s.title}</p>
+                                                                    <p className="text-[9px] text-amber-600 font-black uppercase">₹{s.price} Value</p>
+                                                                </div>
+                                                            </div>
+                                                            <button 
+                                                                onClick={() => handleToggleSectionInSeries(s.id)}
+                                                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all border-2 ${isIncluded ? 'bg-red-50 text-red-500 border-red-100 hover:bg-red-500 hover:text-white' : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-600 hover:text-white'}`}
+                                                            >
+                                                                {isIncluded ? 'Remove' : 'Bundle'}
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Notes List */}
+                                        <div>
+                                            <h5 className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                <Plus size={14} /> Individual Premium Notes
+                                            </h5>
+                                            <div className="space-y-2">
+                                                {allNotes.filter(n => n.field === managingSeries.field && n.type === 'paid').map(n => {
+                                                    const isIncluded = managingSeries.includedNotes?.includes(n.id);
+                                                    return (
+                                                        <div key={n.id} className="p-3 rounded-xl border-2 border-slate-50 hover:border-emerald-200 transition-all flex items-center justify-between group">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-500">
+                                                                    <BookOpen size={16} />
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="font-bold text-slate-700 text-sm leading-tight truncate max-w-[150px]">{n.title}</p>
+                                                                    <p className="text-[9px] text-amber-600 font-black uppercase">₹{n.price} Value</p>
+                                                                </div>
+                                                            </div>
+                                                            <button 
+                                                                onClick={() => handleToggleNoteInSeries(n.id)}
+                                                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all border-2 ${isIncluded ? 'bg-red-50 text-red-500 border-red-100 hover:bg-red-500 hover:text-white' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white'}`}
+                                                            >
+                                                                {isIncluded ? 'Remove' : 'Bundle'}
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right: Summary & Included Items */}
+                                <div className="flex-1 flex flex-col bg-slate-50/80 p-6 sm:p-8">
+                                    <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200 mb-6 relative overflow-hidden">
+                                        <div className="relative z-10">
+                                            <h4 className="text-xl font-black mb-1">Bundle Summary</h4>
+                                            <p className="text-indigo-100 text-xs font-medium opacity-80">Students buying this series get these items for ₹0</p>
+                                            
+                                            <div className="mt-6 flex gap-4">
+                                                <div className="bg-white/10 rounded-2xl p-3 flex-1 backdrop-blur-md border border-white/10">
+                                                    <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-1">Sections</p>
+                                                    <p className="text-2xl font-black">{managingSeries.includedSections?.length || 0}</p>
+                                                </div>
+                                                <div className="bg-white/10 rounded-2xl p-3 flex-1 backdrop-blur-md border border-white/10">
+                                                    <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-1">Notes</p>
+                                                    <p className="text-2xl font-black">{managingSeries.includedNotes?.length || 0}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <Sparkles className="absolute -bottom-4 -right-4 text-white/10 w-32 h-32" />
+                                    </div>
+
+                                    <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Active Bonus Items</h5>
+                                        {/* List currently included sections */}
+                                        {allSections.filter(s => managingSeries.includedSections?.includes(s.id)).map(s => (
+                                            <div key={s.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
+                                                <span className="text-lg">{s.icon || '📂'}</span>
+                                                <p className="flex-1 font-bold text-slate-700 text-xs">{s.title}</p>
+                                                <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase rounded">Section</span>
+                                            </div>
+                                        ))}
+                                        {/* List currently included notes */}
+                                        {allNotes.filter(n => managingSeries.includedNotes?.includes(n.id)).map(n => (
+                                            <div key={n.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
+                                                <div className="w-5 h-5 rounded bg-red-100 flex items-center justify-center text-red-500 text-[10px]"><BookOpen size={10} /></div>
+                                                <p className="flex-1 font-bold text-slate-700 text-xs truncate">{n.title}</p>
+                                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase rounded">Note</span>
+                                            </div>
+                                        ))}
+                                        {(!managingSeries.includedSections?.length && !managingSeries.includedNotes?.length) && (
+                                            <div className="h-full flex flex-col items-center justify-center py-10 opacity-40">
+                                                <Combine size={32} className="mb-2" />
+                                                <p className="text-xs font-bold uppercase tracking-tight">No bundles yet</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -2541,6 +2814,7 @@ export default function AdminDashboard() {
                     <button onClick={() => setActiveTab('users')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'users' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Students</button>
                     <button onClick={() => setActiveTab('revenue')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'revenue' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Revenue</button>
                     <button onClick={() => setActiveTab('content')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'content' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Content & Config</button>
+                    <button onClick={() => setActiveTab('notes')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'notes' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>📚 Notes</button>
                     <button onClick={() => setActiveTab('create')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'create' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>+ Create</button>
                     <button onClick={() => window.location.href = '/'} className="px-3 py-2 sm:px-4 rounded-md bg-red-100 text-red-700 hover:bg-red-200 font-bold flex items-center gap-1 text-sm whitespace-nowrap"><LogOut size={16} /> Logout</button>
                 </div>
@@ -3544,6 +3818,10 @@ export default function AdminDashboard() {
             )}
 
             {/* Create Tab */}
+            {activeTab === 'notes' && (
+                <NotesManager />
+            )}
+
             {activeTab === 'create' && (
                 <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto pb-24">
 

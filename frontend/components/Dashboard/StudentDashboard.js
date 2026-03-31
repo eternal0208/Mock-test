@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/config';
 import AnalyticsDashboard from './AnalyticsDashboard';
-import { Clock, BookOpen, BarChart, User, Mail, Calendar, ShieldCheck, TrendingUp, ChevronRight, Star, Target, Zap, Search, Filter, Menu, X, CheckCircle, Award } from 'lucide-react';
+import { Clock, BookOpen, BarChart, User, Mail, Calendar, ShieldCheck, TrendingUp, ChevronRight, Star, Target, Zap, Search, Filter, Menu, X, CheckCircle, Award, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import SeriesCard from '@/components/ui/SeriesCard';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import NotesSection from './NotesSection';
 
 export default function StudentDashboard() {
     const { user } = useAuth();
@@ -43,54 +44,83 @@ export default function StudentDashboard() {
 
     useEffect(() => {
         const fetchData = async () => {
+            if (!user || (!user.uid && !user._id)) return;
             const uid = user.uid || user._id;
+            const cacheKey = `apex_student_data_${uid}`;
 
-            // Background Fetch (Update data completely fresh, bypassing browser/nextjs cache)
+            // 1. Initial Load: Try caching for instant render
+            try {
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    if (parsed.tests) setTests(parsed.tests);
+                    if (parsed.series) setSeries(parsed.series);
+                    if (parsed.results) setResults(parsed.results);
+                    if (parsed.orders) setOrders(parsed.orders);
+                    if (parsed.percentileData) setPercentileData(parsed.percentileData);
+                    setLoading(false); // Render instantly!
+                }
+            } catch (e) {
+                console.warn('Cache read error', e);
+            }
+
+            // 2. Background Sync
             const fetchFreshData = async () => {
                 try {
                     const token = await user.getIdToken();
                     const headers = { 'Authorization': `Bearer ${token}` };
                     const fetchConfig = { headers, cache: 'no-store' };
 
-                    // Fetch Tests
-                    const testsRes = await fetch(`${API_BASE_URL}/api/tests`, fetchConfig);
-                    const testsData = await testsRes.json();
-                    if (Array.isArray(testsData)) {
-                        const sortedTests = testsData.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' }));
-                        setTests(sortedTests);
+                    const [testsRes, seriesRes, resultsRes, ordersRes, percRes] = await Promise.allSettled([
+                        fetch(`${API_BASE_URL}/api/tests`, fetchConfig),
+                        fetch(`${API_BASE_URL}/api/tests/series`, fetchConfig),
+                        fetch(`${API_BASE_URL}/api/results/student/${uid}`, fetchConfig),
+                        fetch(`${API_BASE_URL}/api/purchases/my-orders`, fetchConfig),
+                        fetch(`${API_BASE_URL}/api/admin/percentile-data`, fetchConfig)
+                    ]);
+
+                    const freshData = {};
+
+                    if (testsRes.status === 'fulfilled' && testsRes.value.ok) {
+                        const data = await testsRes.value.json();
+                        if (Array.isArray(data)) {
+                            freshData.tests = data.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' }));
+                            setTests(freshData.tests);
+                        }
                     }
 
-                    // Fetch Series
-                    const seriesRes = await fetch(`${API_BASE_URL}/api/tests/series`, fetchConfig);
-                    const seriesData = await seriesRes.json();
-                    if (Array.isArray(seriesData)) {
-                        const sortedSeries = seriesData.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' }));
-                        setSeries(sortedSeries);
+                    if (seriesRes.status === 'fulfilled' && seriesRes.value.ok) {
+                        const data = await seriesRes.value.json();
+                        if (Array.isArray(data)) {
+                            freshData.series = data.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' }));
+                            setSeries(freshData.series);
+                        }
                     }
 
-                    // Fetch Results
-                    const resultsRes = await fetch(`${API_BASE_URL}/api/results/student/${uid}`, fetchConfig);
-                    const resultsData = await resultsRes.json();
-                    const validResults = Array.isArray(resultsData) ? resultsData : [];
-                    setResults(validResults);
+                    if (resultsRes.status === 'fulfilled' && resultsRes.value.ok) {
+                        const data = await resultsRes.value.json();
+                        freshData.results = Array.isArray(data) ? data : [];
+                        setResults(freshData.results);
+                    }
 
-                    // Fetch Orders
-                    try {
-                        const ordersRes = await fetch(`${API_BASE_URL}/api/purchases/my-orders`, fetchConfig);
-                        if (ordersRes.ok) {
-                            const ordersData = await ordersRes.json();
-                            setOrders(ordersData);
-                        }
-                    } catch (e) { console.error("Fetch Orders Error", e) }
+                    if (ordersRes.status === 'fulfilled' && ordersRes.value.ok) {
+                        const data = await ordersRes.value.json();
+                        freshData.orders = data;
+                        setOrders(freshData.orders);
+                    }
 
-                    // Fetch Percentile Data (Global, not user scoped)
+                    if (percRes.status === 'fulfilled' && percRes.value.ok) {
+                        const data = await percRes.value.json();
+                        freshData.percentileData = data;
+                        setPercentileData(freshData.percentileData);
+                    }
+
+                    // Update Cache 
                     try {
-                        const percRes = await fetch(`${API_BASE_URL}/api/admin/percentile-data`, fetchConfig);
-                        if (percRes.ok) {
-                            const pData = await percRes.json();
-                            setPercentileData(pData);
-                        }
-                    } catch (e) { console.error("Percentile Error", e) }
+                        const existingCache = localStorage.getItem(cacheKey);
+                        const mergedCache = existingCache ? { ...JSON.parse(existingCache), ...freshData } : freshData;
+                        localStorage.setItem(cacheKey, JSON.stringify(mergedCache));
+                    } catch (e) { console.warn('Cache write error', e) }
 
                 } catch (error) {
                     console.error("Dashboard fetch failed", error);
@@ -478,30 +508,30 @@ export default function StudentDashboard() {
                 </div>
             </div>
 
-            <nav className="flex-1 px-4 space-y-1.5">
+            <nav className="flex-1 px-4 space-y-1.5 mt-4">
                 {[
-                    { id: 'dashboard', label: 'Dashboard', icon: <BarChart size={20} /> },
-                    { id: 'tests', label: 'Test Library', icon: <Search size={20} /> },
-                    { id: 'analytics', label: 'Performance', icon: <TrendingUp size={20} /> },
-                    { id: 'orders', label: 'My Orders', icon: <BookOpen size={20} /> },
-                    { id: 'profile', label: 'Profile Settings', icon: <User size={20} /> },
+                    { id: 'dashboard', label: 'Dashboard', icon: <BarChart size={18} /> },
+                    { id: 'tests', label: 'Test Library', icon: <Search size={18} /> },
+                    { id: 'notes', label: 'Study Notes', icon: <BookOpen size={18} /> },
+                    { id: 'analytics', label: 'Performance', icon: <TrendingUp size={18} /> },
+                    { id: 'orders', label: 'My Orders', icon: <CheckCircle size={18} /> },
+                    { id: 'profile', label: 'Profile Settings', icon: <User size={18} /> },
                 ].map(item => (
                     <button
                         key={item.id}
                         onClick={() => setActiveSection(item.id)}
-                        className={`w-full flex items-center gap-3.5 px-5 py-3.5 rounded-2xl transition-all duration-300 font-medium group relative overflow-hidden ${activeSection === item.id
-                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-200 scale-[1.02]'
-                            : 'text-gray-500 hover:bg-indigo-50/50 hover:text-indigo-600'
+                        className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-[14px] transition-all duration-300 font-semibold group relative overflow-hidden ${activeSection === item.id
+                            ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-[0_8px_16px_rgba(79,70,229,0.25)] scale-[1.02]'
+                            : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-900'
                             }`}
                     >
                         {activeSection === item.id && (
                             <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         )}
-                        <span className={`transition-transform duration-300 ${activeSection === item.id ? 'scale-110' : 'group-hover:scale-110'}`}>
+                        <span className={`transition-transform duration-300 ${activeSection === item.id ? 'scale-110 drop-shadow-sm' : 'group-hover:scale-110 group-hover:text-indigo-600'}`}>
                             {item.icon}
                         </span>
-                        {item.label}
-                        {activeSection === item.id && <ChevronRight size={16} className="ml-auto opacity-70" />}
+                        <span className="text-sm tracking-wide">{item.label}</span>
                     </button>
                 ))}
             </nav>
@@ -695,7 +725,7 @@ export default function StudentDashboard() {
 
     // 5. Dashboard Home (Premium UI)
     const DashboardHome = () => (
-        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="space-y-10">
             {/* Header / Welcome / Quick Stats */}
             <div className="relative">
                 {/* Decorative Background Blob */}
@@ -774,7 +804,38 @@ export default function StudentDashboard() {
                 </div>
             </div>
 
-            {/* My Enrolled Courses */}
+            {/* Quick Access Area - 2x2 Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                {/* Notes */}
+                <div onClick={() => setActiveSection('notes')} className="bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-2xl p-5 text-white shadow-lg shadow-violet-200/50 relative overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all cursor-pointer group">
+                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all"></div>
+                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-4 backdrop-blur-md border border-white/20"><BookOpen size={20} /></div>
+                    <h3 className="font-bold mb-1 text-sm sm:text-base">Study Notes</h3>
+                    <p className="text-violet-100 text-[10px] sm:text-xs">Browse PDFs & Materials</p>
+                </div>
+                {/* Library */}
+                <div onClick={() => setActiveSection('tests')} className="bg-gradient-to-br from-orange-400 to-rose-500 rounded-2xl p-5 text-white shadow-lg shadow-orange-200/50 relative overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all cursor-pointer group">
+                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all"></div>
+                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-4 backdrop-blur-md border border-white/20"><Search size={20} /></div>
+                    <h3 className="font-bold mb-1 text-sm sm:text-base">Test Library</h3>
+                    <p className="text-orange-100 text-[10px] sm:text-xs">450+ Practice Tests</p>
+                </div>
+                {/* Stats */}
+                <div onClick={() => setActiveSection('analytics')} className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl p-5 text-white shadow-lg shadow-blue-200/50 relative overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all cursor-pointer group">
+                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all"></div>
+                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-4 backdrop-blur-md border border-white/20"><TrendingUp size={20} /></div>
+                    <h3 className="font-bold mb-1 text-sm sm:text-base">Performance</h3>
+                    <p className="text-blue-100 text-[10px] sm:text-xs">Track your progress</p>
+                </div>
+                {/* Orders */}
+                <div onClick={() => setActiveSection('orders')} className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl p-5 text-white shadow-lg shadow-emerald-200/50 relative overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all cursor-pointer group">
+                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all"></div>
+                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-4 backdrop-blur-md border border-white/20"><Award size={20} /></div>
+                    <h3 className="font-bold mb-1 text-sm sm:text-base">My Orders</h3>
+                    <p className="text-emerald-100 text-[10px] sm:text-xs">View enrollments</p>
+                </div>
+            </div>
+
             {enrolledSeries.length > 0 && (
                 <div>
                     <div className="flex items-center justify-between mb-6">
@@ -875,27 +936,28 @@ export default function StudentDashboard() {
 
             {/* Mobile Header (replaces sidebar on small screens) - can be optimized later */}
             {/* Mobile Bottom Navigation (Tab Bar) */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-2xl border-t border-gray-100 p-2 flex justify-around items-center z-50 shadow-[0_-8px_30px_rgba(0,0,0,0.05)] rounded-t-[1.5rem]">
+            <div className="md:hidden fixed bottom-6 left-4 right-4 bg-white/90 backdrop-blur-xl border border-white p-2 flex justify-around items-center z-50 shadow-[0_10px_40px_rgba(0,0,0,0.1)] rounded-[2rem]">
                 {[
                     { id: 'dashboard', icon: <BarChart size={20} />, label: 'Home' },
                     { id: 'tests', icon: <Search size={20} />, label: 'Library' },
+                    { id: 'notes', icon: <BookOpen size={20} />, label: 'Notes' },
                     { id: 'analytics', icon: <TrendingUp size={20} />, label: 'Stats' },
                     { id: 'profile', icon: <User size={20} />, label: 'Profile' },
-                ].map(item => (
-                    <button
-                        key={item.id}
-                        onClick={() => setActiveSection(item.id)}
-                        className={`flex flex-col items-center gap-1 p-2 rounded-2xl transition-all ${activeSection === item.id
-                            ? 'text-indigo-600 scale-110 font-bold'
-                            : 'text-gray-400'
-                            }`}
-                    >
-                        <div className={`p-1.5 rounded-xl transition-colors ${activeSection === item.id ? 'bg-indigo-50' : ''}`}>
-                            {item.icon}
-                        </div>
-                        <span className="text-[10px] uppercase tracking-tighter">{item.label}</span>
-                    </button>
-                ))}
+                ].map(item => {
+                    const isActive = activeSection === item.id;
+                    return (
+                        <button
+                            key={item.id}
+                            onClick={() => setActiveSection(item.id)}
+                            className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200/50 -translate-y-2' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                        >
+                            <span className={`transition-transform duration-300 ${isActive ? 'scale-110 mb-0.5' : 'mb-1'}`}>
+                                {item.icon}
+                            </span>
+                            {isActive && <span className="text-[9px] font-bold tracking-wider">{item.label}</span>}
+                        </button>
+                    )
+                })}
             </div>
 
             {/* Mobile Header (Fixed Top) */}
@@ -916,7 +978,8 @@ export default function StudentDashboard() {
             </div>
 
             <div className="flex-1 p-4 md:p-8 max-w-7xl mx-auto">
-                {activeSection === 'orders' ? <OrdersView /> :
+                {activeSection === 'notes' ? <NotesSection /> :
+                activeSection === 'orders' ? <OrdersView /> :
                     activeSection === 'profile' ? (
                         <ProfileView
                             user={user}

@@ -10,12 +10,8 @@ const SeriesCard = ({ series, onAction, actionLabel = undefined }) => {
     const isFree = series.price === 0 || series.isPaid === false;
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            whileHover={{ y: -8 }}
-            className="group bg-white rounded-[2rem] shadow-xl overflow-hidden border border-gray-100 flex flex-col hover:shadow-2xl hover:shadow-indigo-200/40 transition-all duration-500 overflow-hidden relative"
+        <div
+            className="group bg-white rounded-[2rem] shadow-xl border border-gray-100 flex flex-col hover:shadow-2xl hover:shadow-indigo-200/40 hover:-translate-y-2 transition-all duration-500 overflow-hidden relative"
         >
             {/* Image Section */}
             <div className="h-44 md:h-52 bg-gray-100 relative overflow-hidden">
@@ -105,7 +101,7 @@ const SeriesCard = ({ series, onAction, actionLabel = undefined }) => {
                     </button>
                 </div>
             </div>
-        </motion.div>
+        </div>
     );
 };
 

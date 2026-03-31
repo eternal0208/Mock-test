@@ -55,6 +55,7 @@ const resultRoutes = require('./routes/resultRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const purchaseRoutes = require('./routes/purchaseRoutes');
+const notesRoutes = require('./routes/notesRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/tests', testRoutes);
@@ -63,6 +64,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/payment', paymentRoutes);  // alias — frontend coupon APIs use singular form
 app.use('/api/purchases', purchaseRoutes);
+app.use('/api/notes', notesRoutes);
 
 
 

@@ -162,15 +162,36 @@ router.post('/create-order', async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        // Server-side validate coupon if provided
+        // --- SERVER-SIDE PRICE VALIDATION ---
+        let originalPrice = Number(amount);
+        let itemData = null;
+
+        // 1. Try fetching from testSeries (default)
+        const seriesDoc = await db.collection('testSeries').doc(seriesId).get();
+        if (seriesDoc.exists) {
+            itemData = seriesDoc.data();
+            originalPrice = Number(itemData.price) || 0;
+        } else {
+            // 2. Try fetching from notes
+            const noteDoc = await db.collection('notes').doc(seriesId).get();
+            if (noteDoc.exists) {
+                itemData = noteDoc.data();
+                originalPrice = Number(itemData.price) || 99;
+            } else {
+                // 3. Try fetching from notesSections
+                const sectionDoc = await db.collection('notesSections').doc(seriesId).get();
+                if (sectionDoc.exists) {
+                    itemData = sectionDoc.data();
+                    originalPrice = Number(itemData.price) || 499;
+                }
+            }
+        }
+
         let appliedCoupon = null;
-        let finalAmount = Number(amount);
+        let finalAmount = originalPrice;
 
         if (couponCode) {
-            const seriesDoc = await db.collection('testSeries').doc(seriesId).get();
-            const originalPrice = seriesDoc.exists ? (Number(seriesDoc.data().price) || finalAmount) : finalAmount;
-            const examType = seriesDoc.exists ? seriesDoc.data().examType : null;
-            const couponResult = await validateCouponHelper(couponCode, userId, seriesId, examType, originalPrice);
+            const couponResult = await validateCouponHelper(couponCode, userId, seriesId, itemData?.examType || null, originalPrice);
             if (couponResult.valid) {
                 finalAmount = couponResult.finalPrice;
                 appliedCoupon = couponResult;
@@ -258,11 +279,24 @@ router.post('/verify-payment', async (req, res) => {
 
             // 2. Grant Access
             const userRef = db.collection('users').doc(userId);
+            const { itemType, noteId, sectionId } = req.body;
 
-            // Use set with merge: true to ensure document/field exists
-            await userRef.set({
-                purchasedTests: admin.firestore.FieldValue.arrayUnion(seriesId)
-            }, { merge: true });
+            if (itemType === 'note' && noteId) {
+                // Individual note purchase
+                await userRef.set({
+                    purchasedNotes: admin.firestore.FieldValue.arrayUnion(noteId)
+                }, { merge: true });
+            } else if (itemType === 'section' && sectionId) {
+                // Full section purchase
+                await userRef.set({
+                    purchasedSections: admin.firestore.FieldValue.arrayUnion(sectionId)
+                }, { merge: true });
+            } else {
+                // Default: test series purchase
+                await userRef.set({
+                    purchasedTests: admin.firestore.FieldValue.arrayUnion(seriesId)
+                }, { merge: true });
+            }
 
             // 3. Record coupon usage if coupon was applied
             if (couponCode) {
