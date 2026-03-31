@@ -16,6 +16,14 @@ const { PDFDocument } = require('pdf-lib');
 const execPromise = util.promisify(exec);
 const upload = multer({ dest: 'uploads/' });
 
+// Allow OPTIONS preflight on Gemini parser before auth protect
+router.options('/tests/parse-pdf-gemini', (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Requested-With');
+    return res.sendStatus(204);
+});
+
 // Protect all admin routes
 router.use(protect);
 
