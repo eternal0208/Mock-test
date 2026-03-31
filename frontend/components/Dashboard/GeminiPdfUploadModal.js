@@ -154,7 +154,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
 
         setIsScanning(true);
         setScanError('');
-        setExtractedQuestions([]);
+        // ✅ APEX MOD: Do not clear questions; append for continuous extraction
         setScanStatus(isSelection ? 'Digitizing Selection...' : 'Surgical Page OCR...');
 
         try {
@@ -215,15 +215,21 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                         }
 
                         if (data.question) {
-                            setExtractedQuestions(prev => [...prev, {
-                                ...data.question,
-                                marks: data.question.marks || 4,
-                                negativeMarks: data.question.negativeMarks || 1,
-                                type: data.question.type || 'mcq',
-                                subject: data.question.subject || testMeta.subject,
-                                section: data.question.section || '',
-                                isStaged: false
-                            }]);
+                            setExtractedQuestions(prev => {
+                                const newQ = {
+                                    ...data.question,
+                                    qNumber: (prev.length + 1),
+                                    marks: data.question.marks || 4,
+                                    negativeMarks: data.question.negativeMarks || 1,
+                                    type: data.question.type || 'mcq',
+                                    subject: data.question.subject || testMeta.subject,
+                                    section: data.question.section || '',
+                                    isStaged: false
+                                };
+                                // Auto-focus first question of a new scan session
+                                if (prev.length === 0) setActiveQuestionIndex(0);
+                                return [...prev, newQ];
+                            });
                         }
                     } catch (e) {
                         console.error('Parse Error:', e);
