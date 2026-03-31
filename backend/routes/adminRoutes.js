@@ -13,8 +13,10 @@ const fs = require('fs');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { PDFDocument } = require('pdf-lib');
 
+const os = require('os');
 const execPromise = util.promisify(exec);
-const upload = multer({ dest: 'uploads/' });
+// ✅ VERCEL FIX: Use system temp directory for uploads to bypass read-only filesystem
+const upload = multer({ dest: os.tmpdir() });
 
 // Allow OPTIONS preflight on Gemini parser before auth protect
 router.options('/tests/parse-pdf-gemini', (req, res) => {
