@@ -14,8 +14,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { PDFDocument } = require('pdf-lib');
 
 const execPromise = util.promisify(exec);
-const os = require('os');
-const upload = multer({ dest: os.tmpdir() });
+const upload = multer({ dest: 'uploads/' });
 
 // Protect all admin routes
 router.use(protect);
@@ -302,56 +301,29 @@ router.post('/tests/parse-pdf-marker', upload.single('pdf'), async (req, res) =>
 // --- Gemini AI PDF Parsing (Page-by-Page for Accuracy) ---
 // POST /api/admin/tests/parse-pdf-gemini
 router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) => {
-    const { base64Image, isSelection, pdfUrl } = req.body;
+    const { base64Image, isSelection } = req.body;
     
-    if (!req.file && !base64Image && !pdfUrl) {
-        return res.status(400).json({ error: 'No PDF file, Image selection, or Storage URL provided' });
+    if (!req.file && !base64Image) {
+        return res.status(400).json({ error: 'No PDF file or Image selection provided' });
     }
 
-    let pdfPath = req.file ? req.file.path : null;
+    const pdfPath = req.file ? req.file.path : null;
 
     // Set streaming NDJSON headers for compatibility with client parser
     res.setHeader('Content-Type', 'application/x-ndjson');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
     const sendEvent = (data) => {
-        try { res.write(`${JSON.stringify(data)}\n`); } catch(e) {}
+        try {
+            res.write(`${JSON.stringify(data)}\n`);
+        } catch(e) {}
     };
-
-    const heartbeat = setInterval(() => {
-        try { res.write(`${JSON.stringify({ heartbeat: true })}\n`); } catch(e) {}
-    }, 5000);
 
     const cleanup = () => {
-        clearInterval(heartbeat);
-        try { if (pdfPath && fs.existsSync(pdfPath)) { fs.unlinkSync(pdfPath); }} catch(e) {}
+        try { if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath); } catch(e) {}
     };
-
-    // Phase 2: Handle Cloud Storage Proxy Download
-    if (pdfUrl && !pdfPath && !base64Image) {
-        try {
-            sendEvent({ status: 'Handshaking with Cloud Storage... 🛰️' });
-            const https = require('https');
-            const tempFileName = path.join(os.tmpdir(), `dl_${Date.now()}.pdf`);
-            
-            const downloadFile = (url, dest) => new Promise((resolve, reject) => {
-                const file = fs.createWriteStream(dest);
-                https.get(url, (res) => {
-                    res.pipe(file);
-                    file.on('finish', () => { file.close(); resolve(); });
-                }).on('error', (err) => { fs.unlink(dest); reject(err); });
-            });
-
-            await downloadFile(pdfUrl, tempFileName);
-            pdfPath = tempFileName;
-            sendEvent({ status: 'Cloud Handoff Successful 🟢' });
-        } catch (error) {
-            console.error("Storage download failed:", error);
-            sendEvent({ error: 'Failed to retrieve file from Cloud Storage.' });
-            return res.end();
-        }
-    }
 
     try {
         const apiKey = process.env.GEMINI_API_KEY;
@@ -472,31 +444,49 @@ CRITICAL:
             }
         };
 
-        // CASE 1: Single Image Selection from Canvas
+        // ✅ APEX SURGICAL DISPATCH: Handle incoming Base64 images (Selection or Page Capture)
         if (base64Image) {
             const data = base64Image.split(',')[1] || base64Image;
-            await processContent(data, 'image/png', isSelection ? 'Scanning Selection...' : 'Scanning Page View...');
+            await processContent(data, 'image/png', isSelection === 'true' ? 'Scanning Selection...' : 'Scanning Page Capture...');
+            
+            sendEvent({ 
+                status: 'complete', 
+                totalQuestions: totalQuestionsCount, 
+                message: `Extraction complete! Found ${totalQuestionsCount} items.` 
+            });
+            return res.end();
         } 
-        // CASE 2: Unified PDF Scan (Native Multi-Modal)
-        // Gemini 2.0 Flash handles up to 3,000 pages directly - bypassing memory slicing loops.
-        else if (pdfPath) {
+
+        // CASE 2: Full PDF Upload (Only used if no surgical image provided)
+        if (pdfPath) {
             const fullPdfBytes = fs.readFileSync(pdfPath);
-            const base64Pdf = fullPdfBytes.toString('base64');
+            const pdfDoc = await PDFDocument.load(fullPdfBytes);
+            const pageCount = pdfDoc.getPageCount();
 
             sendEvent({ 
                 status: 'started', 
-                message: `PDF Received: ${fullPdfBytes.length} bytes. Initiating Apex Multi-Modal Intelligence...`,
-                total_pages: 'Whole Document'
+                message: `PDF Loaded: ${pageCount} pages. Starting extraction...`,
+                total_pages: pageCount
             });
 
-            await processContent(base64Pdf, 'application/pdf', `Scanning Entire Document with Apex Vision...`);
-        }
+            for (let i = 0; i < pageCount; i++) {
+                sendEvent({ status: 'page', current_page: i + 1, total_pages: pageCount });
 
-        sendEvent({ 
-            status: 'complete', 
-            totalQuestions: totalQuestionsCount, 
-            message: `Extraction complete! Found ${totalQuestionsCount} items.` 
-        });
+                const subPdfDoc = await PDFDocument.create();
+                const [copiedPage] = await subPdfDoc.copyPages(pdfDoc, [i]);
+                subPdfDoc.addPage(copiedPage);
+                const subPdfBytes = await subPdfDoc.save();
+                const base64Page = Buffer.from(subPdfBytes).toString('base64');
+
+                await processContent(base64Page, 'application/pdf', `Extracting from Page ${i + 1}...`);
+            }
+
+            sendEvent({ 
+                status: 'complete', 
+                totalQuestions: totalQuestionsCount, 
+                message: `Extraction complete! Found ${totalQuestionsCount} items.` 
+            });
+        }
         res.end();
 
     } catch (error) {
@@ -514,6 +504,7 @@ router.post('/tests/parse-image-gemini', async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
     const sendEvent = (data) => {
         try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch(e) {}

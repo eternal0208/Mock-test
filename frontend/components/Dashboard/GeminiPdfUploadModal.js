@@ -13,8 +13,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../lib/config';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage, db } from '../../lib/firebase';
 import RichMathEditor from './RichMathEditor';
 import PdfViewer from './PdfViewer';
 import MathText from '@/components/ui/MathText';
@@ -39,28 +37,13 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
     const [scanError, setScanError] = useState('');
     const [showMeta, setShowMeta] = useState(false);
     const [showCommandCentre, setShowCommandCentre] = useState(false);
-    const [pdfStorageUrl, setPdfStorageUrl] = useState('');
-    const [isUploadingToStorage, setIsUploadingToStorage] = useState(false);
-    const [lastUploadedPath, setLastUploadedPath] = useState('');
 
     // ✅ BODY SCROLL LOCK: Freeze background when Apex Workbench is active
     useEffect(() => {
         const originalStyle = window.getComputedStyle(document.body).overflow;
         document.body.style.overflow = 'hidden';
-        return () => { 
-            document.body.style.overflow = originalStyle; 
-        };
+        return () => { document.body.style.overflow = originalStyle; };
     }, []);
-
-    // Cleanup: Delete temporary PDF from storage on close
-    useEffect(() => {
-        return () => {
-            if (lastUploadedPath) {
-                const fileRef = ref(storage, lastUploadedPath);
-                deleteObject(fileRef).catch(e => console.warn("Cleanup storage failed:", e));
-            }
-        };
-    }, [lastUploadedPath]);
 
     const activeQ = useMemo(() => {
         if (activeQuestionIndex < 0 || activeQuestionIndex >= extractedQuestions.length) return null;
@@ -149,7 +132,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
         setShowCommandCentre(false);
     };
 
-    const handleFileUpload = async (e) => {
+    const handleFileUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
@@ -158,49 +141,32 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
             return;
         }
 
-        // Vercel Serverless Limit: 4.5MB check for raw upload, 
-        // but we now bypass it using Storage Proxying.
         setScanError('');
-        setScanStatus('Storing in Cloud...');
-        setIsUploadingToStorage(true);
+        setScanStatus('');
         setPdfFile(file);
-
-        try {
-            const fileName = `temp_pdfs/${user.uid}/${Date.now()}_${file.name}`;
-            const storageRef = ref(storage, fileName);
-            const snapshot = await uploadBytes(storageRef, file);
-            const url = await getDownloadURL(snapshot.ref);
-            
-            setPdfStorageUrl(url);
-            setLastUploadedPath(fileName);
-            setScanStatus('Ready for Scan 🛡️');
-        } catch (error) {
-            console.error("Storage upload failed:", error);
-            setScanError('Cloud Storage upload failed. Check your internet.');
-        } finally {
-            setIsUploadingToStorage(false);
-        }
     };
 
     const handleScan = async (base64Image = null, isSelection = false) => {
+        if (!base64Image && !pdfFile) {
+            setScanError('Please select a PDF file first.');
+            return;
+        }
+
         setIsScanning(true);
         setScanError('');
-        setScanStatus(isSelection ? 'Targeted OCR...' : 'AI Global Scan...');
+        setExtractedQuestions([]);
+        setScanStatus(isSelection ? 'Digitizing Selection...' : 'Surgical Page OCR...');
 
         try {
             const token = await user.getIdToken();
 
             const formData = new FormData();
-            if (pdfStorageUrl) {
-                formData.append('pdfUrl', pdfStorageUrl);
-            } else if (pdfFile) {
-                formData.append('pdf', pdfFile);
-            }
-
             if (base64Image) {
                 formData.append('base64Image', base64Image);
+                formData.append('isSelection', isSelection.toString());
+            } else {
+                formData.append('pdf', pdfFile);
             }
-            formData.append('isSelection', isSelection ? 'true' : 'false');
             formData.append('isImageDirect', !!base64Image ? 'true' : 'false');
 
             const res = await fetch(`${API_BASE_URL}/api/admin/tests/parse-pdf-gemini`, {
@@ -464,28 +430,18 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                             />
                         ) : (
                             <div className="h-full flex flex-col items-center justify-center p-12 text-center">
-                                {isUploadingToStorage ? (
-                                    <>
-                                        <Loader2 className="w-16 h-16 text-amber-500 animate-spin mb-6" />
-                                        <span className="text-xl font-black text-slate-800 tracking-tight">Synchronizing...</span>
-                                        <p className="text-slate-400 text-sm mt-2 max-w-[200px]">Preparing Cloud Handoff 🛰️</p>
-                                    </>
-                                ) : (
-                                    <>
-                                        <motion.div 
-                                            animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 4 }}
-                                            className="w-24 h-24 bg-indigo-50 rounded-[40px] flex items-center justify-center mb-6 border-b-4 border-indigo-200 shadow-xl"
-                                        >
-                                            <FileText size={40} className="text-indigo-600" />
-                                        </motion.div>
-                                        <h3 className="text-2xl font-black text-slate-800 mb-3 tracking-tight">Deploy Apex Intelligence</h3>
-                                        <p className="text-slate-500 text-sm max-w-sm mb-8 font-medium">Upload your exam PDF to initiate high-precision AI question extraction and formatting.</p>
-                                        <label className="cursor-pointer px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-3xl font-black text-md transition-all shadow-2xl shadow-indigo-500/40 active:scale-95 flex items-center gap-3">
-                                            <Layers size={18} /> SELECT PDF SOURCE
-                                            <input type="file" className="hidden" accept=".pdf" onChange={handleFileUpload} />
-                                        </label>
-                                    </>
-                                )}
+                                <motion.div 
+                                    animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 4 }}
+                                    className="w-24 h-24 bg-indigo-50 rounded-[40px] flex items-center justify-center mb-6 border-b-4 border-indigo-200 shadow-xl"
+                                >
+                                    <FileText size={40} className="text-indigo-600" />
+                                </motion.div>
+                                <h3 className="text-2xl font-black text-slate-800 mb-3 tracking-tight">Deploy Apex Intelligence</h3>
+                                <p className="text-slate-500 text-sm max-w-sm mb-8 font-medium">Upload your exam PDF to initiate high-precision AI question extraction and formatting.</p>
+                                <label className="cursor-pointer px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-3xl font-black text-md transition-all shadow-2xl shadow-indigo-500/40 active:scale-95 flex items-center gap-3">
+                                    <Layers size={18} /> SELECT PDF SOURCE
+                                    <input type="file" className="hidden" accept=".pdf" onChange={handleFileUpload} />
+                                </label>
                             </div>
                         )}
                         

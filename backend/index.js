@@ -11,21 +11,36 @@ dotenv.config({ override: true });
 
 const app = express();
 
-// 1. Total Gateway Authorization 🛰️
-// All CORS handshakes and Preflights are now managed at the 
-// Vercel Edge Gateway level in vercel.json for absolute authority.
-
-// 2. Global Safety & Logging
-app.use(helmet({ 
-    crossOriginResourcePolicy: false, 
-    crossOriginOpenerPolicy: false,
-    contentSecurityPolicy: false
-}));
-app.use(morgan('dev'));
-
-// 3. Parser Logic
+// Middleware
 app.use(express.json({ limit: '200mb' }));
 app.use(express.urlencoded({ limit: '200mb', extended: true }));
+
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:3002',
+    'http://127.0.0.1:3002',
+    'https://www.apexmocktest.com',
+    'https://apexmocktest.com',
+    process.env.FRONTEND_URL
+].filter(Boolean);
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Allow requests with no origin (mobile apps, curl, etc.)
+        if (!origin) return callback(null, true);
+        // Check exact match
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        // Check Vercel deployments
+        if (/\.vercel\.app$/.test(origin)) return callback(null, true);
+        console.warn(`⚠️ CORS blocked origin: ${origin}`);
+        callback(null, false);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+}));
+app.use(helmet({ crossOriginResourcePolicy: false, crossOriginOpenerPolicy: false }));
+app.use(morgan('dev'));
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
