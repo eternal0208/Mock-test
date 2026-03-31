@@ -299,6 +299,14 @@ router.post('/tests/parse-pdf-marker', upload.single('pdf'), async (req, res) =>
 
 
 // --- Gemini AI PDF Parsing (Page-by-Page for Accuracy) ---
+// Ensure preflight works without auth token. NOTE: caller sends Authorization header only on POST.
+router.options('/tests/parse-pdf-gemini', (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Requested-With');
+    return res.sendStatus(204);
+});
+
 // POST /api/admin/tests/parse-pdf-gemini
 router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) => {
     const { base64Image, isSelection } = req.body;
