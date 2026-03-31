@@ -329,7 +329,11 @@ router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) =>
     res.setHeader('Content-Type', 'application/x-ndjson');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // ✅ THE GOD SWITCH: Disables Vercel/Nginx buffering
+    
+    // Explicit CORS for streaming (redundant but safe)
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
 
     const sendEvent = (data) => {
         try {
