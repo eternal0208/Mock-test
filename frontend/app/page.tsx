@@ -36,6 +36,7 @@ export default function LandingPage() {
         try {
           // @ts-ignore
           effect = window.VANTA.CLOUDS({
+            THREE: (window as any).THREE,
             el: vantaRef.current,
             mouseControls: true,
             touchControls: true,

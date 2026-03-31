@@ -250,7 +250,7 @@ export default function SignupDetailsPage() {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-4">
             <div className="max-w-md w-full bg-white p-6 md:p-8 rounded-2xl shadow-2xl border border-gray-100 my-8">
                 <div className="text-center mb-6 md:mb-8">
-                    <h1 className="text-xl md:text-2xl font-extrabold text-indigo-600 mb-2">Apex Mock Test</h1>
+                    <h1 className="text-xl md:text-2xl font-extrabold text-indigo-600 mb-2">APEX MOCK</h1>
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Complete Your Profile</h2>
                     <p className="text-sm md:text-base text-gray-600">Tell us a bit about yourself to get started</p>
                 </div>

@@ -6,8 +6,8 @@ import SeriesList from '@/components/Exam/SeriesList';
 import SyllabusDownload from '@/components/Exam/SyllabusDownload';
 
 export const metadata: Metadata = {
-    title: 'Apex Mock Test for JEE Advanced | IIT JEE Test Series',
-    description: 'Crack IIT JEE with Apex Mock Test for JEE Advanced. Solve multi-correct, matrix match, and paragraph-based questions. Deep conceptual analysis for top ranks.',
+    title: 'APEX MOCK for JEE Advanced | IIT JEE Test Series',
+    description: 'Crack IIT JEE with APEX MOCK for JEE Advanced. Solve multi-correct, matrix match, and paragraph-based questions. Deep conceptual analysis for top ranks.',
 };
 
 export default function JeeAdvancedPage() {
@@ -49,9 +49,9 @@ export default function JeeAdvancedPage() {
 
             {/* SEO Content Section */}
             <div className="mt-20 prose prose-lg max-w-none text-slate-700">
-                <h2 className="text-3xl font-bold text-rose-800 mb-6">Conquer IIT JEE with Apex Mock Test for Advanced</h2>
+                <h2 className="text-3xl font-bold text-rose-800 mb-6">Conquer IIT JEE with APEX MOCK for Advanced</h2>
                 <p className="mb-4">
-                    JEE Advanced is widely regarded as one of the toughest engineering entrance exams globally. It doesn't just test your memory; it tests your ability to apply multiple concepts to solve a single problem. <strong>Apex Mock Test for JEE Advanced</strong> is specifically engineered to challenge your critical thinking and problem-solving abilities, preparing you for the rigors of the IIT entrance.
+                    JEE Advanced is widely regarded as one of the toughest engineering entrance exams globally. It doesn't just test your memory; it tests your ability to apply multiple concepts to solve a single problem. <strong>APEX MOCK for JEE Advanced</strong> is specifically engineered to challenge your critical thinking and problem-solving abilities, preparing you for the rigors of the IIT entrance.
                 </p>
                 <p className="mb-8">
                     Our advanced test series goes beyond standard problems. We incorporate complex scenarios, interdisciplinary questions, and novel patterns that IITs are known for introducing.
@@ -70,7 +70,7 @@ export default function JeeAdvancedPage() {
 
                 <h2 className="text-2xl font-bold text-slate-900 mb-4">Strategic Preparation for a Top Rank</h2>
                 <p className="mb-4">
-                    Securing a seat in an IIT requires a smart strategy. You need to know which questions to pick and which to leave. Apex Mock Tests help you:
+                    Securing a seat in an IIT requires a smart strategy. You need to know which questions to pick and which to leave. APEX MOCKs help you:
                 </p>
                 <ul className="list-disc pl-6 space-y-2 mb-8">
                     <li><strong>Develop Question Selection Skills:</strong> Learn to identify high-scoring low-effort questions.</li>
@@ -80,7 +80,7 @@ export default function JeeAdvancedPage() {
 
                 <h2 className="text-2xl font-bold text-slate-900 mb-4">Your Path to IIT Begins Here</h2>
                 <p>
-                    Don't settle for average. Push your limits with <strong>Apex Mock Test for JEE Advanced</strong>. Our platform simulates the pressure and complexity of the real exam, ensuring that when you step into the exam hall, you are ready to dominate. Join the league of top rankers today.
+                    Don't settle for average. Push your limits with <strong>APEX MOCK for JEE Advanced</strong>. Our platform simulates the pressure and complexity of the real exam, ensuring that when you step into the exam hall, you are ready to dominate. Join the league of top rankers today.
                 </p>
             </div>
         </ExamLandingPage>

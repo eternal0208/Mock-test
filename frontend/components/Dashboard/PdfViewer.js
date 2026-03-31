@@ -14,7 +14,7 @@ const workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worke
 pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 
 /**
- * Apex Mock AI Viewer
+ * APEX MOCK AI Viewer
  * A high-precision light-themed PDF engine for AI extraction.
  */
 const PdfViewer = ({ file, onScanPage, onScanSelection, onCropCapture, onSolutionCropCapture, onOptionCropCapture, onClose }) => {

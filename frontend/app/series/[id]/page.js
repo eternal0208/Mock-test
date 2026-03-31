@@ -167,7 +167,7 @@ export default function SeriesDetails() {
                 key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SKdPiD0l0HQgwS',
                 amount: orderData.amount,
                 currency: orderData.currency || 'INR',
-                name: 'Apex Mock Tests',
+                name: 'APEX MOCKs',
                 description: series.title,
                 order_id: orderData.id,
                 prefill: { name: user.name || user.displayName || '', email: user.email || '' },

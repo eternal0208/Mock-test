@@ -73,7 +73,7 @@ const PrintableResultReport = forwardRef(({ result, test, effectiveQuestions, pe
             </style>
 
             {/* Repeating Watermark */}
-            <div className="watermark">APEX MOCK TEST</div>
+            <div className="watermark">APEX MOCK</div>
 
             {/* --- FRONT PAGE --- */}
             <div className="page-break flex flex-col justify-between p-8" style={{ minHeight: '250mm' }}>
@@ -81,9 +81,9 @@ const PrintableResultReport = forwardRef(({ result, test, effectiveQuestions, pe
                     {/* Header */}
                     <div className="border-b-4 border-blue-900 pb-8 mb-12 flex justify-between items-end">
                         <div className="flex items-center gap-4">
-                            <img src="/logo.png" alt="Apex Mock Test Logo" className="h-20 w-auto object-contain" />
+                            <img src="/logo.png" alt="APEX MOCK Logo" className="h-20 w-auto object-contain" />
                             <div>
-                                <h1 className="text-5xl font-black text-blue-900 tracking-tighter shadow-sm">APEX MOCK TEST</h1>
+                                <h1 className="text-5xl font-black text-blue-900 tracking-tighter shadow-sm">APEX MOCK</h1>
                                 <p className="text-xl font-medium text-gray-500 mt-2 uppercase tracking-widest">Detailed Performance Analysis</p>
                             </div>
                         </div>

@@ -353,7 +353,7 @@ export default function StudentDashboard() {
                 key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SKdPiD0l0HQgwS',
                 amount: orderData.amount,
                 currency: orderData.currency || 'INR',
-                name: 'Apex Mock Tests',
+                name: 'APEX MOCKs',
                 description: item.title,
                 order_id: orderData.id,
                 prefill: {
@@ -501,7 +501,7 @@ export default function StudentDashboard() {
     const Sidebar = () => (
         <div className="w-full md:w-72 bg-white/90 backdrop-blur-xl border-r border-gray-100 flex-shrink-0 flex flex-col h-full fixed md:relative z-20 hidden md:flex shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
             <div className="p-8">
-                <img src="/logo.png" alt="Apex Mock" className="h-32 w-auto mb-2" />
+                <img src="/logo.png" alt="APEX MOCK" className="h-32 w-auto mb-2" />
                 <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 rounded-full border border-indigo-100">
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
                     <p className="text-[10px] text-indigo-700 font-bold uppercase tracking-wider">{userField || 'Student'}</p>

@@ -12,7 +12,7 @@ export default function AboutPage() {
                 <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
                     <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
                         <ArrowLeft size={24} className="text-slate-800" />
-                        <img src="/logo.png" alt="Apex Mock Test" className="h-10 md:h-12 w-auto object-contain" />
+                        <img src="/logo.png" alt="APEX MOCK" className="h-10 md:h-12 w-auto object-contain" />
                     </Link>
                 </div>
             </nav>
@@ -29,7 +29,7 @@ export default function AboutPage() {
                         className="text-center mb-16"
                     >
                         <h1 className="text-5xl md:text-6xl font-black text-slate-900 mb-4">
-                            About <span className="text-indigo-600">Apex Mock</span>
+                            About <span className="text-indigo-600">APEX MOCK</span>
                         </h1>
                         <p className="text-xl text-slate-600 font-medium">
                             An initiative of SR Club - Empowering students to achieve their dreams
@@ -50,7 +50,7 @@ export default function AboutPage() {
                             <h2 className="text-3xl font-bold text-slate-900">Our Mission</h2>
                         </div>
                         <p className="text-lg text-slate-700 leading-relaxed mb-4">
-                            Apex Mock is India's most advanced testing platform designed for high-performance candidates.
+                            APEX MOCK is India's most advanced testing platform designed for high-performance candidates.
                             We provide comprehensive online mock tests and educational content for NEET, JEE Mains,
                             JEE Advanced, and CAT aspirants.
                         </p>
@@ -104,7 +104,7 @@ export default function AboutPage() {
                             </div>
                             <h3 className="text-xl font-bold text-slate-900 mb-2">Trusted Community</h3>
                             <p className="text-slate-600">
-                                Join 10,000+ students who trust Apex Mock for their exam preparation journey.
+                                Join 10,000+ students who trust APEX MOCK for their exam preparation journey.
                             </p>
                         </motion.div>
 
@@ -133,7 +133,7 @@ export default function AboutPage() {
                     >
                         <h2 className="text-3xl font-bold mb-4">About SR Club</h2>
                         <p className="text-lg leading-relaxed mb-4 text-indigo-50">
-                            Apex Mock is a proud initiative of SR Club, dedicated to providing quality educational resources
+                            APEX MOCK is a proud initiative of SR Club, dedicated to providing quality educational resources
                             and guidance to students across India. SR Club is committed to making competitive exam preparation
                             accessible, affordable, and effective for every aspirant.
                         </p>
@@ -164,7 +164,7 @@ export default function AboutPage() {
                                 <div className="bg-blue-100 p-2 rounded-full">
                                     <Globe className="text-blue-600" size={20} />
                                 </div>
-                                <span className="text-lg font-medium">Apex Mock – An initiative of SR Club</span>
+                                <span className="text-lg font-medium">APEX MOCK – An initiative of SR Club</span>
                             </div>
                         </div>
                     </motion.div>
@@ -175,8 +175,8 @@ export default function AboutPage() {
             {/* Footer */}
             <footer className="bg-slate-900 text-slate-300 py-8">
                 <div className="max-w-7xl mx-auto px-6 flex flex-col items-center">
-                    <img src="/logo.png" alt="Apex Mock Test" className="h-12 w-auto object-contain mb-4 grayscale brightness-200" />
-                    <p className="mb-4">© 2025 Apex Mock - An initiative of SR Club. All rights reserved.</p>
+                    <img src="/logo.png" alt="APEX MOCK" className="h-12 w-auto object-contain mb-4 grayscale brightness-200" />
+                    <p className="mb-4">© 2025 APEX MOCK - An initiative of SR Club. All rights reserved.</p>
                     <div className="flex justify-center gap-6 text-sm">
                         <Link href="/about" className="hover:text-white transition">About</Link>
                         <Link href="/terms" className="hover:text-white transition">Terms & Conditions</Link>

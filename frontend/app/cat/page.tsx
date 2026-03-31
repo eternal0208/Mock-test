@@ -6,8 +6,8 @@ import SyllabusDownload from '@/components/Exam/SyllabusDownload';
 import ExamLandingPage from '@/components/ExamLandingPage';
 
 export const metadata: Metadata = {
-    title: 'Apex Mock Test for CAT | MBA Entrance Mock Tests',
-    description: 'Ace CAT with Apex Mock Test Series. Practice DILR, VARC, and QA with unpredictable patterns. Percentile predictor and detailed analytics included.',
+    title: 'APEX MOCK for CAT | MBA Entrance Mock Tests',
+    description: 'Ace CAT with APEX MOCK Series. Practice DILR, VARC, and QA with unpredictable patterns. Percentile predictor and detailed analytics included.',
 };
 
 export default function CATPage() {
@@ -49,9 +49,9 @@ export default function CATPage() {
 
             {/* SEO Content Section */}
             <div className="mt-20 prose prose-lg max-w-none text-slate-700">
-                <h2 className="text-3xl font-bold text-purple-800 mb-6">Crack IIMs with Apex Mock Test for CAT</h2>
+                <h2 className="text-3xl font-bold text-purple-800 mb-6">Crack IIMs with APEX MOCK for CAT</h2>
                 <p className="mb-4">
-                    The Common Admission Test (CAT) is known for its unpredictability and high difficulty level, especially in Data Interpretation and Logical Reasoning (DILR). To secure a seat in the prestigious IIMs, you need more than just mathematical skills; you need decision-making agility. <strong>Apex Mock Test for CAT</strong> is designed to test your mental stamina and strategic thinking under pressure.
+                    The Common Admission Test (CAT) is known for its unpredictability and high difficulty level, especially in Data Interpretation and Logical Reasoning (DILR). To secure a seat in the prestigious IIMs, you need more than just mathematical skills; you need decision-making agility. <strong>APEX MOCK for CAT</strong> is designed to test your mental stamina and strategic thinking under pressure.
                 </p>
                 <p className="mb-8">
                     Our mock tests closely mimic the evolving pattern of CAT. Whether it's the reading-heavy VARC section or the calculation-intensive QA, we provide a balanced yet challenging experience.
@@ -70,7 +70,7 @@ export default function CATPage() {
 
                 <h2 className="text-2xl font-bold text-slate-900 mb-4">Why Mock Tests are Critical for CAT</h2>
                 <p className="mb-4">
-                    CAT is an exam where question selection is more important than solving everything. Apex Mock Tests help you refine your strategy regarding:
+                    CAT is an exam where question selection is more important than solving everything. APEX MOCKs help you refine your strategy regarding:
                 </p>
                 <ul className="list-disc pl-6 space-y-2 mb-8">
                     <li><strong>Time Management:</strong> Allocate time wisely across three sections.</li>
@@ -80,7 +80,7 @@ export default function CATPage() {
 
                 <h2 className="text-2xl font-bold text-slate-900 mb-4">Start Your MBA Journey</h2>
                 <p>
-                    The road to a top B-School starts here. With <strong>Apex Mock Test for CAT</strong>, you get the realistic practice you need to perform at your peak on exam day. Analyze your performance, improve your weak spots, and aim for that 99+ percentile.
+                    The road to a top B-School starts here. With <strong>APEX MOCK for CAT</strong>, you get the realistic practice you need to perform at your peak on exam day. Analyze your performance, improve your weak spots, and aim for that 99+ percentile.
                 </p>
             </div>
         </ExamLandingPage>

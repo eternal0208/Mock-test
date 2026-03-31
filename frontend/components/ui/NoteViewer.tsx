@@ -94,7 +94,7 @@ export default function NoteViewer({ fileUrl, title, isDownloadable, onClose }: 
             const mainFontSize = Math.max(40, 70 * effectiveScale);
             ctx.font = `900 ${mainFontSize}px system-ui, -apple-system, sans-serif`;
             ctx.fillStyle = 'rgba(15, 23, 42, 0.05)'; // Slate-900 at 5% opacity
-            ctx.fillText('APEX MOCK TEST', 0, -20 * effectiveScale);
+            ctx.fillText('APEX MOCK', 0, -20 * effectiveScale);
             
             // Tagline (Smaller, spaced out)
             const subFontSize = Math.max(16, 24 * effectiveScale);

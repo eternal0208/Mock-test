@@ -22,7 +22,7 @@ export default function DashboardLoader() {
                 </div>
 
                 <div className="loader-text-area">
-                    <h2 className="loader-title">APEX MOCK TEST</h2>
+                    <h2 className="loader-title">APEX MOCK</h2>
                     <p className="loader-subtitle">Preparing your dashboard</p>
                 </div>
             </div>

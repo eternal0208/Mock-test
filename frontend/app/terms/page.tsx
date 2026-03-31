@@ -12,7 +12,7 @@ export default function TermsPage() {
                 <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
                     <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
                         <ArrowLeft size={24} className="text-slate-800" />
-                        <img src="/logo.png" alt="Apex Mock Test" className="h-10 md:h-12 w-auto object-contain" />
+                        <img src="/logo.png" alt="APEX MOCK" className="h-10 md:h-12 w-auto object-contain" />
                     </Link>
                 </div>
             </nav>
@@ -37,7 +37,7 @@ export default function TermsPage() {
                             Terms & Conditions
                         </h1>
                         <p className="text-slate-600 text-lg">
-                            Apex Mock – An initiative of SR Club
+                            APEX MOCK – An initiative of SR Club
                         </p>
                         <p className="text-slate-500 mt-2">
                             Last updated: 01-02-2025
@@ -52,7 +52,7 @@ export default function TermsPage() {
                         className="bg-white rounded-2xl shadow-xl p-8 md:p-12 border border-gray-100"
                     >
                         <p className="text-slate-700 mb-8 text-lg leading-relaxed">
-                            By accessing or using Apex Mock, you agree to the following terms and policies.
+                            By accessing or using APEX MOCK, you agree to the following terms and policies.
                         </p>
 
                         <div className="space-y-8">
@@ -60,7 +60,7 @@ export default function TermsPage() {
                             <section>
                                 <h2 className="text-2xl font-bold text-slate-900 mb-3">1. Services</h2>
                                 <p className="text-slate-700 leading-relaxed">
-                                    Apex Mock provides online mock tests and educational content for practice and self-assessment only.
+                                    APEX MOCK provides online mock tests and educational content for practice and self-assessment only.
                                     Results or success in any exam are not guaranteed.
                                 </p>
                             </section>
@@ -86,7 +86,7 @@ export default function TermsPage() {
                             <section>
                                 <h2 className="text-2xl font-bold text-slate-900 mb-3">4. Intellectual Property</h2>
                                 <p className="text-slate-700 leading-relaxed">
-                                    All content on Apex Mock is the property of SR Club. Copying, sharing, or commercial use without
+                                    All content on APEX MOCK is the property of SR Club. Copying, sharing, or commercial use without
                                     permission is prohibited.
                                 </p>
                             </section>
@@ -139,7 +139,7 @@ export default function TermsPage() {
                             <section>
                                 <h2 className="text-2xl font-bold text-slate-900 mb-3">10. Third-Party Links</h2>
                                 <p className="text-slate-700 leading-relaxed">
-                                    We are not responsible for third-party websites linked on Apex Mock.
+                                    We are not responsible for third-party websites linked on APEX MOCK.
                                 </p>
                             </section>
 
@@ -169,7 +169,7 @@ export default function TermsPage() {
                                         </a>
                                     </p>
                                     <p className="flex items-center gap-2">
-                                        🌐 Apex Mock – An initiative of SR Club
+                                        🌐 APEX MOCK – An initiative of SR Club
                                     </p>
                                 </div>
                             </section>
@@ -182,8 +182,8 @@ export default function TermsPage() {
             {/* Footer */}
             <footer className="bg-slate-900 text-slate-300 py-8">
                 <div className="max-w-7xl mx-auto px-6 flex flex-col items-center">
-                    <img src="/logo.png" alt="Apex Mock Test" className="h-12 w-auto object-contain mb-4 grayscale brightness-200" />
-                    <p className="mb-4">© 2025 Apex Mock - An initiative of SR Club. All rights reserved.</p>
+                    <img src="/logo.png" alt="APEX MOCK" className="h-12 w-auto object-contain mb-4 grayscale brightness-200" />
+                    <p className="mb-4">© 2025 APEX MOCK - An initiative of SR Club. All rights reserved.</p>
                     <div className="flex justify-center gap-6 text-sm">
                         <Link href="/about" className="hover:text-white transition">About</Link>
                         <Link href="/terms" className="hover:text-white transition">Terms & Conditions</Link>

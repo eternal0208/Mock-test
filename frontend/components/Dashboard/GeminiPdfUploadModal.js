@@ -21,7 +21,7 @@ import 'katex/dist/katex.min.css';
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
 
 /**
- * Apex Mock AI Workbench
+ * APEX MOCK AI Workbench
  * A high-fidelity, light-themed digitization environment.
  */
 const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
@@ -303,7 +303,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                 {/* --- APEX BRANDED HEADER --- */}
                 <header className="h-16 bg-white border-b border-slate-200/60 flex items-center justify-between px-6 shrink-0 z-[110] shadow-sm">
                     <div className="flex items-center gap-4">
-                        <img src="/logo.png" className="h-9 w-auto" alt="Apex Mock Logo" />
+                        <img src="/logo.png" className="h-9 w-auto" alt="APEX MOCK Logo" />
                         <div className="h-6 w-[1.5px] bg-slate-200 rounded-full" />
                         <h1 className="text-lg font-black tracking-tight flex items-center gap-2">
                             <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">AI WORKBENCH</span>

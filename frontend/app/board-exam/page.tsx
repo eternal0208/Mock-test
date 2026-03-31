@@ -7,7 +7,7 @@ import SyllabusDownload from '@/components/Exam/SyllabusDownload';
 
 export const metadata: Metadata = {
     title: 'Apex Board Exam Prep | Class 10th & 12th Mock Tests',
-    description: 'Ace your Class 10th and 12th Board Exams with Apex Mock Tests. Comprehensive practice for Science, Maths, and crucial subjects.',
+    description: 'Ace your Class 10th and 12th Board Exams with APEX MOCKs. Comprehensive practice for Science, Maths, and crucial subjects.',
 };
 
 export default function BoardExamPage() {

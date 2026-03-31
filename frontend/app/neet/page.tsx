@@ -5,8 +5,8 @@ import TestList from '@/components/Exam/TestList';
 import SeriesList from '@/components/Exam/SeriesList';
 
 export const metadata: Metadata = {
-    title: 'Apex Mock Test for NEET | Best NEET Test Series 2025',
-    description: 'Join the best NEET Mock Test Series by Apex Mock. Practice NCERT-based questions, biology diagrams, and physics numericals. Get detailed performance analysis.',
+    title: 'APEX MOCK for NEET | Best NEET Test Series 2025',
+    description: 'Join the best NEET Mock Test Series by APEX MOCK. Practice NCERT-based questions, biology diagrams, and physics numericals. Get detailed performance analysis.',
 };
 
 import SyllabusDownload from '@/components/Exam/SyllabusDownload';
@@ -50,9 +50,9 @@ export default function NeetPage() {
 
             {/* SEO Content Section */}
             <div className="mt-20 prose prose-lg max-w-none text-slate-700">
-                <h2 className="text-3xl font-bold text-teal-800 mb-6">Why Choose Apex Mock Test for NEET?</h2>
+                <h2 className="text-3xl font-bold text-teal-800 mb-6">Why Choose APEX MOCK for NEET?</h2>
                 <p className="mb-4">
-                    Preparing for the National Eligibility cum Entrance Test (NEET) requires more than just studying textbooks. It demands a strategic approach to solving questions accurately and efficiently within the time limit. <strong>Apex Mock Test for NEET</strong> offers a comprehensive platform designed to simulate the real exam environment, ensuring you are exam-ready.
+                    Preparing for the National Eligibility cum Entrance Test (NEET) requires more than just studying textbooks. It demands a strategic approach to solving questions accurately and efficiently within the time limit. <strong>APEX MOCK for NEET</strong> offers a comprehensive platform designed to simulate the real exam environment, ensuring you are exam-ready.
                 </p>
                 <p className="mb-8">
                     Our test series is meticulously crafted by subject matter experts to cover the entire syllabus of Biology, Physics, and Chemistry. We focus heavily on <strong>NCERT-based questions</strong>, as they form the core of the NEET examination.
@@ -71,7 +71,7 @@ export default function NeetPage() {
 
                 <h2 className="text-2xl font-bold text-slate-900 mb-4">NEET Exam Pattern Mastery</h2>
                 <p className="mb-4">
-                    The NEET exam consists of 200 questions (180 to be attempted) across Physics, Chemistry, and Biology (Botany & Zoology). Managing time across these sections is critical. Apex Mock Tests help you practice:
+                    The NEET exam consists of 200 questions (180 to be attempted) across Physics, Chemistry, and Biology (Botany & Zoology). Managing time across these sections is critical. APEX MOCKs help you practice:
                 </p>
                 <ul className="list-disc pl-6 space-y-2 mb-8">
                     <li><strong>Section Switching:</strong> Efficiently moving between subjects.</li>
@@ -81,7 +81,7 @@ export default function NeetPage() {
 
                 <h2 className="text-2xl font-bold text-slate-900 mb-4">Start Your Journey Today</h2>
                 <p>
-                    Don't leave your medical dreams to chance. Join the <strong>Apex Mock Test for NEET</strong> community today and take the first step towards your dream medical college. With consistent practice and our detailed solutions, you can boost your score by significant margins.
+                    Don't leave your medical dreams to chance. Join the <strong>APEX MOCK for NEET</strong> community today and take the first step towards your dream medical college. With consistent practice and our detailed solutions, you can boost your score by significant margins.
                 </p>
             </div>
         </ExamLandingPage>
