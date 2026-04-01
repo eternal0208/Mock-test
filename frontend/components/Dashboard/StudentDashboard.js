@@ -727,9 +727,9 @@ export default function StudentDashboard() {
     const DashboardHome = () => (
         <div className="space-y-10">
             {/* Header / Welcome / Quick Stats */}
-            <div className="relative">
+            <div className="relative overflow-hidden p-1 -m-1">
                 {/* Decorative Background Blob */}
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-3xl -z-10 -translate-y-1/2 translate-x-1/2"></div>
+                <div className="absolute top-0 right-0 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-3xl -z-10 -translate-y-1/2 translate-x-1/4 md:translate-x-1/2"></div>
 
                 <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 mb-8">
                     <div>
@@ -931,30 +931,33 @@ export default function StudentDashboard() {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50 md:flex">
+        <div className="min-h-screen bg-gray-50 md:flex overflow-x-hidden">
             <Sidebar />
 
             {/* Mobile Header (replaces sidebar on small screens) - can be optimized later */}
             {/* Mobile Bottom Navigation (Tab Bar) */}
-            <div className="md:hidden fixed bottom-6 left-4 right-4 bg-white/90 backdrop-blur-xl border border-white p-2 flex justify-around items-center z-50 shadow-[0_10px_40px_rgba(0,0,0,0.1)] rounded-[2rem]">
+            {/* Mobile Bottom Navigation (Tab Bar) - Pinned to bottom for better stability */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-100 flex justify-around items-center z-50 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] px-2 pb-[env(safe-area-inset-bottom,1.5rem)] pt-3">
                 {[
-                    { id: 'dashboard', icon: <BarChart size={20} />, label: 'Home' },
-                    { id: 'tests', icon: <Search size={20} />, label: 'Library' },
-                    { id: 'notes', icon: <BookOpen size={20} />, label: 'Notes' },
-                    { id: 'analytics', icon: <TrendingUp size={20} />, label: 'Stats' },
-                    { id: 'profile', icon: <User size={20} />, label: 'Profile' },
+                    { id: 'dashboard', icon: <BarChart size={22} />, label: 'Home' },
+                    { id: 'tests', icon: <Search size={22} />, label: 'Library' },
+                    { id: 'notes', icon: <BookOpen size={22} />, label: 'Notes' },
+                    { id: 'analytics', icon: <TrendingUp size={22} />, label: 'Stats' },
+                    { id: 'profile', icon: <User size={22} />, label: 'Profile' },
                 ].map(item => {
                     const isActive = activeSection === item.id;
                     return (
                         <button
                             key={item.id}
                             onClick={() => setActiveSection(item.id)}
-                            className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200/50 -translate-y-2' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                            className={`flex flex-col items-center justify-center min-w-[3.5rem] transition-all duration-300 relative ${isActive ? 'text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
                         >
-                            <span className={`transition-transform duration-300 ${isActive ? 'scale-110 mb-0.5' : 'mb-1'}`}>
+                            <div className={`p-1.5 rounded-xl transition-all duration-300 ${isActive ? 'bg-indigo-50 text-indigo-600 ring-4 ring-indigo-50/50' : ''}`}>
                                 {item.icon}
+                            </div>
+                            <span className={`text-[10px] font-bold mt-1 transition-all duration-300 tracking-tighter ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
+                                {item.label}
                             </span>
-                            {isActive && <span className="text-[9px] font-bold tracking-wider">{item.label}</span>}
                         </button>
                     )
                 })}
@@ -977,7 +980,7 @@ export default function StudentDashboard() {
                 </div>
             </div>
 
-            <div className="flex-1 p-4 md:p-8 max-w-7xl mx-auto">
+            <div className="flex-1 p-4 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
                 {activeSection === 'notes' ? <NotesSection /> :
                 activeSection === 'orders' ? <OrdersView /> :
                     activeSection === 'profile' ? (
