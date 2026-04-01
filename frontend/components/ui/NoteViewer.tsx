@@ -29,48 +29,25 @@ export default function NoteViewer({ fileUrl, title, isDownloadable, onClose }: 
 
     // Load PDF.js library
     useEffect(() => {
-        let isMounted = true;
-        const timeout = setTimeout(() => {
-            if (isMounted && loading) {
-                setError('Loading is taking longer than expected. Please check your connection.');
-                setLoading(false);
-            }
-        }, 15000); // 15s timeout
-
         const loadPdfJs = async () => {
+            if (!pdfjsLib) {
+                pdfjsLib = await import('pdfjs-dist');
+                pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+            }
             try {
-                if (!pdfjsLib) {
-                    pdfjsLib = await import('pdfjs-dist');
-                    // Use a more stable worker URL for v5
-                    const version = '5.4.624';
-                    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
-                }
-                
                 const proxyUrl = `${API_BASE_URL}/api/notes/proxy?url=${encodeURIComponent(fileUrl)}`;
-                const loadingTask = pdfjsLib.getDocument({
-                    url: proxyUrl,
-                    disableAutoFetch: true,
-                    disableStream: false, // Enable streaming for better mobile performance
-                });
-                
+                const loadingTask = pdfjsLib.getDocument(proxyUrl);
                 const pdfDoc = await loadingTask.promise;
-                if (isMounted) {
-                    setPdf(pdfDoc);
-                    setTotalPages(pdfDoc.numPages);
-                    setLoading(false);
-                    clearTimeout(timeout);
-                }
+                setPdf(pdfDoc);
+                setTotalPages(pdfDoc.numPages);
+                setLoading(false);
             } catch (err: any) {
                 console.error('PDF Load Error:', err);
-                if (isMounted) {
-                    setError('Failed to load PDF. Please try again or check your internet.');
-                    setLoading(false);
-                    clearTimeout(timeout);
-                }
+                setError('Failed to load PDF. The file may be corrupted or inaccessible.');
+                setLoading(false);
             }
         };
         loadPdfJs();
-        return () => { isMounted = false; clearTimeout(timeout); };
     }, [fileUrl]);
 
     // Render current page
@@ -184,10 +161,23 @@ export default function NoteViewer({ fileUrl, title, isDownloadable, onClose }: 
         document.body.removeChild(a);
     };
 
-    // Handled inside main render now to keep Top Bar accessible
-    // if (loading) { ... }
+    if (loading) {
+        return (
+            <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[100] flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="relative">
+                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center animate-pulse">
+                            <Loader2 className="text-white animate-spin" size={36} />
+                        </div>
+                    </div>
+                    <p className="text-white/80 font-semibold text-lg">Loading PDF...</p>
+                    <p className="text-white/40 text-sm">{title}</p>
+                </div>
+            </div>
+        );
+    }
 
-    if (isPremiumLocked && !loading) {
+    if (isPremiumLocked) {
         return (
             <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-2xl z-[100] flex items-center justify-center p-4">
                 <div className="bg-white rounded-3xl p-8 sm:p-10 max-w-md text-center shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10 animate-in zoom-in duration-300">
@@ -217,7 +207,7 @@ export default function NoteViewer({ fileUrl, title, isDownloadable, onClose }: 
         );
     }
 
-    if (error && !loading) {
+    if (error) {
         return (
             <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl p-8 max-w-md text-center shadow-2xl">
@@ -292,39 +282,10 @@ export default function NoteViewer({ fileUrl, title, isDownloadable, onClose }: 
             {/* PDF Canvas Area */}
             <div 
                 ref={containerRef} 
-                className="flex-1 overflow-auto flex justify-center relative" 
+                className="flex-1 overflow-auto flex justify-center" 
                 style={{ background: 'linear-gradient(180deg, #12122a 0%, #1a1a35 100%)' }}
                 onContextMenu={!isDownloadable ? (e) => e.preventDefault() : undefined}
             >
-                {/* Internal Loading Overlay (allows Top Bar to remain visible) */}
-                {(loading || error) && (
-                    <div className={`absolute inset-0 z-50 flex items-center justify-center p-6 transition-all duration-500 ${loading ? 'bg-slate-950/60 backdrop-blur-md' : 'bg-slate-950/90'}`}>
-                        <div className="flex flex-col items-center gap-4 text-center max-w-xs">
-                            {loading ? (
-                                <>
-                                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-2xl">
-                                        <Loader2 className="text-white animate-spin" size={28} />
-                                    </div>
-                                    <p className="text-white font-bold text-lg">Preparing your content...</p>
-                                    <p className="text-white/40 text-xs tracking-wide uppercase">{title}</p>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="text-5xl mb-2">📄</div>
-                                    <h3 className="text-xl font-bold text-white mb-2">Oops! Something went wrong</h3>
-                                    <p className="text-white/60 text-sm mb-6">{error}</p>
-                                    <button
-                                        onClick={onClose}
-                                        className="w-full py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-100 transition shadow-lg"
-                                    >
-                                        Go Back
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                )}
-
                 <div className="py-4 sm:py-8 px-2 sm:px-4">
                     <div className="relative bg-white rounded-lg shadow-2xl shadow-black/50 overflow-hidden select-none">
                         <canvas ref={canvasRef} />
