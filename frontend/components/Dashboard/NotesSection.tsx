@@ -300,9 +300,12 @@ export default function NotesSection() {
                 {filteredSections.map(section => (
                     <div key={section.id} className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:border-slate-300 transition duration-300">
                         {/* Section Header */}
-                        <button
+                        <div
+                            role="button"
+                            tabIndex={0}
                             onClick={() => toggleSection(section.id)}
-                            className="w-full flex items-center justify-between px-5 sm:px-6 py-4 sm:py-5 text-left hover:bg-slate-50 transition group"
+                            onKeyDown={(e) => e.key === 'Enter' && toggleSection(section.id)}
+                            className="w-full flex items-center justify-between px-5 sm:px-6 py-4 sm:py-5 text-left hover:bg-slate-50 transition group cursor-pointer"
                         >
                             <div className="flex items-center gap-3 sm:gap-4">
                                 <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl shrink-0"
@@ -353,7 +356,7 @@ export default function NotesSection() {
                                     {expandedSections.has(section.id) ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
                                 </div>
                             </div>
-                        </button>
+                        </div>
 
                         {/* Expanded Content */}
                         {expandedSections.has(section.id) && (
@@ -378,9 +381,12 @@ export default function NotesSection() {
                                 {/* Subsections */}
                                 {section.subsections.map(sub => (
                                     <div key={sub.id} className="mt-4">
-                                        <button
+                                        <div
+                                            role="button"
+                                            tabIndex={0}
                                             onClick={() => toggleSection(sub.id)}
-                                            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white transition bg-slate-100/50 border border-transparent hover:border-slate-200"
+                                            onKeyDown={(e) => e.key === 'Enter' && toggleSection(sub.id)}
+                                            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white transition bg-slate-100/50 border border-transparent hover:border-slate-200 cursor-pointer"
                                         >
                                             <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
                                                 style={{ background: sub.type === 'paid' ? '#fef3c7' : '#d1fae5' }}>
@@ -395,7 +401,7 @@ export default function NotesSection() {
                                             <div className="ml-auto text-slate-400">
                                                 {expandedSections.has(sub.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                             </div>
-                                        </button>
+                                        </div>
 
                                         {expandedSections.has(sub.id) && sub.notes.length > 0 && (
                                             <div className="ml-4 sm:ml-6 mt-3 space-y-2">
