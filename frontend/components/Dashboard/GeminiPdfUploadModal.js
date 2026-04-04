@@ -97,6 +97,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
             
             // Transfer missing image
             if (!target.image && source.image) target.image = source.image;
+            if (!target.solutionImage && source.solutionImage) target.solutionImage = source.solutionImage;
             
             // Transfer metadata if missing
             if (!target.subject && source.subject) target.subject = source.subject;
@@ -105,6 +106,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
             // Simple option merge if target is empty
             if ((!target.options || target.options.every(o => !o)) && source.options) {
                 target.options = source.options;
+                if (source.optionImages) target.optionImages = source.optionImages;
             }
 
             next[targetIdx] = target;
@@ -364,7 +366,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <div className="flex flex-col gap-0.5">
-                                                {(q.image || q.optionImages?.some(img => img)) && <div className={`w-1.5 h-1.5 rounded-full ${activeQuestionIndex === idx ? 'bg-indigo-200' : 'bg-blue-400'}`} />}
+                                                {(q.image || (q.optionImages && q.optionImages.some(img => img)) || q.solutionImage) && <div className={`w-1.5 h-1.5 rounded-full ${activeQuestionIndex === idx ? 'bg-indigo-200' : 'bg-blue-400'}`} />}
                                                 {(q.correctOption || q.correctValue !== undefined) && <div className={`w-1.5 h-1.5 rounded-full ${activeQuestionIndex === idx ? 'bg-emerald-200' : 'bg-emerald-400'}`} />}
                                             </div>
                                             {q.isStaged && (
@@ -669,6 +671,17 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                                 </div>
                                             )}
                                         </div>
+                                        {activeQ.solutionImage && (
+                                            <div className="relative group rounded-3xl overflow-hidden border-2 border-amber-100/50 shadow-md bg-white p-2 mt-4">
+                                                <img src={activeQ.solutionImage} alt="Solution Diagram" className="w-full h-auto rounded-2xl" />
+                                                <button 
+                                                    onClick={() => updateActiveQuestion('solutionImage', null)}
+                                                    className="absolute top-4 right-4 p-2 bg-rose-500 text-white rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Specialized Metadata */}

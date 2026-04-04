@@ -391,7 +391,8 @@ JSON Schema:
 
 CRITICAL: 
 1. LaTeX usage: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10\\text{ m/s}$.
-2. If this is just a fragment of a question, still extract it - the admin will merge it later.`;
+2. If this is just a fragment of a question, still extract it - the admin will merge it later.
+3. Extract any "Solution", "Hint", "Explanation", or "Answer" section present for the question entirely into the "solution" field.`;
 
         let totalQuestionsCount = 0;
         let totalErrorCount = 0;
@@ -586,7 +587,8 @@ JSON Schema:
 
 CRITICAL: 
 1. LaTeX usage: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10\\text{ m/s}$.
-2. If this is just a fragment of a question, still extract it - the admin will merge it later.`;
+2. If this is just a fragment of a question, still extract it - the admin will merge it later.
+3. Extract any "Solution", "Hint", "Explanation", or "Answer" section present for the question entirely into the "solution" field.`;
 
         const result = await model.generateContent([
             {
