@@ -2564,7 +2564,7 @@ export default function AdminDashboard() {
             {showPdfModal && <PdfUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowPdfModal(false)} onZoom={(url) => setZoomedImg(url)} />}
             {showPdfTextModal && <PdfTextUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowPdfTextModal(false)} onZoom={(url) => setZoomedImg(url)} />}
             {showMarkerModal && <PdfMarkerUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowMarkerModal(false)} onZoom={(url) => setZoomedImg(url)} />}
-            {showGeminiModal && <GeminiPdfUploadModal onUpload={fetchTests} onClose={() => setShowGeminiModal(false)} allSeries={seriesList || []} />}
+            {showGeminiModal && <GeminiPdfUploadModal onUpload={(qs) => setQuestions([...questions, ...qs])} onClose={() => setShowGeminiModal(false)} allSeries={seriesList || []} />}
 
             {/* Manage Series Modal */}
             {managingSeries && (

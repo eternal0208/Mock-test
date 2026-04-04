@@ -263,10 +263,8 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
     };
 
     const handlePublish = async () => {
-        if (!testMeta.title || !testMeta.seriesId) return alert("Title and Series are mandatory.");
-        
         const stagedQuestions = extractedQuestions.filter(q => q.isStaged);
-        if (stagedQuestions.length === 0) return alert("Please stage at least one question into the Sync Queue!");
+        if (stagedQuestions.length === 0) return alert("Please stage at least one question into the Queue!");
 
         // Validation only for staged ones
         const invalidQ = stagedQuestions.findIndex((q) => {
@@ -283,17 +281,12 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
         }
 
         setIsPublishing(true);
-        try {
-            const token = await user.getIdToken();
-            const payload = { ...testMeta, questions: stagedQuestions, status: 'published' };
-            const res = await fetch(`${API_BASE_URL}/api/admin/tests`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify(payload)
-            });
-            if (res.ok) { alert(`Sync Successful! ${stagedQuestions.length} Questions published.`); onClose(); }
-        } catch (error) { alert("Publish failed."); }
-        finally { setIsPublishing(false); }
+        // Extract out of Modal and into the parent admin dashboard workspace queue
+        setTimeout(() => {
+            onUpload(stagedQuestions);
+            setIsPublishing(false);
+            onClose();
+        }, 500);
     };
 
     return (
@@ -333,7 +326,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                             className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 text-white rounded-xl font-black text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
                         >
                             {isPublishing ? <Loader2 className="animate-spin" size={14} /> : <ArrowUpCircle size={14} />}
-                            SYNC QUEUE ({extractedQuestions.filter(q => q.isStaged).length})
+                            TRANSFER QUEUE ({extractedQuestions.filter(q => q.isStaged).length})
                         </button>
                         <div className="h-6 w-[1.5px] bg-slate-200 rounded-full mx-1" />
                         <button onClick={onClose} className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-lg transition-colors">
