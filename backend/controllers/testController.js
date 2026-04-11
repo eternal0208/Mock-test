@@ -7,7 +7,7 @@ const testCache = new NodeCache({ stdTTL: 600 }); // Cache tests for 10 minutes
 // @access  Admin
 exports.createTest = async (req, res) => {
     try {
-        const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts, resultVisibility, resultDeclarationTime } = req.body;
+        const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts, resultVisibility, resultDeclarationTime, instituteCode } = req.body;
 
         // Validation: Ensure all MCQ/MSQ/Integer questions have answers
         if (questions && Array.isArray(questions)) {
@@ -40,6 +40,7 @@ exports.createTest = async (req, res) => {
             difficulty,
             isVisible: finalVisible,
             status: finalStatus,
+            instituteCode: instituteCode || '',
             instructions,
             startTime: startTime || null,
             endTime: endTime || null,
@@ -129,20 +130,22 @@ exports.deleteTest = async (req, res) => {
 exports.getAllTests = async (req, res) => {
     try {
         console.log("🔍 [API] GET /api/tests called");
-        const snapshot = await db.collection('tests').select('title', 'duration_minutes', 'total_marks', 'subject', 'category', 'difficulty', 'isVisible', 'status', 'createdBy', 'createdByName', 'startTime', 'endTime', 'expiryDate', 'maxAttempts', 'questionCount', 'answerCount', 'questions').get();
+        const snapshot = await db.collection('tests').select('title', 'duration_minutes', 'total_marks', 'subject', 'category', 'difficulty', 'isVisible', 'status', 'createdBy', 'createdByName', 'startTime', 'endTime', 'expiryDate', 'maxAttempts', 'questionCount', 'answerCount', 'questions', 'instituteCode').get();
         console.log(`🔍 [DEBUG] Tests found in DB: ${snapshot.size}`);
 
         const tests = [];
         const isAdmin = req.user && req.user.role === 'admin';
         let userCategory = req.user?.category;
+        let userInstituteCode = req.user?.instituteCode || '';
 
         // Fallback: Fetch user category from DB if not in token and not admin
-        if (!isAdmin && !userCategory && req.user?.uid) {
+        if (!isAdmin && (!userCategory || !userInstituteCode) && req.user?.uid) {
             try {
                 const userDoc = await db.collection('users').doc(req.user.uid).get();
                 if (userDoc.exists) {
                     const uData = userDoc.data();
-                    userCategory = uData.category || uData.selectedField || uData.targetExam || uData.interest;
+                    userCategory = userCategory || uData.category || uData.selectedField || uData.targetExam || uData.interest;
+                    userInstituteCode = userInstituteCode || uData.instituteCode || '';
                 }
             } catch (e) {
                 console.error("Error fetching user category fallback:", e);
@@ -179,6 +182,7 @@ exports.getAllTests = async (req, res) => {
                     endTime: data.endTime,
                     expiryDate: data.expiryDate || null,
                     maxAttempts: data.maxAttempts,
+                    instituteCode: data.instituteCode || '',
                     questionCount: data.questionCount || (data.questions || []).length,
                     answerCount: (data.answerCount > 0) ? data.answerCount : (data.questions || []).filter(q => q.correctOption || (q.correctOptions && q.correctOptions.length > 0) || (q.integerAnswer !== undefined && q.integerAnswer !== '')).length,
                     questions: data.questions || []
@@ -188,6 +192,12 @@ exports.getAllTests = async (req, res) => {
 
             // STUDENT: Apply strict filters
             const testCategory = data.category;
+            const testInstituteCode = data.instituteCode || '';
+
+            // Filter 0: Institute Code Rule (Private tests are only visible to matched students)
+            if (testInstituteCode && testInstituteCode !== userInstituteCode) {
+                return;
+            }
 
             // Debug check for specific tests if needed
             // console.log(`🔍 Checking Test ${data.title}: UserCat=${userCategory}, TestCat=${testCategory}, Visible=${data.isVisible}`);
@@ -217,6 +227,7 @@ exports.getAllTests = async (req, res) => {
                 endTime: data.endTime,
                 expiryDate: data.expiryDate || null,
                 maxAttempts: data.maxAttempts,
+                instituteCode: data.instituteCode || '',
                 questionCount: data.questionCount || 0,
                 answerCount: data.answerCount || 0
             });
@@ -624,7 +635,7 @@ exports.submitTest = async (req, res) => {
 // @access  Admin
 exports.updateTest = async (req, res) => {
     try {
-        const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts, resultVisibility, resultDeclarationTime, expiryDate } = req.body;
+        const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts, resultVisibility, resultDeclarationTime, expiryDate, instituteCode } = req.body;
 
         const adminLevel = req.user?.adminLevel || 3;
         const forceDraft = adminLevel === 3 || req.body.isDraft;
@@ -636,6 +647,7 @@ exports.updateTest = async (req, res) => {
             subject,
             category,
             difficulty,
+            instituteCode: instituteCode !== undefined ? instituteCode : undefined,
             instructions,
             startTime,
             endTime,

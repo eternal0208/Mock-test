@@ -112,7 +112,17 @@ router.post('/series', async (req, res) => {
 // GET /api/admin/series - Get All Series
 router.get('/series', async (req, res) => {
     try {
-        const snapshot = await db.collection('testSeries').get();
+        let query = db.collection('testSeries');
+        
+        // Scope to institute level for institute_admin
+        if (req.user.role === 'institute_admin') {
+            if (!req.user.instituteCode) {
+                return res.status(403).json({ error: 'Institute admin missing institute code.' });
+            }
+            query = query.where('instituteCode', '==', req.user.instituteCode);
+        }
+
+        const snapshot = await query.get();
         const series = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         res.json(series);
     } catch (error) {
@@ -719,13 +729,29 @@ router.post('/percentile-data', async (req, res) => {
     }
 });
 
-// --- Analytics & User Management ---
-
 // GET /api/admin/students - List All Students
 router.get('/students', async (req, res) => {
     try {
-        const snapshot = await db.collection('users').orderBy('createdAt', 'desc').get(); // Fetch ALL users to manage roles
-        const students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let query = db.collection('users').orderBy('createdAt', 'desc');
+
+        if (req.user.role === 'institute_admin') {
+            if (!req.user.instituteCode) {
+                return res.json([]); // Prevents accidentally returning all users
+            }
+            // Cannot use orderBy with equality filter on different field unless we have a composite index. 
+            // In Firebase, equality and range filter can be combined but might need an index.
+            // A safer approach without demanding an index immediately:
+            query = db.collection('users').where('instituteCode', '==', req.user.instituteCode);
+        }
+
+        const snapshot = await query.get(); 
+        let students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Manual sort if we dropped orderBy
+        if (req.user.role === 'institute_admin') {
+             students.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+        }
+
         res.json(students);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -749,6 +775,7 @@ router.put('/students/:id/role', async (req, res) => {
 
         await db.collection('users').doc(id).update({
             role,
+            instituteCode: req.body.instituteCode || '', // Specifically for assigning institute_admin
             updatedAt: new Date().toISOString()
         });
 
@@ -1231,6 +1258,45 @@ router.delete('/coupons/:id', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('Delete Coupon Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Institutes Management ---
+router.get('/institutes', async (req, res) => {
+    try {
+        const snapshot = await db.collection('institutes').orderBy('createdAt', 'desc').get();
+        const institutes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        res.json(institutes);
+    } catch (error) {
+         res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/institutes', async (req, res) => {
+    try {
+        const adminLevel = req.user.adminLevel || (req.user.role === 'admin' ? 1 : 0);
+        if (adminLevel !== 1) return res.status(403).json({ error: 'Super Admin only' });
+
+        const data = req.body;
+        const Institute = require('../models/Institute');
+        const newInstitute = new Institute({ ...data, createdBy: req.user.uid });
+        const docRef = await db.collection('institutes').add(newInstitute.toFirestore());
+        res.status(201).json({ id: docRef.id, ...newInstitute.toFirestore() });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.delete('/institutes/:id', async (req, res) => {
+    try {
+        const adminLevel = req.user.adminLevel || (req.user.role === 'admin' ? 1 : 0);
+        if (adminLevel !== 1) return res.status(403).json({ error: 'Super Admin only' });
+
+        const { id } = req.params;
+        await db.collection('institutes').doc(id).delete();
+        res.json({ success: true });
+    } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });

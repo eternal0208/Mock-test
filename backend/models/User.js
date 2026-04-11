@@ -12,6 +12,7 @@ class User {
         this.status = data.status || 'active'; // 'active' | 'suspended'
         this.category = data.category || data.targetExam || ''; // Unified Field: 'JEE Main' | 'NEET', etc.
         this.purchasedTests = data.purchasedTests || []; // Array of Test IDs
+        this.instituteCode = data.instituteCode || ''; // String (Optional private referral code)
         this.createdAt = data.createdAt || new Date().toISOString();
     }
 
@@ -28,6 +29,7 @@ class User {
             status: this.status,
             category: this.category,
             purchasedTests: this.purchasedTests,
+            instituteCode: this.instituteCode,
             createdAt: this.createdAt
         };
     }

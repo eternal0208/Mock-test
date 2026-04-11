@@ -10,6 +10,7 @@ class TestSeries {
         this.features = data.features || []; // Array of Strings (e.g., ["10 Full Mocks", "Video Solutions"])
         this.image = data.image || ''; // URL to cover image
         this.isActive = typeof data.isActive === 'boolean' ? data.isActive : true; // Boolean
+        this.instituteCode = data.instituteCode || ''; // Private visibility restriction
 
         this.testIds = data.testIds || []; // Array of Strings (Test IDs included in this series)
         this.expiryDate = data.expiryDate || null; // Date String (ISO)
@@ -29,6 +30,7 @@ class TestSeries {
             features: this.features,
             image: this.image,
             isActive: this.isActive,
+            instituteCode: this.instituteCode,
             testIds: this.testIds,
             expiryDate: this.expiryDate,
             createdAt: this.createdAt,

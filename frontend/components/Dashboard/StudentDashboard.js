@@ -38,7 +38,8 @@ export default function StudentDashboard() {
     // Profile State
     const [profileForm, setProfileForm] = useState({
         name: user.name || '',
-        photoURL: user.photoURL || ''
+        photoURL: user.photoURL || '',
+        instituteCode: user.instituteCode || ''
     });
     const [profileLoading, setProfileLoading] = useState(false);
 
@@ -733,6 +734,14 @@ export default function StudentDashboard() {
 
                 <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 mb-8">
                     <div>
+                        {user.instituteCode && (
+                            <div className="mb-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100">
+                                <BookOpen size={14} className="text-indigo-600" />
+                                <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">
+                                    Apex Mock × {user.instituteCode}
+                                </span>
+                            </div>
+                        )}
                         <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-2">
                             Welcome back, <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">{user.name ? user.name.split(' ')[0] : 'Hero'}</span> 👋
                         </h1>
@@ -1122,13 +1131,18 @@ const ProfileView = ({ user, profileForm, setProfileForm, profileLoading, onSave
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1.5 md:mb-2">Email (Read Only)</label>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5 md:mb-2">Private Institute Code (Optional)</label>
                         <input
-                            type="email"
-                            value={user.email}
-                            disabled
-                            className="w-full px-3 py-2.5 md:px-4 md:py-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed text-sm md:text-base"
+                            type="text"
+                            value={profileForm.instituteCode}
+                            onChange={(e) => setProfileForm({ ...profileForm, instituteCode: e.target.value })}
+                            className="w-full px-3 py-2.5 md:px-4 md:py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition bg-gray-50 text-sm md:text-base"
+                            placeholder="e.g. SCALER"
                         />
+                        <p className="text-[10px] md:text-xs text-indigo-600 mt-1.5 md:mt-2 flex items-center gap-1">
+                            <BookOpen size={12} />
+                            Provide a code to access exclusive tests and dashboards.
+                        </p>
                     </div>
 
                     <div className="pt-2 md:pt-4">

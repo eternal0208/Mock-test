@@ -11,6 +11,8 @@ class Test {
         this.difficulty = data.difficulty || 'medium'; // 'easy' | 'medium' | 'hard'
         this.isVisible = data.isVisible !== undefined ? data.isVisible : true; // Visibility Toggle
         this.status = data.status || 'published'; // 'published' | 'draft'
+        this.instituteCode = data.instituteCode || ''; // Private visibility restriction
+
 
         // New Fields for granular categorization
         this.accessType = data.accessType || 'free'; // 'free' | 'paid'
@@ -80,6 +82,7 @@ class Test {
             difficulty: this.difficulty,
             isVisible: this.isVisible,
             status: this.status,
+            instituteCode: this.instituteCode,
             accessType: this.accessType,
             format: this.format,
             chapters: this.chapters,

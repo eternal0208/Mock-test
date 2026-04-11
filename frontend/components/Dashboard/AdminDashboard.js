@@ -17,6 +17,7 @@ import PercentileConfig from './PercentileConfig';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import dynamic from 'next/dynamic';
 const NotesManager = dynamic(() => import('./NotesManager'), { ssr: false, loading: () => <div className="flex items-center justify-center py-20"><div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div> });
+const InstitutesManager = dynamic(() => import('./InstitutesManager'), { ssr: false, loading: () => <div className="flex items-center justify-center py-20"><div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div></div> });
 import InteractiveMascot from './InteractiveMascot';
 
 const ImageZoomModal = ({ imageUrl, onClose }) => {
@@ -876,7 +877,8 @@ const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
         features: initialData?.features ? (Array.isArray(initialData.features) ? initialData.features.join(', ') : initialData.features) : '',
         image: initialData?.image || '',
         isActive: initialData?.isActive !== undefined ? initialData.isActive : true,
-        expiryDate: initialData?.expiryDate || ''
+        expiryDate: initialData?.expiryDate || '',
+        instituteCode: initialData?.instituteCode || ''
     });
     const [loading, setLoading] = useState(false);
     const [includedSections, setIncludedSections] = useState(initialData?.includedSections || []);
@@ -1029,6 +1031,13 @@ const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
             <div>
                 <label className="block text-sm font-medium text-gray-700">Expiry Date (Optional)</label>
                 <input type="date" name="expiryDate" value={formData.expiryDate || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded p-2" />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 text-indigo-600 flex items-center gap-1">
+                    <BookOpen size={14} /> Private Institute Code
+                </label>
+                <input type="text" name="instituteCode" value={formData.instituteCode || ''} onChange={handleChange} className="mt-1 block w-full border border-indigo-200 rounded p-2 bg-indigo-50/50 focus:bg-white" placeholder="e.g. SCALER (Leave empty for public)" />
+                <p className="text-[10px] text-gray-500 mt-1">If set, only students with this code can see and buy this series.</p>
             </div>
 
             {/* Notes Bundling Section */}
@@ -2118,7 +2127,8 @@ export default function AdminDashboard() {
         isVisible: true,
         resultVisibility: 'immediate',
         resultDeclarationTime: '',
-        sectionMeta: [] // [{ subject, section, requiredAttempts }]
+        sectionMeta: [], // [{ subject, section, requiredAttempts }]
+        instituteCode: ''
     });
 
     // ... Question State Setup ...
@@ -2812,10 +2822,15 @@ export default function AdminDashboard() {
                     <button onClick={() => setActiveTab('manage')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'manage' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Tests</button>
                     <button onClick={() => setActiveTab('series')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'series' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Series</button>
                     <button onClick={() => setActiveTab('users')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'users' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Students</button>
-                    <button onClick={() => setActiveTab('revenue')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'revenue' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Revenue</button>
-                    <button onClick={() => setActiveTab('content')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'content' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Content & Config</button>
-                    <button onClick={() => setActiveTab('notes')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'notes' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>📚 Notes</button>
-                    <button onClick={() => setActiveTab('create')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'create' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>+ Create</button>
+                    {user?.role !== 'institute_admin' && (
+                        <>
+                            <button onClick={() => setActiveTab('revenue')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'revenue' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Revenue</button>
+                            <button onClick={() => setActiveTab('content')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'content' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Content & Config</button>
+                            <button onClick={() => setActiveTab('notes')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'notes' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>📚 Notes</button>
+                            {user?.adminLevel === 1 && <button onClick={() => setActiveTab('institutes')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'institutes' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Institutes</button>}
+                            <button onClick={() => setActiveTab('create')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'create' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>+ Create</button>
+                        </>
+                    )}
                     <button onClick={() => window.location.href = '/'} className="px-3 py-2 sm:px-4 rounded-md bg-red-100 text-red-700 hover:bg-red-200 font-bold flex items-center gap-1 text-sm whitespace-nowrap"><LogOut size={16} /> Logout</button>
                 </div>
             </div>
@@ -3822,6 +3837,10 @@ export default function AdminDashboard() {
                 <NotesManager />
             )}
 
+            {activeTab === 'institutes' && (
+                <InstitutesManager />
+            )}
+
             {activeTab === 'create' && (
                 <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto pb-24">
 
@@ -3853,7 +3872,7 @@ export default function AdminDashboard() {
                                         setTestDetails({
                                             title: '', duration: 180, subject: 'Full Mock', category: 'JEE Main',
                                             difficulty: 'medium', totalMarks: 0, isLive: false, startTime: '', endTime: '', instructions: '',
-                                            isVisible: true, calculator: false, chapters: ''
+                                            isVisible: true, calculator: false, chapters: '', instituteCode: ''
                                         });
                                     }}
                                     className="ml-2 w-8 h-8 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all border border-slate-100 shadow-sm"
@@ -3958,6 +3977,11 @@ export default function AdminDashboard() {
                                         <div className="md:col-span-3 xl:col-span-4">
                                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Candidate Instructions</label>
                                             <textarea name="instructions" value={testDetails.instructions || ''} onChange={handleTestChange} rows={2} className="block w-full bg-slate-50 border border-slate-200/60 rounded-2xl px-4 py-3.5 text-sm font-mono text-slate-700 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all resize-none" placeholder="1. All questions are compulsory..." />
+                                        </div>
+
+                                        <div className="md:col-span-3 xl:col-span-4">
+                                            <label className="block text-[10px] font-black tracking-widest mb-2 ml-1 text-indigo-500 flex items-center gap-1"><BookOpen size={12}/> Private Institute Code</label>
+                                            <input type="text" name="instituteCode" value={testDetails.instituteCode || ''} onChange={handleTestChange} className="block w-full bg-indigo-50 border border-indigo-200/60 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" placeholder="e.g. SCALER (Leave empty for public)" />
                                         </div>
                                     </div>
 

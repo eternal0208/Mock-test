@@ -5,7 +5,7 @@ const { db, auth } = require('../config/firebaseAdmin');
 exports.syncUser = async (req, res) => {
     // Security: Use UID from Token (req.user) if available (via protect middleware)
     const uidFromToken = req.user ? req.user.uid : null;
-    const { name, email, firebaseUid, role, phoneNumber, phone, class: studentClass, category, state, city, authProvider, photoURL } = req.body;
+    const { name, email, firebaseUid, role, phoneNumber, phone, class: studentClass, category, state, city, authProvider, photoURL, instituteCode } = req.body;
 
     // Use token UID as source of truth, fall back to body only if middleware missing (shouldn't happen now)
     const targetUid = uidFromToken || firebaseUid;
@@ -44,6 +44,7 @@ exports.syncUser = async (req, res) => {
                 state: state || userData.state || '',
                 city: city || userData.city || '',
                 authProvider: authProvider || userData.authProvider || 'phone',
+                instituteCode: instituteCode !== undefined ? instituteCode : (userData.instituteCode || ''), // Optional field
                 updatedAt: new Date().toISOString()
             });
 
@@ -84,6 +85,7 @@ exports.syncUser = async (req, res) => {
             role: role || 'student',
             status: 'active',
             purchasedTests: [],
+            instituteCode: instituteCode || '',
             createdAt: new Date().toISOString()
         };
 
@@ -151,7 +153,7 @@ exports.setupAdmin = async (req, res) => {
 // @access  Private
 exports.updateProfile = async (req, res) => {
     const userId = req.user.uid;
-    const { name, photoURL } = req.body;
+    const { name, photoURL, instituteCode } = req.body;
 
     if (!userId) {
         return res.status(401).json({ message: 'Not authenticated' });
@@ -190,6 +192,11 @@ exports.updateProfile = async (req, res) => {
 
             updates.name = name;
             updates.lastNameUpdated = now.toISOString();
+        }
+
+        // 3. Institute Code update
+        if (instituteCode !== undefined && instituteCode !== userData.instituteCode) {
+            updates.instituteCode = instituteCode;
         }
 
         if (Object.keys(updates).length > 0) {

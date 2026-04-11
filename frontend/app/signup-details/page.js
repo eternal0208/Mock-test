@@ -16,6 +16,7 @@ export default function SignupDetailsPage() {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [state, setState] = useState('');
     const [city, setCity] = useState('');
+    const [instituteCode, setInstituteCode] = useState('');
     const [photoURL, setPhotoURL] = useState('');
     const [photoFile, setPhotoFile] = useState(null);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -204,6 +205,7 @@ export default function SignupDetailsPage() {
                         category: category.trim(),
                         state: state,
                         city: city,
+                        instituteCode: instituteCode.trim(),
                         photoURL: finalPhotoURL || '',
                         firebaseUid: user.uid,
                         authProvider: 'google',
@@ -456,6 +458,24 @@ export default function SignupDetailsPage() {
                                 required
                             />
                         </div>
+                    </div>
+
+                    {/* Institute Code (Optional) */}
+                    <div>
+                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Private Institute Code (Optional)</label>
+                        <div className="relative">
+                            <BookOpen className="absolute left-3 top-3 text-gray-400" size={18} />
+                            <input
+                                type="text"
+                                value={instituteCode}
+                                onChange={(e) => setInstituteCode(e.target.value)}
+                                className="block w-full pl-10 pr-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none font-medium text-gray-800"
+                                placeholder="e.g. SCALER"
+                            />
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-1 pl-1 font-medium">
+                            If you have a referral code from your coaching institute, enter it here.
+                        </p>
                     </div>
 
                     <button
