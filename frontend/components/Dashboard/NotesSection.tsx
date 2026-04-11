@@ -239,39 +239,48 @@ export default function NotesSection() {
             </div>
 
             {/* Stats Strip */}
-            <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
-                <div className="rounded-2xl p-4 sm:p-5 border border-indigo-100 bg-white shadow-sm hover:shadow-md transition">
-                    <div className="flex items-center gap-2 mb-1">
-                        <FolderOpen size={16} className="text-indigo-500" />
-                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-slate-500">Sections</span>
+            <div className="grid grid-cols-3 gap-3 sm:gap-5 mb-8 sm:mb-10">
+                <div className="relative overflow-hidden rounded-[2rem] p-5 sm:p-6 border border-white/40 bg-white/60 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all hover:-translate-y-1 duration-300">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                    <div className="relative z-10 flex items-center gap-2 mb-3">
+                        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                            <FolderOpen size={18} />
+                        </div>
+                        <span className="text-[10px] sm:text-xs font-extrabold uppercase tracking-widest text-slate-500">Sections</span>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-extrabold text-slate-900">{totalSectionsCount}</p>
+                    <p className="relative z-10 text-3xl sm:text-4xl font-black text-slate-800 tracking-tight">{totalSectionsCount}</p>
                 </div>
-                <div className="rounded-2xl p-4 sm:p-5 border border-emerald-100 bg-white shadow-sm hover:shadow-md transition">
-                    <div className="flex items-center gap-2 mb-1">
-                        <Unlock size={16} className="text-emerald-500" />
-                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-slate-500">Free</span>
+                <div className="relative overflow-hidden rounded-[2rem] p-5 sm:p-6 border border-white/40 bg-white/60 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all hover:-translate-y-1 duration-300">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                    <div className="relative z-10 flex items-center gap-2 mb-3">
+                        <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                            <Unlock size={18} />
+                        </div>
+                        <span className="text-[10px] sm:text-xs font-extrabold uppercase tracking-widest text-slate-500">Free</span>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">{freeNotes}</p>
+                    <p className="relative z-10 text-3xl sm:text-4xl font-black text-emerald-600 tracking-tight">{freeNotes}</p>
                 </div>
-                <div className="rounded-2xl p-4 sm:p-5 border border-amber-100 bg-white shadow-sm hover:shadow-md transition">
-                    <div className="flex items-center gap-2 mb-1">
-                        <Crown size={16} className="text-amber-500" />
-                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-slate-500">Premium</span>
+                <div className="relative overflow-hidden rounded-[2rem] p-5 sm:p-6 border border-white/40 bg-white/60 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all hover:-translate-y-1 duration-300">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                    <div className="relative z-10 flex items-center gap-2 mb-3">
+                        <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                            <Crown size={18} />
+                        </div>
+                        <span className="text-[10px] sm:text-xs font-extrabold uppercase tracking-widest text-slate-500">Premium</span>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-extrabold text-amber-600">{totalNotes - freeNotes}</p>
+                    <p className="relative z-10 text-3xl sm:text-4xl font-black text-amber-600 tracking-tight">{totalNotes - freeNotes}</p>
                 </div>
             </div>
 
             {/* Search */}
-            <div className="relative mb-6 sm:mb-8">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <div className="relative mb-8 sm:mb-10 group">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={20} />
                 <input
                     type="text"
                     placeholder="Search notes by title..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-200 bg-white focus:border-indigo-500 outline-none text-slate-800 font-medium text-sm sm:text-base placeholder:text-slate-400 transition shadow-sm"
+                    className="w-full pl-12 pr-6 py-4 sm:py-5 rounded-[2rem] border-2 border-white/60 bg-white/40 hover:bg-white/60 focus:bg-white backdrop-blur-md focus:border-indigo-400 outline-none text-slate-800 font-bold text-sm sm:text-base placeholder:text-slate-400 placeholder:font-medium transition-all shadow-[0_4px_20px_rgb(0,0,0,0.03)] focus:shadow-[0_8px_30px_rgba(99,102,241,0.12)]"
                 />
             </div>
 
@@ -296,42 +305,42 @@ export default function NotesSection() {
             )}
 
             {/* Sections List */}
-            <div className="space-y-4">
+            <div className="space-y-5">
                 {filteredSections.map(section => (
-                    <div key={section.id} className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:border-slate-300 transition duration-300">
+                    <div key={section.id} className="rounded-[2rem] overflow-hidden border border-white/40 bg-white/60 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-all duration-500 group/section">
                         {/* Section Header */}
                         <div
                             role="button"
                             tabIndex={0}
                             onClick={() => toggleSection(section.id)}
                             onKeyDown={(e) => e.key === 'Enter' && toggleSection(section.id)}
-                            className="w-full flex items-center justify-between px-5 sm:px-6 py-4 sm:py-5 text-left hover:bg-slate-50 transition group cursor-pointer"
+                            className="w-full flex items-center justify-between px-6 sm:px-8 py-5 sm:py-6 text-left hover:bg-white/60 transition-colors cursor-pointer"
                         >
-                            <div className="flex items-center gap-3 sm:gap-4">
-                                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl shrink-0"
-                                    style={{ background: section.type === 'paid' ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' : 'linear-gradient(135deg, #34d399, #10b981)' }}>
+                            <div className="flex items-center gap-4 sm:gap-6">
+                                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-[1.3rem] flex items-center justify-center text-2xl sm:text-3xl shrink-0 shadow-lg"
+                                    style={{ background: section.type === 'paid' ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' : 'linear-gradient(135deg, #34d399, #10b981)', color: '#fff', boxShadow: section.type === 'paid' ? '0 10px 25px -5px rgba(245, 158, 11, 0.4)' : '0 10px 25px -5px rgba(16, 185, 129, 0.4)' }}>
                                     {section.icon || '📄'}
                                 </div>
                                 <div>
-                                    <h3 className="text-base sm:text-lg font-bold text-slate-800 group-hover:text-indigo-700 transition">
+                                    <h3 className="text-lg sm:text-xl font-black text-slate-800 group-hover/section:text-indigo-700 transition-colors tracking-tight">
                                         {section.title}
                                     </h3>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${section.type === 'paid'
-                                            ? (section.isPurchased ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-amber-100 text-amber-700 border border-amber-200')
-                                            : 'bg-emerald-100 text-emerald-700'}`}>
+                                    <div className="flex items-center gap-2 mt-1 sm:mt-1.5 flex-wrap">
+                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${section.type === 'paid'
+                                            ? (section.isPurchased ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800')
+                                            : 'bg-emerald-100 text-emerald-800'}`}>
                                             {section.type === 'paid' ? (section.isPurchased ? '✅ Unlocked' : `👑 Premium • ₹${section.price || 499}`) : '✅ Free'}
                                         </span>
-                                        <span className="text-[10px] text-slate-400 font-medium">
+                                        <span className="text-xs text-slate-500 font-bold bg-slate-100/80 px-2.5 py-1 rounded-full">
                                             {section.notes.length + section.subsections.reduce((s, ss) => s + ss.notes.length, 0)} notes
                                         </span>
                                     </div>
                                     {section.description && (
-                                        <p className="text-xs text-slate-500 mt-1 hidden sm:block">{section.description}</p>
+                                        <p className="text-sm font-medium text-slate-500 mt-2 hidden sm:block leading-relaxed max-w-2xl">{section.description}</p>
                                     )}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-4">
                                 {section.type === 'paid' && !section.isPurchased && (
                                     <button
                                         onClick={(e) => {
@@ -347,23 +356,23 @@ export default function NotesSection() {
                                                 field: userField
                                             });
                                         }}
-                                        className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-tight rounded-lg transition shadow-sm"
+                                        className="hidden sm:flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-[11px] font-black uppercase tracking-tight rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_8px_20px_rgba(245,158,11,0.3)]"
                                     >
-                                        <Crown size={12} /> Buy Section
+                                        <Crown size={14} /> Buy Section
                                     </button>
                                 )}
-                                <div className="text-slate-400 group-hover:text-indigo-500 transition shrink-0">
-                                    {expandedSections.has(section.id) ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shrink-0 ${expandedSections.has(section.id) ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 rotate-180' : 'bg-slate-100 text-slate-400 group-hover/section:bg-indigo-100 group-hover/section:text-indigo-600'}`}>
+                                    <ChevronDown size={20} />
                                 </div>
                             </div>
                         </div>
 
                         {/* Expanded Content */}
                         {expandedSections.has(section.id) && (
-                            <div className="px-4 sm:px-6 pb-4 sm:pb-6 border-t border-slate-100 bg-slate-50/50">
+                            <div className="px-5 sm:px-8 pb-6 sm:pb-8 border-t border-slate-100/50 bg-slate-50/30">
                                 {/* Direct notes in this section */}
                                 {section.notes.length > 0 && (
-                                    <div className="pt-3 space-y-2">
+                                    <div className="pt-4 space-y-3">
                                         {section.notes.map(note => (
                                             <NoteCard 
                                                 key={note.id} 
@@ -380,41 +389,43 @@ export default function NotesSection() {
 
                                 {/* Subsections */}
                                 {section.subsections.map(sub => (
-                                    <div key={sub.id} className="mt-4">
+                                    <div key={sub.id} className="mt-6">
                                         <div
                                             role="button"
                                             tabIndex={0}
                                             onClick={() => toggleSection(sub.id)}
                                             onKeyDown={(e) => e.key === 'Enter' && toggleSection(sub.id)}
-                                            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white transition bg-slate-100/50 border border-transparent hover:border-slate-200 cursor-pointer"
+                                            className="w-full flex items-center gap-3 px-4 py-3 rounded-[1.2rem] hover:bg-white bg-slate-100/50 border border-transparent hover:border-slate-200 cursor-pointer hover:shadow-sm transition-all group/sub"
                                         >
-                                            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
-                                                style={{ background: sub.type === 'paid' ? '#fef3c7' : '#d1fae5' }}>
+                                            <div className="w-8 h-8 rounded-[0.8rem] flex items-center justify-center text-base"
+                                                style={{ background: sub.type === 'paid' ? '#fef3c7' : '#d1fae5', color: sub.type === 'paid' ? '#d97706' : '#059669' }}>
                                                 {sub.icon || '📁'}
                                             </div>
-                                            <span className="text-sm font-bold text-slate-700">{sub.title}</span>
-                                            <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${sub.type === 'paid'
+                                            <span className="text-base font-bold text-slate-800">{sub.title}</span>
+                                            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${sub.type === 'paid'
                                                 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                                 {sub.type} {sub.type === 'paid' && `• ₹${sub.price || 499}`}
                                             </span>
-                                            <span className="text-[10px] text-slate-400">({sub.notes.length})</span>
-                                            <div className="ml-auto text-slate-400">
-                                                {expandedSections.has(sub.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                            <span className="text-xs font-bold text-slate-400 bg-slate-200/50 px-2 py-0.5 rounded-full">({sub.notes.length})</span>
+                                            <div className={`ml-auto w-8 h-8 rounded-full flex items-center justify-center transition-all text-slate-400 group-hover/sub:bg-indigo-50 group-hover/sub:text-indigo-600 ${expandedSections.has(sub.id) ? 'rotate-180 bg-indigo-50 text-indigo-600' : ''}`}>
+                                                <ChevronDown size={16} />
                                             </div>
                                         </div>
 
                                         {expandedSections.has(sub.id) && sub.notes.length > 0 && (
-                                            <div className="ml-4 sm:ml-6 mt-3 space-y-2">
+                                            <div className="ml-4 sm:ml-8 mt-3 space-y-3 relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 before:rounded-full">
                                                 {sub.notes.map(note => (
-                                                    <NoteCard 
-                                                        key={note.id} 
-                                                        note={note} 
-                                                        sectionType={sub.type}
-                                                        sectionPrice={sub.price}
-                                                        onOpen={openNote} 
-                                                        loadingId={loadingNote} 
-                                                        formatSize={formatFileSize} 
-                                                    />
+                                                    <div className="relative pl-6" key={note.id}>
+                                                        <div className="absolute left-0 top-6 w-4 h-0.5 bg-slate-200 rounded-r-full"></div>
+                                                        <NoteCard 
+                                                            note={note} 
+                                                            sectionType={sub.type}
+                                                            sectionPrice={sub.price}
+                                                            onOpen={openNote} 
+                                                            loadingId={loadingNote} 
+                                                            formatSize={formatFileSize} 
+                                                        />
+                                                    </div>
                                                 ))}
                                             </div>
                                         )}
@@ -485,36 +496,36 @@ function NoteCard({ note, sectionType, sectionPrice, onOpen, loadingId, formatSi
         <button
             onClick={() => onOpen(note.id)}
             disabled={isLoading}
-            className="w-full flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50 hover:shadow-md transition-all group text-left"
+            className="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 rounded-2xl border border-white bg-white hover:border-indigo-200 hover:bg-indigo-50/30 hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300 group text-left relative overflow-hidden active:scale-[0.99] hover:-translate-y-0.5"
         >
-            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 shadow-sm ${isUnlocked ? 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-indigo-500/20' : 'bg-gradient-to-br from-amber-400 to-amber-600 shadow-amber-500/20'}`}>
+            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 shadow-md ${isUnlocked ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-indigo-500/30' : 'bg-gradient-to-br from-amber-400 to-amber-500 shadow-amber-500/30'}`}>
                 {isLoading ? (
-                    <Loader2 className="text-white animate-spin" size={18} />
+                    <Loader2 className="text-white animate-spin" size={20} />
                 ) : (
-                    isUnlocked ? <FileText className="text-white" size={18} /> : <Lock className="text-white" size={18} />
+                    isUnlocked ? <FileText className="text-white" size={20} /> : <Lock className="text-white/90" size={20} />
                 )}
             </div>
-            <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-bold text-slate-800 group-hover:text-indigo-700 truncate transition">{note.title}</h4>
-                <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] text-slate-500 font-medium">{formatSize(note.fileSize)}</span>
+            <div className="flex-1 min-w-0 pr-4">
+                <h4 className="text-base font-black text-slate-800 group-hover:text-indigo-700 truncate transition-colors">{note.title}</h4>
+                <div className="flex items-center gap-2 mt-1 sm:mt-1.5 flex-wrap">
+                    <span className="text-[11px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-md">{formatSize(note.fileSize)}</span>
                     {note.isDownloadable && (
-                        <span className="flex items-center gap-0.5 text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
-                            <Download size={10} /> PDF
+                        <span className="flex items-center gap-1 text-[11px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200/50">
+                            <Download size={12} /> PDF
                         </span>
                     )}
-                    <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${isUnlocked ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                    <span className={`text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-md ${isUnlocked ? 'bg-emerald-100 text-emerald-700 border border-emerald-200/50' : 'bg-amber-100 text-amber-700 border border-amber-200/50'}`}>
                         {!isActuallyPaid ? 'Free' : (note.isPurchased ? '✅ Unlocked' : `Premium • ₹${displayPrice}`)}
                     </span>
                 </div>
             </div>
-            <div className="shrink-0 flex items-center gap-2">
+            <div className="shrink-0 flex items-center gap-3">
                 {!isUnlocked && (
-                    <span className="hidden sm:inline-block px-2.5 py-1 bg-amber-500 text-white text-[10px] font-black uppercase tracking-tight rounded-lg shadow-sm">
+                    <span className="hidden sm:inline-block px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[10px] font-black uppercase tracking-wider rounded-lg shadow-sm group-hover:shadow-md transition-all">
                         Unlock Now
                     </span>
                 )}
-                <div className={`p-2 rounded-lg transition ${isUnlocked ? 'bg-slate-50 text-slate-300 group-hover:bg-indigo-100 group-hover:text-indigo-500' : 'bg-amber-50 text-amber-500'}`}>
+                <div className={`w-10 h-10 rounded-[0.9rem] flex items-center justify-center transition-all duration-300 ${isUnlocked ? 'bg-slate-100 text-slate-400 group-hover:bg-indigo-600 group-hover:text-white group-hover:shadow-lg group-hover:shadow-indigo-600/30' : 'bg-amber-100 text-amber-600 group-hover:bg-amber-500 group-hover:text-white group-hover:shadow-lg group-hover:shadow-amber-500/30'}`}>
                     {isUnlocked ? <Eye size={18} /> : <Crown size={18} />}
                 </div>
             </div>

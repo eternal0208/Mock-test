@@ -902,7 +902,7 @@ const CreateSeriesForm = ({ onSuccess, initialData = null }) => {
         finally { setSectionsLoading(false); }
     };
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (formData.category) fetchSectionsForCategory(formData.category);
     }, [formData.category]);
 
@@ -3559,7 +3559,7 @@ export default function AdminDashboard() {
                                                 <div className="flex items-center">
                                                     <div className="h-10 w-10 flex-shrink-0">
                                                         {student.photoURL ? (
-                                                            <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={student.photoURL} alt="" />
+                                                            <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={student.photoURL} alt="" referrerPolicy="no-referrer" />
                                                         ) : (
                                                             <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500 font-bold">
                                                                 {student.name?.charAt(0) || 'U'}
