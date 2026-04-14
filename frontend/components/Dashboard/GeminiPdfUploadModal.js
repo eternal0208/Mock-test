@@ -8,11 +8,13 @@ import {
     Edit3, Image as ImageIcon, Zap, Merge, Sparkle,
     Command, ListChecks, ArrowUpCircle, ArrowDownCircle, MousePointer2,
     Calendar, Clock, AlignLeft, ShieldCheck, Check,
-    Eye, Info, Activity, Wand2, Target, Type as TypeIcon
+    Eye, Info, Activity, Wand2, Target, Type as TypeIcon, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../lib/config';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { storage } from '../../lib/firebase';
 import RichMathEditor from './RichMathEditor';
 import PdfViewer from './PdfViewer';
 import MathText from '@/components/ui/MathText';
@@ -218,14 +220,16 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
 
                         if (data.question) {
                             setExtractedQuestions(prev => {
+                                const prevQ = prev.length > 0 ? prev[prev.length - 1] : null;
+
                                 const newQ = {
                                     ...data.question,
                                     qNumber: (prev.length + 1),
-                                    marks: data.question.marks || 4,
-                                    negativeMarks: data.question.negativeMarks || 1,
-                                    type: data.question.type || 'mcq',
-                                    subject: data.question.subject || testMeta.subject,
-                                    section: data.question.section || '',
+                                    marks: data.question.marks !== undefined ? data.question.marks : (prevQ?.marks ?? 4),
+                                    negativeMarks: data.question.negativeMarks !== undefined ? data.question.negativeMarks : (prevQ?.negativeMarks ?? 1),
+                                    type: data.question.type || (prevQ?.type ?? 'mcq'),
+                                    subject: data.question.subject || (prevQ?.subject ?? testMeta.subject),
+                                    section: data.question.section || (prevQ?.section ?? ''),
                                     isStaged: false
                                 };
                                 // Auto-focus first question of a new scan session
@@ -281,12 +285,38 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
         }
 
         setIsPublishing(true);
-        // Extract out of Modal and into the parent admin dashboard workspace queue
-        setTimeout(() => {
-            onUpload(stagedQuestions);
+        setScanStatus("Uploading images to Cloud Storage...");
+
+        try {
+            const finalQuestions = [];
+            for (const q of stagedQuestions) {
+                const updatedQ = { ...q };
+
+                const uploadBase64 = async (b64) => {
+                    if (!b64 || !b64.startsWith('data:image')) return b64;
+                    const filename = `images/mock_tests/img_${Date.now()}_${Math.random().toString(36).substring(2,10)}`;
+                    const imgRef = ref(storage, filename);
+                    await uploadString(imgRef, b64, 'data_url');
+                    return await getDownloadURL(imgRef);
+                };
+
+                if (updatedQ.image) updatedQ.image = await uploadBase64(updatedQ.image);
+                if (updatedQ.solutionImage) updatedQ.solutionImage = await uploadBase64(updatedQ.solutionImage);
+                if (updatedQ.optionImages) {
+                    updatedQ.optionImages = await Promise.all(updatedQ.optionImages.map(img => uploadBase64(img)));
+                }
+
+                finalQuestions.push(updatedQ);
+            }
+
+            onUpload(finalQuestions);
             setIsPublishing(false);
             onClose();
-        }, 500);
+        } catch (err) {
+            console.error("Upload error:", err);
+            alert("Failed to upload images. Check console.");
+            setIsPublishing(false);
+        }
     };
 
     return (
@@ -343,7 +373,11 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                             <span className="text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{extractedQuestions.length} Items</span>
                         </div>
                         <div className="flex-1 p-3 space-y-1.5">
-                            {extractedQuestions.map((q, idx) => (
+                            {extractedQuestions.map((q, idx) => {
+                                const textLength = (q.text || '').length + (q.solution || '').length + (q.options || []).join('').length;
+                                const isHeavyText = textLength > 2500;
+                                
+                                return (
                                 <div key={idx} className="relative group">
                                     <button
                                         onClick={() => setActiveQuestionIndex(idx)}
@@ -358,8 +392,9 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                             <p className="text-[11px] font-bold truncate max-w-[120px]">{q.text?.substring(0, 20) || 'Empty Question...'}</p>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <div className="flex flex-col gap-0.5">
-                                                {(q.image || (q.optionImages && q.optionImages.some(img => img)) || q.solutionImage) && <div className={`w-1.5 h-1.5 rounded-full ${activeQuestionIndex === idx ? 'bg-indigo-200' : 'bg-blue-400'}`} />}
+                                            <div className="flex flex-col gap-0.5 items-center">
+                                                {isHeavyText && <AlertTriangle size={12} className={`animate-pulse ${activeQuestionIndex === idx ? 'text-amber-300' : 'text-amber-500'}`} title="High text size limit warning!" />}
+                                                {(q.image || (q.optionImages && q.optionImages.some(img => img)) || q.solutionImage) && <div className={`w-1.5 h-1.5 rounded-full mt-1 ${activeQuestionIndex === idx ? 'bg-indigo-200' : 'bg-blue-400'}`} />}
                                                 {(q.correctOption || q.correctValue !== undefined) && <div className={`w-1.5 h-1.5 rounded-full ${activeQuestionIndex === idx ? 'bg-emerald-200' : 'bg-emerald-400'}`} />}
                                             </div>
                                             {q.isStaged && (
@@ -403,7 +438,8 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                                );
+                            })}
                             <button 
                                 onClick={() => setExtractedQuestions([...extractedQuestions, { text: '', options: ['', '', '', ''], type: 'mcq' }])}
                                 className="w-full flex items-center justify-center gap-3 p-4 border-2 border-dashed border-indigo-100 hover:border-indigo-400 rounded-3xl text-slate-400 hover:text-indigo-600 transition-all font-black text-xs group bg-slate-50/30 hover:bg-white hover:shadow-xl shadow-indigo-500/5"
@@ -687,7 +723,15 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                             </div>
                                             <div>
                                                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Section</label>
-                                                <input value={activeQ.section || ''} onChange={(e) => updateActiveQuestion('section', e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 shadow-sm" />
+                                                <select value={activeQ.section || ''} onChange={(e) => updateActiveQuestion('section', e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 shadow-sm outline-none">
+                                                    <option value="">None</option>
+                                                    <option value="Section A">Section A</option>
+                                                    <option value="Section B">Section B</option>
+                                                    <option value="Section C">Section C</option>
+                                                    <option value="Section D">Section D</option>
+                                                    <option value="Section E">Section E</option>
+                                                    <option value="Section F">Section F</option>
+                                                </select>
                                             </div>
                                             <div>
                                                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Rewards</label>
