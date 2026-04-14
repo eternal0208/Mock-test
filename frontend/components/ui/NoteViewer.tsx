@@ -5,6 +5,7 @@ import { API_BASE_URL } from '@/lib/config';
 
 // Dynamically load pdfjs-dist to avoid SSR issues
 let pdfjsLib: any = null;
+let cachedLogo: HTMLImageElement | null = null;
 
 interface NoteViewerProps {
     fileUrl: string;
@@ -61,46 +62,68 @@ export default function NoteViewer({ fileUrl, title, isDownloadable, onClose }: 
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
-            // Calculate viewport to fit container width
+            // Calculate viewport to fit container width and height
             const containerWidth = containerRef.current?.clientWidth || 800;
+            const containerHeight = containerRef.current?.clientHeight || 800;
             const originalViewport = page.getViewport({ scale: 1 });
-            const fitScale = (containerWidth - 32) / originalViewport.width; // 32px padding
+            
+            // Use minimum of width or height fit to ensure the whole page fits on screen
+            const fitScaleWidth = (containerWidth - 32) / originalViewport.width; 
+            const fitScaleHeight = (containerHeight - 32) / originalViewport.height;
+            const fitScale = Math.min(fitScaleWidth, fitScaleHeight); 
             const effectiveScale = fitScale * scale;
 
             const viewport = page.getViewport({ scale: effectiveScale });
 
-            // Set canvas dimensions for sharp rendering
-            const dpr = window.devicePixelRatio || 1;
+            // Set canvas dimensions for sharp rendering (force min 3x DPR for extreme clarity to fix blur)
+            const dpr = Math.max(window.devicePixelRatio || 1, 3);
             canvas.width = viewport.width * dpr;
             canvas.height = viewport.height * dpr;
             canvas.style.width = `${viewport.width}px`;
             canvas.style.height = `${viewport.height}px`;
 
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
 
             await page.render({
                 canvasContext: ctx,
                 viewport: viewport
             }).promise;
 
-            // Apply Premium Watermark Overlay
+            // Apply Premium Image Watermark Overlay
             ctx.save();
             ctx.translate(viewport.width / 2, viewport.height / 2);
-            ctx.rotate(-Math.PI / 4);
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
             
-            // Main Brand Name (Large, subtle)
-            const mainFontSize = Math.max(40, 70 * effectiveScale);
-            ctx.font = `900 ${mainFontSize}px system-ui, -apple-system, sans-serif`;
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.05)'; // Slate-900 at 5% opacity
-            ctx.fillText('APEX MOCK', 0, -20 * effectiveScale);
+            // Load and draw logo watermark
+            if (!cachedLogo) {
+                cachedLogo = new window.Image();
+                cachedLogo.src = '/logo.png';
+                await new Promise((resolve) => {
+                    cachedLogo!.onload = resolve;
+                    cachedLogo!.onerror = resolve;
+                });
+            }
+
+            ctx.globalAlpha = 0.15; // Set watermark transparency
             
-            // Tagline (Smaller, spaced out)
-            const subFontSize = Math.max(16, 24 * effectiveScale);
-            ctx.font = `700 ${subFontSize}px system-ui, -apple-system, sans-serif`;
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.04)';
-            ctx.fillText('S T I C K   T O   S U C C E S S', 0, (mainFontSize / 2 + 10) * effectiveScale);
+            if (cachedLogo.complete && cachedLogo.width > 0) {
+                const imgWidth = viewport.width * 0.5; // 50% of page width
+                const aspect = cachedLogo.height / cachedLogo.width;
+                const imgHeight = imgWidth * aspect;
+                
+                // Keep image straight, no rotation, heavily blended
+                ctx.drawImage(cachedLogo, -imgWidth / 2, -imgHeight / 2, imgWidth, imgHeight);
+            
+                // Tagline (Smaller, spaced out below logo)
+                const subFontSize = Math.max(16, 24 * effectiveScale);
+                ctx.font = `700 ${subFontSize}px system-ui, -apple-system, sans-serif`;
+                ctx.fillStyle = '#0f172a';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.globalAlpha = 0.08;
+                ctx.fillText('S T I C K   T O   S U C C E S S', 0, (imgHeight / 2) + (24 * effectiveScale));
+            }
             
             ctx.restore();
 
