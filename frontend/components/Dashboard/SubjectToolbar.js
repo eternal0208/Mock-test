@@ -21,6 +21,11 @@ const SubjectToolbar = ({ onInsert, compact = false }) => {
             { label: 'Fraction', latex: '\\frac{a}{b}', display: 'a/b' },
             { label: 'Power', latex: '^{n}', display: 'xⁿ' },
             { label: 'Subscript', latex: '_{n}', display: 'xₙ' },
+            { label: 'Log', latex: '\\log', display: 'log' },
+            { label: 'Log Base 10', latex: '\\log_{10}', display: 'log₁₀' },
+            { label: 'Natural Log', latex: '\\ln', display: 'ln' },
+            { label: 'e^x', latex: 'e^{x}', display: 'eˣ' },
+            { label: '10^x', latex: '10^{x}', display: '10ˣ' },
             { label: 'Square Root', latex: '\\sqrt{x}', display: '√x' },
             { label: 'Nth Root', latex: '\\sqrt[n]{x}', display: 'ⁿ√x' },
             { label: 'Integral', latex: '\\int', display: '∫' },
@@ -146,17 +151,17 @@ const SubjectToolbar = ({ onInsert, compact = false }) => {
     };
 
     return (
-        <div className="bg-gray-50 border-b border-gray-300 rounded-t-lg select-none">
+        <div className="bg-slate-50/80 backdrop-blur-md border-b border-slate-200/60 rounded-t-2xl select-none relative z-10 w-full overflow-hidden shadow-[inset_0_-1px_0_0_rgba(226,232,240,1)]">
             {/* Tabs */}
-            <div className={`flex border-b border-gray-200 overflow-x-auto ${compact ? '' : ''}`}>
+            <div className={`flex border-b border-slate-200/60 overflow-x-auto apex-scrollbar bg-slate-100/50`}>
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}
                         type="button"
                         onClick={() => setActiveTab(tab.id)}
-                        className={`flex items-center gap-1 ${compact ? 'px-2 py-1 text-[10px]' : 'px-4 py-2 text-xs'} font-bold transition-colors whitespace-nowrap ${activeTab === tab.id
-                                ? 'bg-white text-blue-600 border-b-2 border-blue-600'
-                                : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                        className={`flex items-center gap-1.5 ${compact ? 'px-3 py-2 text-[10px]' : 'px-5 py-2.5 text-[11px]'} font-black uppercase tracking-widest transition-all whitespace-nowrap active:scale-95 ${activeTab === tab.id
+                                ? 'bg-white text-indigo-600 border-b-2 border-indigo-500 shadow-sm'
+                                : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'
                             }`}
                     >
                         {tab.icon} {tab.label}
@@ -165,13 +170,13 @@ const SubjectToolbar = ({ onInsert, compact = false }) => {
             </div>
 
             {/* Symbols Grid */}
-            <div className={`flex gap-1 p-2 overflow-y-auto overflow-x-auto custom-scrollbar ${compact ? 'max-h-20 flex-nowrap' : 'flex-wrap max-h-32'}`}>
+            <div className={`flex gap-1.5 p-2 overflow-y-auto overflow-x-auto apex-scrollbar bg-slate-50 ${compact ? 'max-h-[85px] flex-nowrap' : 'flex-wrap max-h-[140px]'}`}>
                 {symbolSets[activeTab].map((btn, idx) => (
                     <button
                         key={idx}
                         type="button"
                         onClick={() => onInsert(btn.latex)}
-                        className={`${compact ? 'min-w-[28px] h-7 px-1.5 text-xs' : 'min-w-[32px] h-8 px-2 text-sm'} shrink-0 flex items-center justify-center bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded text-gray-700 transition shadow-sm font-medium`}
+                        className={`${compact ? 'min-w-[32px] h-8 px-2 text-[11px]' : 'min-w-[36px] h-9 px-2 text-xs'} shrink-0 flex items-center justify-center bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-lg text-slate-700 hover:text-indigo-700 transition-all shadow-sm font-bold shadow-slate-200/40 active:scale-90`}
                         title={btn.label}
                     >
                         {btn.display}
@@ -180,8 +185,8 @@ const SubjectToolbar = ({ onInsert, compact = false }) => {
             </div>
 
             {!compact && (
-                <div className="px-2 pb-1 text-[10px] text-gray-400 text-right italic">
-                    Click to insert LaTeX
+                <div className="px-3 pb-2 bg-slate-50 text-[9px] font-bold text-slate-400 text-right uppercase tracking-[0.2em]">
+                    Click to insert LaTeX Symbol
                 </div>
             )}
         </div>

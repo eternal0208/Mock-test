@@ -31,6 +31,13 @@ const RichMathEditor = forwardRef(({
         if (typeof window !== 'undefined') {
             import('mathlive').then(() => {
                 setIsLoaded(true);
+                // 🔥 APEX FIX: MathLive Virtual Keyboard appears behind Modals without this
+                if (!document.getElementById('mathlive-z-override')) {
+                    const style = document.createElement('style');
+                    style.id = 'mathlive-z-override';
+                    style.innerHTML = `math-virtual-keyboard { z-index: 999999 !important; }`;
+                    document.head.appendChild(style);
+                }
             });
         }
     }, []);
