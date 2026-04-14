@@ -150,7 +150,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
         setPdfFile(file);
     };
 
-    const handleScan = async (base64Image = null, isSelection = false) => {
+    const handleScan = async (base64Image = null, isSelection = false, scanMode = 'full') => {
         if (!base64Image && !pdfFile) {
             setScanError('Please select a PDF file first.');
             return;
@@ -158,8 +158,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
 
         setIsScanning(true);
         setScanError('');
-        // ✅ APEX MOD: Do not clear questions; append for continuous extraction
-        setScanStatus(isSelection ? 'Digitizing Selection...' : 'Surgical Page OCR...');
+        setScanStatus(isSelection ? (scanMode === 'full' ? 'Digitizing Selection...' : `Targeted Scan: ${scanMode}`) : 'Surgical Page OCR...');
 
         try {
             const token = await user.getIdToken();
@@ -168,6 +167,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
             if (base64Image) {
                 formData.append('base64Image', base64Image);
                 formData.append('isSelection', isSelection.toString());
+                formData.append('scanMode', scanMode);
             } else {
                 formData.append('pdf', pdfFile);
             }
@@ -220,6 +220,29 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
 
                         if (data.question) {
                             setExtractedQuestions(prev => {
+                                if (scanMode !== 'full' && prev.length > 0) {
+                                    // Target scan, merge into the active question
+                                    const next = [...prev];
+                                    const targetIdx = activeQuestionIndex >= 0 && activeQuestionIndex < next.length ? activeQuestionIndex : next.length - 1;
+                                    const q = { ...next[targetIdx] };
+                                    
+                                    if (scanMode === 'text' && data.question.text) {
+                                        q.text = (q.text ? q.text + '\n' : '') + data.question.text;
+                                    } else if (scanMode === 'solution' && data.question.solution) {
+                                        q.solution = (q.solution ? q.solution + '\n' : '') + data.question.solution;
+                                    } else if (scanMode === 'options') {
+                                        const newOpts = [...(q.options || ['', '', '', ''])];
+                                        // If data.question.options exists, overwrite A-D if they have length
+                                        if (data.question.options && Array.isArray(data.question.options)) {
+                                            data.question.options.forEach((opt, i) => { if (opt) newOpts[i] = opt; });
+                                        }
+                                        q.options = newOpts;
+                                    }
+                                    
+                                    next[targetIdx] = q;
+                                    return next;
+                                }
+
                                 const prevQ = prev.length > 0 ? prev[prev.length - 1] : null;
 
                                 const newQ = {
@@ -457,8 +480,8 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                         {pdfFile ? (
                             <PdfViewer 
                                 file={pdfFile} 
-                                onScanPage={(img) => handleScan(img, false)}
-                                onScanSelection={(img) => handleScan(img, true)}
+                                onScanPage={(img) => handleScan(img, false, 'full')}
+                                onScanSelection={(img, scanMode = 'full') => handleScan(img, true, scanMode)}
                                 onCropCapture={handleCropCapture}
                                 onSolutionCropCapture={handleSolutionCropCapture}
                                 onOptionCropCapture={handleOptionCropCapture}

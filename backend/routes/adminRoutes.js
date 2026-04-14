@@ -329,7 +329,7 @@ router.options('/tests/parse-pdf-gemini', (req, res) => {
 
 // POST /api/admin/tests/parse-pdf-gemini
 router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) => {
-    const { base64Image, isSelection } = req.body;
+    const { base64Image, isSelection, scanMode = 'full' } = req.body;
     
     if (!req.file && !base64Image) {
         return res.status(400).json({ error: 'No PDF file or Image selection provided' });
@@ -367,17 +367,28 @@ router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) =>
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
+        let promptClarification = '';
+        if (scanMode === 'text') {
+            promptClarification = `CRITICAL STRICT INSTRUCTION: You are extracting ONLY the main QUESTION TEXT. Do NOT extract options. Do NOT extract solution. Return a single JSON object where only the "text" field is populated (with LaTeX formatting). Ignore everything else.`;
+        } else if (scanMode === 'options') {
+            promptClarification = `CRITICAL STRICT INSTRUCTION: You are extracting ONLY the OPTIONS (A, B, C, D). Do NOT extract the question text. Return a single JSON object where only the "options" array is populated with 4 strings (with LaTeX formatting). Focus strictly on getting the options right.`;
+        } else if (scanMode === 'solution') {
+            promptClarification = `CRITICAL STRICT INSTRUCTION: You are extracting ONLY the SOLUTION, EXPLANATION, or HINTS. Do NOT extract the question text or options. Return a single JSON object where only the "solution" field is populated (with LaTeX formatting).`;
+        } else {
+            promptClarification = `Extract EVERY question from this image/PDF snippet.`;
+        }
+
         const masterPrompt = `You are an expert exam question extraction AI.
-Extract EVERY question from this image/PDF page.
+${promptClarification}
 
 OUTPUT FORMAT:
-Output each question as a SINGLE LINE JSON object (NDJSON).
+Output each extraction as a SINGLE LINE JSON object (NDJSON).
 
 TEXT STYLE:
 - Use NATURAL HUMAN TEXT for all words and sentences.
 - Use LaTeX ($...$) ONLY for mathematical symbols, values, units, and equations.
 - Example: "A block of mass $m=2\\text{ kg}$ is placed on a $30^{\\circ}$ inclined plane."
-- NOT: "$\\text{A block of mass } m=2\\text{ kg} ...$" (Don't wrap everything in LaTeX).
+- DON'T wrap plain English text like "$\\text{A block of mass}$" inside LaTeX text environments. Keep plain English outside of $...$ entirely!
 
 JSON Schema:
 {
