@@ -177,11 +177,11 @@ export default function LoginModal({ isOpen, onClose }) {
 
                 {/* Header */}
                 <div className="text-center mb-6">
-                    <div className="inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4 shadow-sm">
-                        <ShieldCheck size={28} className="md:w-8 md:h-8" />
+                    <div className="inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white border border-indigo-100 p-2 md:p-3 mb-4 shadow-sm">
+                        <img src="/logo.png" alt="Apex Logo" className="w-full h-full object-contain drop-shadow-sm" />
                     </div>
                     {/* Branding */}
-                    <h3 className="text-lg font-semibold text-indigo-600 mb-1">APEX MOCK</h3>
+                    <h3 className="text-lg font-black text-indigo-600 mb-1 tracking-tight">APEX MOCK</h3>
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
                         {step === 'PHONE' ? 'Welcome Back' : 'Verify OTP'}
                     </h2>
