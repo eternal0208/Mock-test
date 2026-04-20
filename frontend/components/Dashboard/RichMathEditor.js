@@ -24,6 +24,12 @@ const RichMathEditor = forwardRef(({
                 mfRef.current.executeCommand(['insert', latex]);
                 mfRef.current.focus();
             }
+        },
+        focus: () => {
+            if (mfRef.current) mfRef.current.focus();
+        },
+        blur: () => {
+            if (mfRef.current) mfRef.current.blur();
         }
     }));
 
@@ -128,7 +134,7 @@ const RichMathEditor = forwardRef(({
                 {minimal && (
                     <button 
                         type="button" 
-                        onClick={() => setShowToolbar(!showToolbar)} 
+                        onMouseDown={(e) => { e.preventDefault(); setShowToolbar(!showToolbar); }} 
                         className={`absolute top-2 right-2 p-1.5 rounded-lg text-xs font-bold transition-all z-10 ${
                             showToolbar ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 border border-slate-200 shadow-sm'
                         }`}

@@ -197,9 +197,11 @@ export default function ResultPage() {
     // DERIVED VALUES
     // ─────────────────────────────────────────────────────────
     const testMeta = fullTest || result.testDetails || { title: 'Test Result', total_marks: 100 };
-    const maxMarks = Number(testMeta.total_marks) || 100;
+    // Prefer server-computed effectiveTotalMarks (accounts for section attempt caps)
+    const maxMarks = result.effectiveTotalMarks || Number(testMeta.total_marks) || 100;
     const percentage = ((result.score / maxMarks) * 100).toFixed(1);
     const skipped = (result.totalQuestions || 0) - (result.correctAnswers || 0) - (result.wrongAnswers || 0);
+    const sectionCapSkipped = (result.attempt_data || []).filter(a => a.skippedDueToSectionCap).length;
 
     // Percentile (JEE Main 300-mark tests only)
     let expectedPercentile = 'N/A', expectedRankRange = 'N/A';
@@ -378,6 +380,20 @@ export default function ResultPage() {
                         <div className="text-[10px] sm:text-xs text-gray-600 font-medium">Skipped</div>
                     </div>
                 </div>
+
+                {/* ── Section Cap Notice ── */}
+                {sectionCapSkipped > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 items-start">
+                        <div className="text-amber-500 text-xl shrink-0">⚠️</div>
+                        <div>
+                            <h4 className="text-amber-800 font-bold text-sm">Section Attempt Limit Applied</h4>
+                            <p className="text-amber-700 text-xs mt-1">
+                                {sectionCapSkipped} response(s) were not scored because they exceeded the maximum attempt limit for their section.
+                                Only the first N attempts per section are counted towards your score (as per the test rules).
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Solutions ── */}
                 {!showSolutions ? (

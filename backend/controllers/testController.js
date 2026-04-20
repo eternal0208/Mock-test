@@ -485,6 +485,20 @@ exports.submitTest = async (req, res) => {
 
         const questionMap = new Map(dbQuestions.map(q => [q._id.toString(), q]));
 
+        // ─── Section-wise Attempt Cap (e.g., JEE Advanced "Any 5 of 8") ───
+        // Build map: "Subject|Section" -> requiredAttempts (null = unlimited)
+        const sectionCapMap = {}; // key: `${subject}|${section}`, value: maxAttempts
+        const sectionAnsweredCount = {}; // tracks how many have been scored in each section
+        if (test.sectionMeta && Array.isArray(test.sectionMeta)) {
+            test.sectionMeta.forEach(meta => {
+                if (meta.subject && meta.section && meta.requiredAttempts) {
+                    const key = `${meta.subject}|${meta.section}`;
+                    sectionCapMap[key] = Number(meta.requiredAttempts);
+                    sectionAnsweredCount[key] = 0;
+                }
+            });
+        }
+
         // Loop through answers using the map
         answers.forEach(ans => {
             let question = questionMap.get(ans.questionId);
@@ -500,6 +514,40 @@ exports.submitTest = async (req, res) => {
             }
 
             if (question) {
+                // ─── Section Cap Enforcement ───
+                const sub = question.subject || 'General';
+                const sec = question.section || '';
+                const capKey = `${sub}|${sec}`;
+                const cap = sectionCapMap[capKey]; // undefined = no cap set
+
+                // Check if this question has an answer
+                const hasAnswer = ans.selectedOption !== undefined && ans.selectedOption !== null &&
+                    (Array.isArray(ans.selectedOption) ? ans.selectedOption.length > 0 : ans.selectedOption !== '');
+
+                if (hasAnswer && cap !== undefined) {
+                    if (sectionAnsweredCount[capKey] >= cap) {
+                        // This answer exceeds the section attempt limit — skip scoring it
+                        // But still record it in attemptData as unscored
+                        attemptData.push({
+                            questionId: ans.questionId,
+                            questionText: question.text || null,
+                            subject: sub,
+                            topic: question.topic || null,
+                            selectedOption: ans.selectedOption,
+                            isCorrect: false,
+                            skippedDueToSectionCap: true,
+                            correctAnswer: null,
+                            correctOptions: null,
+                            integerAnswer: question.type === 'integer' ? (question.integerAnswer ?? null) : null,
+                            questionType: question.type || 'mcq',
+                            marks: question.marks ?? null,
+                            negativeMarks: question.negativeMarks ?? null,
+                            markedAt: new Date().toISOString()
+                        });
+                        return; // skip scoring
+                    }
+                    sectionAnsweredCount[capKey]++;
+                }
                 let isCorrect = false;
 
                 // SCORING LOGIC BASED ON TYPE
@@ -600,6 +648,35 @@ exports.submitTest = async (req, res) => {
         const totalQuestions = dbQuestions.length;
         const accuracy = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
 
+        // ─── Compute Effective Total Marks (respecting section caps) ───
+        // If sectionMeta defines requiredAttempts for a section, max marks for that section
+        // = requiredAttempts × marksPerQuestion (using marks of first question in section as representative)
+        let effectiveTotalMarks = test.total_marks || 0;
+        if (test.sectionMeta && Array.isArray(test.sectionMeta) && test.sectionMeta.length > 0) {
+            let cappedTotal = 0;
+            const coveredSections = new Set();
+
+            dbQuestions.forEach(q => {
+                const sub = q.subject || 'General';
+                const sec = q.section || '';
+                const capKey = `${sub}|${sec}`;
+                const cap = sectionCapMap[capKey];
+
+                if (cap !== undefined) {
+                    // Section has a cap — only count cap × marks once per section
+                    if (!coveredSections.has(capKey)) {
+                        coveredSections.add(capKey);
+                        cappedTotal += cap * Number(q.marks || 4);
+                    }
+                } else {
+                    // No cap — count all questions normally
+                    cappedTotal += Number(q.marks || 4);
+                }
+            });
+
+            effectiveTotalMarks = cappedTotal;
+        }
+
         const newResult = {
             userId,
             testId: req.params.id, // Store as String for querying
@@ -607,11 +684,14 @@ exports.submitTest = async (req, res) => {
                 _id: req.params.id,
                 title: test.title,
                 subject: test.subject,
-                total_marks: test.total_marks
+                total_marks: effectiveTotalMarks,
+                raw_total_marks: test.total_marks,
+                sectionMeta: test.sectionMeta || []
             },
             score,
             accuracy,
             totalQuestions,
+            effectiveTotalMarks,
             correctAnswers: correctCount,
             wrongAnswers: wrongCount,
             attempt_data: attemptData,

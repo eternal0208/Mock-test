@@ -170,7 +170,7 @@ const SubjectToolbar = ({ onInsert, compact = false }) => {
             </div>
 
             {/* Symbols Grid */}
-            <div className={`flex gap-1.5 p-2 overflow-y-auto overflow-x-auto apex-scrollbar bg-slate-50 ${compact ? 'max-h-[85px] flex-nowrap' : 'flex-wrap max-h-[140px]'}`}>
+            <div className={`flex gap-1.5 p-2 overflow-y-auto overflow-x-auto apex-scrollbar bg-slate-50 ${compact ? 'max-h-[110px] flex-wrap justify-center' : 'flex-wrap max-h-[140px]'}`}>
                 {symbolSets[activeTab].map((btn, idx) => (
                     <button
                         key={idx}

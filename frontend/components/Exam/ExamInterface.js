@@ -317,7 +317,7 @@ const ExamInterface = ({ test, onSubmit }) => {
             if (!alreadyAnswered) {
                 const answeredCount = countAnsweredInSection(sub, sec);
                 if (answeredCount >= meta.requiredAttempts) {
-                    alert(`This section allows attempting any ${meta.requiredAttempts} questions. You have already answered ${answeredCount}. Clear another answer first.`);
+                    alert(`⚠️ Section Limit Reached!\n\n"${sec}" allows you to attempt any ${meta.requiredAttempts} question(s). You have already answered ${answeredCount}.\n\nTo answer this question, first clear another answer in this section.`);
                     return;
                 }
             }
@@ -327,11 +327,35 @@ const ExamInterface = ({ test, onSubmit }) => {
     };
 
     const handleMSQChange = (option) => {
-        const qId = test.questions[currentQuestionIndex]._id;
+        const q = test.questions[currentQuestionIndex];
+        const qId = q._id;
+        const sub = q.subject || 'General';
+        const sec = q.section || '';
+
         let currentAns = answers[qId] || [];
         if (!Array.isArray(currentAns)) currentAns = [];
-        if (currentAns.includes(option)) currentAns = currentAns.filter(o => o !== option);
-        else currentAns.push(option);
+
+        const isDeselecting = currentAns.includes(option);
+
+        if (!isDeselecting) {
+            // Enforce optional attempt limit for this section (only when newly answering, not deselecting)
+            const meta = getSectionMeta(sub, sec);
+            if (meta?.requiredAttempts) {
+                const wasEmpty = currentAns.length === 0;
+                if (wasEmpty) {
+                    // This is a NEW answer on this question
+                    const answeredCount = countAnsweredInSection(sub, sec);
+                    if (answeredCount >= meta.requiredAttempts) {
+                        alert(`⚠️ Section Limit Reached!\n\n"${sec}" allows you to attempt any ${meta.requiredAttempts} question(s). You have already answered ${answeredCount}.\n\nTo answer this question, first clear another answer in this section.`);
+                        return;
+                    }
+                }
+            }
+            currentAns = [...currentAns, option];
+        } else {
+            currentAns = currentAns.filter(o => o !== option);
+        }
+
         setAnswers({ ...answers, [qId]: currentAns });
     };
 

@@ -329,7 +329,7 @@ router.options('/tests/parse-pdf-gemini', (req, res) => {
 
 // POST /api/admin/tests/parse-pdf-gemini
 router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) => {
-    const { base64Image, isSelection, scanMode = 'full' } = req.body;
+    const { base64Image, isSelection, scanMode = 'full', extractDiagrams = 'false' } = req.body;
     
     if (!req.file && !base64Image) {
         return res.status(400).json({ error: 'No PDF file or Image selection provided' });
@@ -369,51 +369,98 @@ router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) =>
 
         let promptClarification = '';
         if (scanMode === 'text') {
-            promptClarification = `CRITICAL STRICT INSTRUCTION: You are extracting ONLY the main QUESTION TEXT. Do NOT extract options. Do NOT extract solution. Return a single JSON object where only the "text" field is populated (with LaTeX formatting). Ignore everything else.`;
+            promptClarification = 'TARGETED EXTRACTION — Q-TEXT ONLY:\n' +
+                'Extract ONLY the question text/stem from this image. Ignore all options (A/B/C/D) and solutions.\n' +
+                'Return EXACTLY ONE JSON object with ONLY the "text" field populated (with LaTeX formatting) and "qNumber": 1.\n' +
+                'If it contains math, use LaTeX. Example: { "qNumber": 1, "text": "A block of mass $m$ is placed on a surface..." }';
         } else if (scanMode === 'options') {
-            promptClarification = `CRITICAL STRICT INSTRUCTION: You are extracting ONLY the OPTIONS (A, B, C, D). Do NOT extract the question text. Return a single JSON object where only the "options" array is populated with 4 strings (with LaTeX formatting). Focus strictly on getting the options right.`;
+            promptClarification = 'TARGETED EXTRACTION — OPTIONS ONLY:\n' +
+                'Extract ONLY the answer options (A, B, C, D) from this image. Ignore the question stem and solutions.\n' +
+                'Return EXACTLY ONE JSON object with ONLY the "options" array populated with exactly 4 strings (with LaTeX formatting) and "qNumber": 1.\n' +
+                'If fewer than 4 options are visible, leave the rest as empty string "".\n' +
+                'Example: { "qNumber": 1, "options": ["$2\\text{ m/s}$", "$4\\text{ m/s}$", "$6\\text{ m/s}$", "$8\\text{ m/s}$"] }\n' +
+                'CRITICAL: Never put option text in the "text" field. Always put in "options" array.';
         } else if (scanMode === 'solution') {
-            promptClarification = `CRITICAL STRICT INSTRUCTION: You are extracting ONLY the SOLUTION, EXPLANATION, or HINTS. Do NOT extract the question text or options. Return a single JSON object where only the "solution" field is populated (with LaTeX formatting).`;
+            promptClarification = 'TARGETED EXTRACTION — SOLUTION ONLY:\n' +
+                'Extract ONLY the solution, explanation, hint, or working/derivation from this image. Ignore the question stem and options.\n' +
+                'Return EXACTLY ONE JSON object with ONLY the "solution" field populated (with LaTeX formatting) and "qNumber": 1.\n' +
+                'Include ALL steps, equations, reasoning present in the image.\n' +
+                'Example: { "qNumber": 1, "solution": "Using Newton\'s second law, $F = ma$. Thus $a = F/m = 10/2 = 5\\text{ m/s}^2$." }\n' +
+                'CRITICAL: Never put solution text in the "text" field. Always put in "solution" field.';
         } else {
-            promptClarification = `Extract EVERY question from this image/PDF snippet.`;
+            promptClarification = 'Extract EVERY question from this image/PDF snippet.';
         }
 
-        const masterPrompt = `You are an expert exam question extraction AI.
-${promptClarification}
+        let diagramInstruction = '';
+        if (extractDiagrams === 'true') {
+            diagramInstruction = '\n\nIMPORTANT DIAGRAM/FIGURE EXTRACTION INSTRUCTION:\n' +
+                'If you detect ANY visual figure, diagram, graph, plot, Free Body Diagram (FBD), circuit diagram, ' +
+                'chemical reaction structure, benzene ring, organic compound, coordinate geometry figure, ' +
+                'geometric shape, Venn diagram, bar chart, or any other illustration in the image — ' +
+                'you MUST reconstruct it as a valid, self-contained inline SVG element.\n' +
+                'RULES for SVG reconstruction:\n' +
+                '1. Start with: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">\n' +
+                '2. Use correct geometric primitives: <line>, <circle>, <rect>, <path>, <ellipse>, <polygon>, <polyline>\n' +
+                '3. Use <text> SVG elements for axis labels, variable names, reaction arrows etc.\n' +
+                '4. For graphs: draw X and Y axes, tick marks, curve/line using <path d="M...C..." />, label axes.\n' +
+                '5. For FBDs: draw the object as a box/circle, arrows for forces using <line> + arrowhead <polygon>.\n' +
+                '6. For chemical structures: use lines for bonds, <text> for atom symbols. For benzene ring use <polygon> + alternating bonds.\n' +
+                '7. Preserve ALL geometric relationships, angles, and labels accurately from the source image.\n' +
+                '8. Embed the complete <svg>...</svg> tag DIRECTLY inside the "text", "solution", or whichever field it belongs to — NOT as a code block.\n' +
+                '9. Do NOT use base64 or external URLs inside the SVG. Keep it pure vector.\n' +
+                '10. If the diagram is in the question, embed SVG in the "text" field. If in the solution, embed in "solution" field.';
+        }
+
+        const masterPrompt = `You are an expert exam question extraction AI for Indian competitive exams (JEE Main, JEE Advanced, NEET, etc.).
+${promptClarification}${diagramInstruction}
+
+PAGE LAYOUT — READ ORDER RULES:
+Some exam PDFs have a single-column layout. Others have a two-column layout with a vertical dividing line.
+- If the page is SINGLE COLUMN: read top to bottom normally.
+- If the page is TWO COLUMNS (divided by a vertical line): read the LEFT column fully first (top→bottom), then the RIGHT column (top→bottom).
+- If a question STARTS in the left column and its options appear in the right column for the SAME question number: combine them into ONE JSON object.
+- If options A/B are in the left column and C/D are in the right column for the SAME question: put all 4 into the "options" array.
+- NEVER output two separate JSON objects for one question that is split across columns.
 
 OUTPUT FORMAT:
-Output each extraction as a SINGLE LINE JSON object (NDJSON).
+- Output each complete question as ONE line of valid JSON (NDJSON format).
+- Each question on its own line. No markdown fences. No explanations between JSONs.
 
-TEXT STYLE:
-- Use NATURAL HUMAN TEXT for all words and sentences.
-- Use LaTeX ($...$) ONLY for mathematical symbols, values, units, and equations.
-- Example: "A block of mass $m=2\\text{ kg}$ is placed on a $30^{\\circ}$ inclined plane."
-- DON'T wrap plain English text like "$\\text{A block of mass}$" inside LaTeX text environments. Keep plain English outside of $...$ entirely!
+TEXT FORMATTING:
+- Write all regular English text as plain text (not wrapped in LaTeX).
+- Use LaTeX $...$ ONLY for math: equations, symbols, units, values.
+- Good: "A block of mass $m = 2\\text{ kg}$ is on a $30^{\\circ}$ incline"
+- Bad: "$\\text{A block of mass}$"
 
-JSON Schema:
+JSON SCHEMA (return one per question):
 {
-  "qNumber": <number>,
+  "qNumber": <integer>,
   "type": "mcq" | "msq" | "integer",
   "subject": "Physics" | "Chemistry" | "Mathematics" | "Biology" | "General",
-  "section": "<section name>",
-  "marks": 4,
-  "negativeMarks": 1,
-  "text": "<natural text with LaTeX $math$ symbols>",
-  "hasQuestionImage": <true if diagram/figure present>,
-  "options": ["<A text>", "<B text>", "<C text>", "<D text>"],
+  "section": "<section name or empty string>",
+  "marks": <number, default 4>,
+  "negativeMarks": <number, default 1>,
+  "text": "<complete question stem — merge both columns if split>",
+  "hasQuestionImage": <true if diagram present in question>,
+  "options": ["<A>", "<B>", "<C>", "<D>"],
   "hasOptionImages": [false, false, false, false],
-  "correctOption": "A/B/C/D",
-  "correctOptions": ["A","C"],
-  "integerAnswer": "42",
-  "solution": "<solution with LaTeX symbols>",
+  "correctOption": "<A|B|C|D or empty>",
+  "correctOptions": ["<A>","<C>"],
+  "integerAnswer": "<number as string or empty>",
+  "solution": "<solution/explanation text if present>",
   "hasSolutionImage": false,
-  "topic": ""
+  "topic": "<topic name or empty>"
 }
 
-CRITICAL: 
-1. LaTeX usage: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10\\text{ m/s}$.
-2. If this is just a fragment of a question, still extract it - the admin will merge it later.
-3. Extract any "Solution", "Hint", "Explanation", or "Answer" section present for the question entirely into the "solution" field.`;
+IMPORTANT RULES:
+1. Extract ALL questions visible — do NOT skip any, even if partially visible.
+2. For MCQ: fill "options" array and "correctOption" (A/B/C/D) if answer key is present.
+3. For MSQ (multiple correct): fill "options" and "correctOptions" array.
+4. For Integer type: fill "integerAnswer" with the numeric answer.
+5. If a correct answer is shown, extract it. If not shown, leave those fields empty.
+6. Put any solution/explanation/hint into "solution" field.
+7. Questions with ONLY a diagram must still be extracted — put "[See figure]" in "text" and set "hasQuestionImage": true.
+8. LaTeX: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10^{-3}$, $\\lambda$.`;
 
         let totalQuestionsCount = 0;
         let totalErrorCount = 0;
@@ -445,7 +492,9 @@ CRITICAL:
                     }
 
                     if (char === '"' && !escaped) {
-                        inString = !inString;
+                        if (braceCount > 0) {
+                            inString = !inString;
+                        }
                     }
 
                     if (!inString) {
@@ -464,13 +513,19 @@ CRITICAL:
                                 // Finalize the block
                                 try {
                                     const q = JSON.parse(currentBlock);
-                                    if (q.text) {
+                                    // Accept question if it has any meaningful content
+                                    const hasContent = q.text || q.solution !== undefined ||
+                                        (Array.isArray(q.options) && q.options.some(o => o)) ||
+                                        (q.integerAnswer !== undefined && q.integerAnswer !== '');
+                                    if (hasContent) {
                                         totalQuestionsCount++;
                                         sendEvent({ 
                                             status: 'question', 
                                             question: { ...q, qNumber: totalQuestionsCount }, 
                                             index: totalQuestionsCount 
                                         });
+                                    } else {
+                                        console.warn('[Parser] Skipping empty question block');
                                     }
                                 } catch (e) {
                                     console.error('[Parser Warning] Snippet failed JSON.parse');
@@ -555,7 +610,7 @@ router.post('/tests/parse-image-gemini', async (req, res) => {
     };
 
     try {
-        const { image } = req.body;
+        const { image, extractDiagrams = 'false' } = req.body;
         if (!image) {
             sendEvent({ status: 'error', message: 'No image provided' });
             return res.end();
@@ -574,42 +629,76 @@ router.post('/tests/parse-image-gemini', async (req, res) => {
 
         sendEvent({ status: 'started', message: 'Extracting questions from selection...' });
 
-        const masterPrompt = `You are an expert exam question extraction AI.
-Extract EVERY question from this image snippet. 
+        let diagramInstruction = '';
+        if (extractDiagrams === 'true') {
+            diagramInstruction = '\n\nIMPORTANT DIAGRAM/FIGURE EXTRACTION INSTRUCTION:\n' +
+                'If you detect ANY visual figure, diagram, graph, plot, Free Body Diagram (FBD), circuit diagram, ' +
+                'chemical reaction structure, benzene ring, organic compound, coordinate geometry figure, ' +
+                'geometric shape, Venn diagram, bar chart, or any other illustration in the image — ' +
+                'you MUST reconstruct it as a valid, self-contained inline SVG element.\n' +
+                'RULES for SVG reconstruction:\n' +
+                '1. Start with: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">\n' +
+                '2. Use correct geometric primitives: <line>, <circle>, <rect>, <path>, <ellipse>, <polygon>, <polyline>\n' +
+                '3. Use <text> SVG elements for axis labels, variable names, reaction arrows etc.\n' +
+                '4. For graphs: draw X and Y axes, tick marks, curve/line using <path d="M...C..." />, label axes.\n' +
+                '5. For FBDs: draw the object as a box/circle, arrows for forces using <line> + arrowhead <polygon>.\n' +
+                '6. For chemical structures: use lines for bonds, <text> for atom symbols. For benzene ring use <polygon> + alternating bonds.\n' +
+                '7. Preserve ALL geometric relationships, angles, and labels accurately from the source image.\n' +
+                '8. Embed the complete <svg>...</svg> tag DIRECTLY inside the "text", "solution", or whichever field it belongs to — NOT as a code block.\n' +
+                '9. Do NOT use base64 or external URLs inside the SVG. Keep it pure vector.\n' +
+                '10. If the diagram is in the question, embed SVG in the "text" field. If in the solution, embed in "solution" field.';
+        }
+
+        const masterPrompt = `You are an expert exam question extraction AI for Indian competitive exams (JEE Main, JEE Advanced, NEET, etc.).
+${promptClarification}${diagramInstruction}
+
+PAGE LAYOUT — READ ORDER RULES:
+Some exam images have a single-column layout. Others have a two-column layout with a vertical dividing line.
+- If the image is SINGLE COLUMN: read top to bottom normally.
+- If the image is TWO COLUMNS (divided by a vertical line): read the LEFT column fully first (top→bottom), then the RIGHT column (top→bottom).
+- If a question STARTS in the left column and its options appear in the right column for the SAME question number: combine them into ONE JSON object.
+- If options A/B are in the left column and C/D are in the right column for the SAME question: put all 4 into the "options" array.
+- NEVER output two separate JSON objects for one question that is split across columns.
 
 OUTPUT FORMAT:
-Output each question as a SINGLE LINE JSON object (NDJSON).
+- Output each complete question as ONE line of valid JSON (NDJSON format).
+- Each question on its own line. No markdown fences. No explanations between JSONs.
 
-TEXT STYLE:
-- Use NATURAL HUMAN TEXT for all words and sentences.
-- Use LaTeX ($...$) ONLY for mathematical symbols, values, units, and equations.
-- Example: "A block of mass $m=2\\text{ kg}$ is placed on a $30^{\\circ}$ inclined plane."
-- NOT: "$\\text{A block of mass } m=2\\text{ kg} ...$" (Don't wrap everything in LaTeX).
+TEXT FORMATTING:
+- Write all regular English text as plain text (not wrapped in LaTeX).
+- Use LaTeX $...$ ONLY for math: equations, symbols, units, values.
+- Good: "A block of mass $m = 2\\text{ kg}$ is on a $30^{\\circ}$ incline"
+- Bad: "$\\text{A block of mass}$"
 
-JSON Schema:
+JSON SCHEMA (return one per question):
 {
-  "qNumber": <number>,
+  "qNumber": <integer>,
   "type": "mcq" | "msq" | "integer",
   "subject": "Physics" | "Chemistry" | "Mathematics" | "Biology" | "General",
-  "section": "<section name>",
-  "marks": 4,
-  "negativeMarks": 1,
-  "text": "<natural text with LaTeX $math$ symbols>",
-  "hasQuestionImage": <true if diagram/figure present>,
-  "options": ["<A text>", "<B text>", "<C text>", "<D text>"],
+  "section": "<section name or empty string>",
+  "marks": <number, default 4>,
+  "negativeMarks": <number, default 1>,
+  "text": "<complete question stem — merge both columns if split>",
+  "hasQuestionImage": <true if diagram present in question>,
+  "options": ["<A>", "<B>", "<C>", "<D>"],
   "hasOptionImages": [false, false, false, false],
-  "correctOption": "A/B/C/D",
-  "correctOptions": ["A","C"],
-  "integerAnswer": "42",
-  "solution": "<solution with LaTeX symbols>",
+  "correctOption": "<A|B|C|D or empty>",
+  "correctOptions": ["<A>","<C>"],
+  "integerAnswer": "<number as string or empty>",
+  "solution": "<solution/explanation text if present>",
   "hasSolutionImage": false,
-  "topic": ""
+  "topic": "<topic name or empty>"
 }
 
-CRITICAL: 
-1. LaTeX usage: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10\\text{ m/s}$.
-2. If this is just a fragment of a question, still extract it - the admin will merge it later.
-3. Extract any "Solution", "Hint", "Explanation", or "Answer" section present for the question entirely into the "solution" field.`;
+IMPORTANT RULES:
+1. Extract ALL questions visible — do NOT skip any, even if partially visible.
+2. For MCQ: fill "options" array and "correctOption" (A/B/C/D) if answer key is present.
+3. For MSQ (multiple correct): fill "options" and "correctOptions" array.
+4. For Integer type: fill "integerAnswer" with the numeric answer.
+5. If a correct answer is shown, extract it. If not shown, leave those fields empty.
+6. Put any solution/explanation/hint into "solution" field.
+7. Questions with ONLY a diagram must still be extracted — put "[See figure]" in "text" and set "hasQuestionImage": true.
+8. LaTeX: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10^{-3}$, $\\lambda$.`;
 
         const result = await model.generateContent([
             {
@@ -658,7 +747,11 @@ CRITICAL:
                     if (braceCount === 0) {
                         try {
                             const q = JSON.parse(currentBlock);
-                            if (q.text) {
+                            // Accept if any meaningful content exists
+                            const hasContent = q.text || q.solution ||
+                                (Array.isArray(q.options) && q.options.some(o => o)) ||
+                                (q.integerAnswer !== undefined && q.integerAnswer !== '');
+                            if (hasContent) {
                                 questionCount++;
                                 sendEvent({ 
                                     status: 'question', 
