@@ -2409,15 +2409,36 @@ export default function AdminDashboard() {
 
         setLoading(true);
         try {
-            const calculatedTotalMarks = questions.reduce((acc, q) => {
-                const m = Number(q.marks);
-                return acc + (isNaN(m) ? 0 : m);
-            }, 0);
+            const sectionCapMap = {};
+            (testDetails.sectionMeta || []).forEach(m => {
+                if (m.subject && m.section && m.requiredAttempts) {
+                    sectionCapMap[`${m.subject}|${m.section}`] = Number(m.requiredAttempts);
+                }
+            });
+
+            let effectiveTotalMarks = 0;
+            const coveredSections = new Set();
+
+            questions.forEach(q => {
+                const sub = q.subject || 'General';
+                const sec = q.section || '';
+                const capKey = `${sub}|${sec}`;
+                const cap = sectionCapMap[capKey];
+
+                if (cap !== undefined) {
+                    if (!coveredSections.has(capKey)) {
+                        coveredSections.add(capKey);
+                        effectiveTotalMarks += cap * Number(q.marks || 4);
+                    }
+                } else {
+                    effectiveTotalMarks += Number(q.marks || 4);
+                }
+            });
 
             const payload = {
                 ...testDetails,
                 chapters: (testDetails.chapters || '').toString().split(',').map(c => c.trim()).filter(c => c),
-                totalMarks: calculatedTotalMarks,
+                totalMarks: effectiveTotalMarks,
                 questions,
                 sectionMeta: testDetails.sectionMeta || [],
                 createdByName: user?.name || user?.displayName || (user?.email ? user.email.split('@')[0] : 'Admin'),
@@ -4662,13 +4683,44 @@ export default function AdminDashboard() {
 
                                     try {
                                         const token = await user?.getIdToken();
+
+                                        // Recompute totalMarks from sectionMeta (mirrors Create Test logic)
+                                        const editSectionCapMap = {};
+                                        (editingTest.sectionMeta || []).forEach(m => {
+                                            if (m.subject && m.section && m.requiredAttempts) {
+                                                editSectionCapMap[`${m.subject}|${m.section}`] = Number(m.requiredAttempts);
+                                            }
+                                        });
+
+                                        let editEffectiveTotalMarks = 0;
+                                        const editCoveredSections = new Set();
+                                        (editingTest.questions || []).forEach(q => {
+                                            const sub = q.subject || 'General';
+                                            const sec = q.section || '';
+                                            const capKey = `${sub}|${sec}`;
+                                            const cap = editSectionCapMap[capKey];
+                                            if (cap !== undefined) {
+                                                if (!editCoveredSections.has(capKey)) {
+                                                    editCoveredSections.add(capKey);
+                                                    editEffectiveTotalMarks += cap * Number(q.marks || 4);
+                                                }
+                                            } else {
+                                                editEffectiveTotalMarks += Number(q.marks || 4);
+                                            }
+                                        });
+
+                                        const editPayload = {
+                                            ...editingTest,
+                                            totalMarks: editEffectiveTotalMarks,
+                                        };
+
                                         const res = await fetch(`${API_BASE_URL}/api/tests/${editingTest._id}`, {
                                             method: 'PUT',
                                             headers: {
                                                 'Content-Type': 'application/json',
                                                 'Authorization': `Bearer ${token}`
                                             },
-                                            body: JSON.stringify(editingTest)
+                                            body: JSON.stringify(editPayload)
                                         });
                                         if (res.ok) {
                                             alert('Test updated successfully!');

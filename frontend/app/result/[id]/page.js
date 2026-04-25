@@ -203,6 +203,26 @@ export default function ResultPage() {
     const skipped = (result.totalQuestions || 0) - (result.correctAnswers || 0) - (result.wrongAnswers || 0);
     const sectionCapSkipped = (result.attempt_data || []).filter(a => a.skippedDueToSectionCap).length;
 
+    // Compute marks breakdown from attempt_data
+    let correctMarks = 0;
+    let negativeMarksLost = 0;
+    let attemptedMarks = 0; // total marks of attempted questions
+    (result.attempt_data || []).forEach(a => {
+        const isAns = a.selectedOption !== undefined && a.selectedOption !== null &&
+            (Array.isArray(a.selectedOption) ? a.selectedOption.length > 0 : a.selectedOption !== '');
+        if (a.skippedDueToSectionCap) return; // don't count these
+        if (isAns) {
+            const qMarks = Number(a.marks || 4);
+            const qNeg = Number(a.negativeMarks || 1);
+            attemptedMarks += qMarks;
+            if (a.isCorrect) {
+                correctMarks += qMarks;
+            } else {
+                negativeMarksLost += qNeg;
+            }
+        }
+    });
+
     // Percentile (JEE Main 300-mark tests only)
     let expectedPercentile = 'N/A', expectedRankRange = 'N/A';
     if (percentileData && testMeta.category === 'JEE Main' && maxMarks === 300) {
@@ -366,18 +386,26 @@ export default function ResultPage() {
                 })()}
 
                 {/* ── Stats Chips ── */}
-                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                     <div className="bg-green-50 border border-green-200 rounded-xl p-3 sm:p-4 text-center">
                         <div className="text-xl sm:text-2xl font-black text-green-600">{result.correctAnswers || 0}</div>
                         <div className="text-[10px] sm:text-xs text-green-700 font-medium">Correct</div>
+                        <div className="text-[10px] text-green-500 font-bold mt-0.5">+{correctMarks} marks</div>
                     </div>
                     <div className="bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4 text-center">
                         <div className="text-xl sm:text-2xl font-black text-red-600">{result.wrongAnswers || 0}</div>
                         <div className="text-[10px] sm:text-xs text-red-700 font-medium">Incorrect</div>
+                        <div className="text-[10px] text-red-500 font-bold mt-0.5">-{negativeMarksLost} marks</div>
                     </div>
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 sm:p-4 text-center">
                         <div className="text-xl sm:text-2xl font-black text-gray-500">{skipped > 0 ? skipped : 0}</div>
                         <div className="text-[10px] sm:text-xs text-gray-600 font-medium">Skipped</div>
+                        <div className="text-[10px] text-gray-400 font-bold mt-0.5">0 marks</div>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4 text-center">
+                        <div className="text-xl sm:text-2xl font-black text-blue-600">{attemptedMarks}</div>
+                        <div className="text-[10px] sm:text-xs text-blue-700 font-medium">Attempted Marks</div>
+                        <div className="text-[10px] text-blue-400 font-bold mt-0.5">of {maxMarks} total</div>
                     </div>
                 </div>
 

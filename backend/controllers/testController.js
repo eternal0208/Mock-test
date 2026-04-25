@@ -7,7 +7,7 @@ const testCache = new NodeCache({ stdTTL: 600 }); // Cache tests for 10 minutes
 // @access  Admin
 exports.createTest = async (req, res) => {
     try {
-        const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts, resultVisibility, resultDeclarationTime, instituteCode } = req.body;
+        const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts, resultVisibility, resultDeclarationTime, instituteCode, sectionMeta } = req.body;
 
         // Validation: Ensure all MCQ/MSQ/Integer questions have answers
         if (questions && Array.isArray(questions)) {
@@ -58,6 +58,7 @@ exports.createTest = async (req, res) => {
             })),
             questionCount: (questions || []).length,
             answerCount: (questions || []).filter(q => q.correctOption || (q.correctOptions && q.correctOptions.length > 0) || (q.integerAnswer !== undefined && q.integerAnswer !== '')).length,
+            sectionMeta: sectionMeta || [],
             createdBy: req.user.uid || req.user._id || 'admin',
             createdByName: req.body.createdByName || req.user.name || req.user.displayName || (req.user.email ? req.user.email.split('@')[0] : 'Admin'),
             createdAt: new Date().toISOString()
@@ -130,7 +131,7 @@ exports.deleteTest = async (req, res) => {
 exports.getAllTests = async (req, res) => {
     try {
         console.log("🔍 [API] GET /api/tests called");
-        const snapshot = await db.collection('tests').select('title', 'duration_minutes', 'total_marks', 'subject', 'category', 'difficulty', 'isVisible', 'status', 'createdBy', 'createdByName', 'startTime', 'endTime', 'expiryDate', 'maxAttempts', 'questionCount', 'answerCount', 'questions', 'instituteCode').get();
+        const snapshot = await db.collection('tests').select('title', 'duration_minutes', 'total_marks', 'subject', 'category', 'difficulty', 'isVisible', 'status', 'createdBy', 'createdByName', 'startTime', 'endTime', 'expiryDate', 'maxAttempts', 'questionCount', 'answerCount', 'questions', 'instituteCode', 'sectionMeta').get();
         console.log(`🔍 [DEBUG] Tests found in DB: ${snapshot.size}`);
 
         const tests = [];
@@ -185,7 +186,8 @@ exports.getAllTests = async (req, res) => {
                     instituteCode: data.instituteCode || '',
                     questionCount: data.questionCount || (data.questions || []).length,
                     answerCount: (data.answerCount > 0) ? data.answerCount : (data.questions || []).filter(q => q.correctOption || (q.correctOptions && q.correctOptions.length > 0) || (q.integerAnswer !== undefined && q.integerAnswer !== '')).length,
-                    questions: data.questions || []
+                    questions: data.questions || [],
+                    sectionMeta: data.sectionMeta || []
                 });
                 return;
             }
@@ -229,7 +231,8 @@ exports.getAllTests = async (req, res) => {
                 maxAttempts: data.maxAttempts,
                 instituteCode: data.instituteCode || '',
                 questionCount: data.questionCount || 0,
-                answerCount: data.answerCount || 0
+                answerCount: data.answerCount || 0,
+                sectionMeta: data.sectionMeta || []
             });
         });
 
@@ -590,11 +593,17 @@ exports.submitTest = async (req, res) => {
                 }
 
                 if (isCorrect) {
-                    score += Number(question.marks || 4); // Added fallback to prevent NaN
+                    score += Number(question.marks || 4);
                     correctCount++;
-                } else if (ans.selectedOption && (Array.isArray(ans.selectedOption) ? ans.selectedOption.length > 0 : true)) {
-                    score -= Number(question.negativeMarks || 1); // Added fallback to prevent NaN
-                    wrongCount++;
+                } else {
+                    // Only deduct negative marks if student actually answered (not unattempted)
+                    const sel = ans.selectedOption;
+                    const isActuallyAnswered = sel !== undefined && sel !== null && sel !== '' &&
+                        (Array.isArray(sel) ? sel.length > 0 : true); // handles 0 as valid integer answer
+                    if (isActuallyAnswered) {
+                        score -= Number(question.negativeMarks || 1);
+                        wrongCount++;
+                    }
                 }
 
                 // Resolve correctAnswer for storage
@@ -715,7 +724,7 @@ exports.submitTest = async (req, res) => {
 // @access  Admin
 exports.updateTest = async (req, res) => {
     try {
-        const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts, resultVisibility, resultDeclarationTime, expiryDate, instituteCode } = req.body;
+        const { title, duration, totalMarks, subject, category, difficulty, instructions, startTime, endTime, questions, isVisible, maxAttempts, resultVisibility, resultDeclarationTime, expiryDate, instituteCode, sectionMeta } = req.body;
 
         const adminLevel = req.user?.adminLevel || 3;
         const forceDraft = adminLevel === 3 || req.body.isDraft;
@@ -737,6 +746,7 @@ exports.updateTest = async (req, res) => {
             expiryDate,
             resultVisibility,
             resultDeclarationTime,
+            sectionMeta: sectionMeta !== undefined ? sectionMeta : undefined,
             updatedBy: req.user.uid || req.user._id || 'admin',
             updatedByName: req.body.updatedByName || req.user.name || req.user.displayName || (req.user.email ? req.user.email.split('@')[0] : 'Admin'),
             updatedAt: new Date().toISOString()

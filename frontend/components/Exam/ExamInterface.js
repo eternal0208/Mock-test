@@ -294,14 +294,54 @@ const ExamInterface = ({ test, onSubmit }) => {
         return test.sectionMeta.find(m => m.subject === subject && m.section === section) || null;
     };
 
-    // Count answered questions in a subject+section
+    // Count answered questions in a subject+section — uses `answers` for real-time accuracy
     const countAnsweredInSection = (subject, section) => {
         return test.questions.filter(q => {
             if ((q.subject || 'General') !== subject) return false;
             if ((q.section || '') !== section) return false;
-            const status = questionStatus[q._id] || 'not_visited';
-            return status === 'answered' || status === 'marked_answered';
+            const ans = answers[q._id];
+            // A question is answered if it has a non-empty value in the answers map
+            return Array.isArray(ans) ? ans.length > 0 : (ans !== undefined && ans !== '' && ans !== null);
         }).length;
+    };
+
+    // Compute live score: +marks for correct (not possible mid-exam), show attempted marks total
+    // Show: total marks of all answered questions (what's at stake), total negative possible
+    const getLiveAttemptedMarks = () => {
+        let attemptedMarks = 0;
+        test.questions.forEach(q => {
+            const ans = answers[q._id];
+            const isAns = Array.isArray(ans) ? ans.length > 0 : (ans !== undefined && ans !== '' && ans !== null);
+            if (isAns) attemptedMarks += Number(q.marks || 4);
+        });
+        return attemptedMarks;
+    };
+
+    // Compute effective total marks (respecting section caps)
+    const getEffectiveTotalMarks = () => {
+        if (!test.sectionMeta || test.sectionMeta.length === 0) {
+            return test.questions.reduce((sum, q) => sum + Number(q.marks || 4), 0);
+        }
+        const sectionCapMap = {};
+        test.sectionMeta.forEach(m => {
+            if (m.subject && m.section && m.requiredAttempts) {
+                sectionCapMap[`${m.subject}|${m.section}`] = Number(m.requiredAttempts);
+            }
+        });
+        let total = 0;
+        const covered = new Set();
+        test.questions.forEach(q => {
+            const sub = q.subject || 'General';
+            const sec = q.section || '';
+            const key = `${sub}|${sec}`;
+            const cap = sectionCapMap[key];
+            if (cap !== undefined) {
+                if (!covered.has(key)) { covered.add(key); total += cap * Number(q.marks || 4); }
+            } else {
+                total += Number(q.marks || 4);
+            }
+        });
+        return total;
     };
 
     const handleAnswerChange = (val) => {
@@ -576,11 +616,19 @@ const ExamInterface = ({ test, onSubmit }) => {
                 <div className="h-14 md:h-16 flex justify-between items-center px-2 md:px-4">
                     <h1 className="text-sm md:text-lg font-bold truncate max-w-[200px] md:max-w-md ml-1">{test.title}</h1>
                     <div className="flex items-center">
-                        <div className="flex flex-col items-end mr-4">
-                            <span className="text-[10px] text-blue-200">Time Left:</span>
-                            <span className={`text-sm md:text-xl font-mono font-bold ${timeLeft < 300 ? 'text-red-300 animate-pulse' : ''}`}>
-                                {Math.floor(timeLeft / 3600)}:{Math.floor((timeLeft % 3600) / 60) < 10 ? '0' : ''}{Math.floor((timeLeft % 3600) / 60)}:{timeLeft % 60 < 10 ? '0' : ''}{timeLeft % 60}
-                            </span>
+                        <div className="flex items-center gap-3 mr-2">
+                            <div className="flex flex-col items-end">
+                                <span className="text-[10px] text-blue-200">Time Left:</span>
+                                <span className={`text-sm md:text-xl font-mono font-bold ${timeLeft < 300 ? 'text-red-300 animate-pulse' : ''}`}>
+                                    {Math.floor(timeLeft / 3600)}:{Math.floor((timeLeft % 3600) / 60) < 10 ? '0' : ''}{Math.floor((timeLeft % 3600) / 60)}:{timeLeft % 60 < 10 ? '0' : ''}{timeLeft % 60}
+                                </span>
+                            </div>
+                            <div className="hidden md:flex flex-col items-end border-l border-blue-600 pl-3">
+                                <span className="text-[10px] text-blue-200">Attempted</span>
+                                <span className="text-sm md:text-base font-mono font-bold text-yellow-300">
+                                    {getLiveAttemptedMarks()}<span className="text-blue-300 text-[10px]">/{getEffectiveTotalMarks()}</span>
+                                </span>
+                            </div>
                         </div>
                         <button onClick={() => handleSubmitTest(false)} className="md:hidden bg-green-500 text-white px-3 py-1 rounded text-xs font-bold">Submit</button>
                     </div>
@@ -626,7 +674,9 @@ const ExamInterface = ({ test, onSubmit }) => {
                         </button>
                         {sectionsMap[activeSubject].map(sec => {
                             const meta = getSectionMeta(activeSubject, sec);
-                            const answeredCount = meta?.requiredAttempts ? countAnsweredInSection(activeSubject, sec) : null;
+                            // Always show count when limit is set — uses real-time answers map
+                            const answeredCount = meta?.requiredAttempts != null ? countAnsweredInSection(activeSubject, sec) : null;
+                            const limitReached = meta?.requiredAttempts != null && answeredCount >= meta.requiredAttempts;
                             return (
                                 <button
                                     key={sec}
@@ -636,9 +686,9 @@ const ExamInterface = ({ test, onSubmit }) => {
                                     }`}
                                 >
                                     {sec}
-                                    {meta?.requiredAttempts && (
+                                    {meta?.requiredAttempts != null && (
                                         <span className={`ml-1.5 text-[9px] font-black px-1.5 py-0.5 rounded ${
-                                            answeredCount >= meta.requiredAttempts ? 'bg-green-500 text-white' : 'bg-amber-400 text-black'
+                                            limitReached ? 'bg-green-500 text-white' : 'bg-amber-400 text-black'
                                         }`}>
                                             {answeredCount}/{meta.requiredAttempts}
                                         </span>
@@ -881,6 +931,25 @@ const ExamInterface = ({ test, onSubmit }) => {
                         <div className="flex items-center"><span className="w-4 h-4 bg-gray-200 text-black flex items-center justify-center mr-1 rounded-sm">3</span> Not Visit</div>
                         <div className="flex items-center"><span className="w-4 h-4 bg-purple-600 text-white flex items-center justify-center mr-1 rounded-full">4</span> Review</div>
                         <div className="col-span-2 flex items-center"><span className="w-4 h-4 bg-purple-600 text-white flex items-center justify-center mr-1 relative rounded-full"><span className="absolute bottom-0 right-0 w-1.5 h-1.5 bg-green-400 rounded-full"></span>5</span> Ans+Review</div>
+                    </div>
+
+                    {/* Live Score Tracker */}
+                    <div className="px-3 py-2 border-b bg-gradient-to-r from-blue-900 to-blue-800 text-white">
+                        <div className="text-[9px] font-black uppercase tracking-widest text-blue-300 mb-1.5">Live Progress</div>
+                        <div className="grid grid-cols-3 gap-1 text-center">
+                            <div className="bg-white/10 rounded-lg p-1.5">
+                                <div className="text-sm font-black text-green-300">{Object.keys(answers).filter(id => { const a = answers[id]; return Array.isArray(a) ? a.length > 0 : (a !== undefined && a !== '' && a !== null); }).length}</div>
+                                <div className="text-[8px] text-blue-200 font-bold">Answered</div>
+                            </div>
+                            <div className="bg-white/10 rounded-lg p-1.5">
+                                <div className="text-sm font-black text-yellow-300">{getLiveAttemptedMarks()}</div>
+                                <div className="text-[8px] text-blue-200 font-bold">Marks At</div>
+                            </div>
+                            <div className="bg-white/10 rounded-lg p-1.5">
+                                <div className="text-sm font-black text-blue-200">{getEffectiveTotalMarks()}</div>
+                                <div className="text-[8px] text-blue-200 font-bold">Max Marks</div>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 bg-blue-50">
