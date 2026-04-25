@@ -60,13 +60,28 @@ const MathText = ({ text = '', className = '' }) => {
             }
 
             // Regular Text / HTML
-            // Check if part looks like HTML
+            // Check if part looks like HTML (SVG, etc.)
             const isHTML = /<[a-z][\s\S]*>/i.test(part);
             if (isHTML) {
                 return <span key={index} dangerouslySetInnerHTML={{ __html: part }} />;
             }
 
-            return <span key={index}>{part}</span>;
+            // Plain text: split on \n and render <br/> so multiline content
+            // (chemistry reactions, multi-step solutions, options) shows correctly
+            const lines = part.split('\n');
+            if (lines.length === 1) {
+                return <span key={index}>{part}</span>;
+            }
+            return (
+                <span key={index}>
+                    {lines.map((line, li) => (
+                        <span key={li}>
+                            {line}
+                            {li < lines.length - 1 && <br />}
+                        </span>
+                    ))}
+                </span>
+            );
         });
     }, [text]);
 

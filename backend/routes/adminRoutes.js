@@ -426,11 +426,47 @@ OUTPUT FORMAT:
 - Output each complete question as ONE line of valid JSON (NDJSON format).
 - Each question on its own line. No markdown fences. No explanations between JSONs.
 
-TEXT FORMATTING:
+TEXT FORMATTING — GENERAL:
 - Write all regular English text as plain text (not wrapped in LaTeX).
 - Use LaTeX $...$ ONLY for math: equations, symbols, units, values.
 - Good: "A block of mass $m = 2\\text{ kg}$ is on a $30^{\\circ}$ incline"
 - Bad: "$\\text{A block of mass}$"
+
+MULTI-LINE CONTENT PRESERVATION (CRITICAL):
+- If a question, option, or solution spans MULTIPLE LINES in the PDF, you MUST preserve those line breaks using the literal \\n (escaped newline) inside the JSON string.
+- Example for a question with a table or reaction on the next line:
+  "text": "Consider the following reaction:\\n$\\text{CH}_3\\text{COOH} + \\text{NaOH} \\rightarrow \\text{CH}_3\\text{COONa} + \\text{H}_2\\text{O}$\\nThe product formed is:"
+- Example for an option that has an equation below its label:
+  "options": ["$\\text{NaCl}$\\n(a white solid)", ...]
+- NEVER merge multiple visual lines into one run-on sentence without the \\n separator.
+- If a list, table, or set of reactions appears across multiple visual lines, each line must be separated by \\n in the JSON string.
+
+CHEMISTRY FORMATTING RULES (CRITICAL):
+- Chemical formulas: Use LaTeX with \\text{} for element symbols. Examples:
+    H₂O  →  $\\text{H}_2\\text{O}$
+    CO₂  →  $\\text{CO}_2$
+    H₂SO₄ →  $\\text{H}_2\\text{SO}_4$
+    Na⁺  →  $\\text{Na}^+$
+    Fe³⁺ →  $\\text{Fe}^{3+}$
+    CH₃COOH → $\\text{CH}_3\\text{COOH}$
+    C₆H₆ (benzene) → $\\text{C}_6\\text{H}_6$
+    C₂H₅OH → $\\text{C}_2\\text{H}_5\\text{OH}$
+- Chemical reaction arrows:
+    →   use  $\\rightarrow$
+    ⇌   use  $\\rightleftharpoons$
+    ↑   use  $\\uparrow$ (gas evolved)
+    ↓   use  $\\downarrow$ (precipitate)
+    Δ above arrow: $\\xrightarrow{\\Delta}$
+    Catalyst above arrow: $\\xrightarrow{\\text{cat}}$ or $\\overset{\\text{Catalyst}}{\\rightarrow}$
+- Full reaction example:
+    CH₄ + 2O₂ → CO₂ + 2H₂O  →  $\\text{CH}_4 + 2\\text{O}_2 \\rightarrow \\text{CO}_2 + 2\\text{H}_2\\text{O}$
+- IUPAC names and organic compound names: write as plain text (no LaTeX wrapping).
+    Example: "2-methylpropan-1-ol" — keep as-is, no LaTeX.
+- State symbols: (s), (l), (g), (aq) — keep as plain text or use $\\text{(s)}$.
+- Electron configurations: use LaTeX. Example: $1s^2\\,2s^2\\,2p^6$
+- If a full multi-step reaction mechanism or list of reactions appears in the question, preserve EACH step on its own line using \\n.
+- Structural formulas you CANNOT represent in LaTeX: set "hasQuestionImage": true and put "[See structural formula in figure]" in "text". Do NOT attempt to ASCII-art structural formulas in JSON.
+- Organic reaction conditions (e.g., "HCl", "conc. H₂SO₄", "NaOH/Δ") go above/below the reaction arrow using \\xrightarrow{\\text{condition}}.
 
 JSON SCHEMA (return one per question):
 {
@@ -440,14 +476,14 @@ JSON SCHEMA (return one per question):
   "section": "<section name or empty string>",
   "marks": <number, default 4>,
   "negativeMarks": <number, default 1>,
-  "text": "<complete question stem — merge both columns if split>",
-  "hasQuestionImage": <true if diagram present in question>,
-  "options": ["<A>", "<B>", "<C>", "<D>"],
+  "text": "<complete question stem with \\n for line breaks — merge both columns if split>",
+  "hasQuestionImage": <true if diagram/structural formula present in question>,
+  "options": ["<A with \\n for multiline>", "<B>", "<C>", "<D>"],
   "hasOptionImages": [false, false, false, false],
   "correctOption": "<A|B|C|D or empty>",
   "correctOptions": ["<A>","<C>"],
   "integerAnswer": "<number as string or empty>",
-  "solution": "<solution/explanation text if present>",
+  "solution": "<solution/explanation text with \\n for line breaks if present>",
   "hasSolutionImage": false,
   "topic": "<topic name or empty>"
 }
@@ -458,9 +494,11 @@ IMPORTANT RULES:
 3. For MSQ (multiple correct): fill "options" and "correctOptions" array.
 4. For Integer type: fill "integerAnswer" with the numeric answer.
 5. If a correct answer is shown, extract it. If not shown, leave those fields empty.
-6. Put any solution/explanation/hint into "solution" field.
+6. Put any solution/explanation/hint into "solution" field — preserve ALL steps with \\n.
 7. Questions with ONLY a diagram must still be extracted — put "[See figure]" in "text" and set "hasQuestionImage": true.
-8. LaTeX: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10^{-3}$, $\\lambda$.`;
+8. LaTeX math: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10^{-3}$, $\\lambda$.
+9. NEVER collapse multi-line content into one line. Use \\n to preserve visual structure.
+10. For chemistry: ALWAYS use proper LaTeX for formulas and reaction arrows as shown above.`;
 
         let totalQuestionsCount = 0;
         let totalErrorCount = 0;
@@ -650,7 +688,7 @@ router.post('/tests/parse-image-gemini', async (req, res) => {
         }
 
         const masterPrompt = `You are an expert exam question extraction AI for Indian competitive exams (JEE Main, JEE Advanced, NEET, etc.).
-${promptClarification}${diagramInstruction}
+${diagramInstruction}
 
 PAGE LAYOUT — READ ORDER RULES:
 Some exam images have a single-column layout. Others have a two-column layout with a vertical dividing line.
@@ -664,11 +702,45 @@ OUTPUT FORMAT:
 - Output each complete question as ONE line of valid JSON (NDJSON format).
 - Each question on its own line. No markdown fences. No explanations between JSONs.
 
-TEXT FORMATTING:
+TEXT FORMATTING — GENERAL:
 - Write all regular English text as plain text (not wrapped in LaTeX).
 - Use LaTeX $...$ ONLY for math: equations, symbols, units, values.
 - Good: "A block of mass $m = 2\\text{ kg}$ is on a $30^{\\circ}$ incline"
 - Bad: "$\\text{A block of mass}$"
+
+MULTI-LINE CONTENT PRESERVATION (CRITICAL):
+- If a question, option, or solution spans MULTIPLE LINES in the image, you MUST preserve those line breaks using the literal \\n (escaped newline) inside the JSON string.
+- Example for a question with a reaction on the next line:
+  "text": "Consider the following reaction:\\n$\\text{CH}_3\\text{COOH} + \\text{NaOH} \\rightarrow \\text{CH}_3\\text{COONa} + \\text{H}_2\\text{O}$\\nThe product formed is:"
+- NEVER merge multiple visual lines into one run-on sentence without the \\n separator.
+- If a list, table, or set of reactions appears across multiple visual lines, each line must be separated by \\n in the JSON string.
+
+CHEMISTRY FORMATTING RULES (CRITICAL):
+- Chemical formulas: Use LaTeX with \\text{} for element symbols. Examples:
+    H₂O  →  $\\text{H}_2\\text{O}$
+    CO₂  →  $\\text{CO}_2$
+    H₂SO₄ →  $\\text{H}_2\\text{SO}_4$
+    Na⁺  →  $\\text{Na}^+$
+    Fe³⁺ →  $\\text{Fe}^{3+}$
+    CH₃COOH → $\\text{CH}_3\\text{COOH}$
+    C₆H₆ (benzene) → $\\text{C}_6\\text{H}_6$
+    C₂H₅OH → $\\text{C}_2\\text{H}_5\\text{OH}$
+- Chemical reaction arrows:
+    →   use  $\\rightarrow$
+    ⇌   use  $\\rightleftharpoons$
+    ↑   use  $\\uparrow$ (gas evolved)
+    ↓   use  $\\downarrow$ (precipitate)
+    Δ above arrow: $\\xrightarrow{\\Delta}$
+    Catalyst above arrow: $\\xrightarrow{\\text{cat}}$ or $\\overset{\\text{Catalyst}}{\\rightarrow}$
+- Full reaction example:
+    CH₄ + 2O₂ → CO₂ + 2H₂O  →  $\\text{CH}_4 + 2\\text{O}_2 \\rightarrow \\text{CO}_2 + 2\\text{H}_2\\text{O}$
+- IUPAC names and organic compound names: write as plain text (no LaTeX wrapping).
+    Example: "2-methylpropan-1-ol" — keep as-is, no LaTeX.
+- State symbols: (s), (l), (g), (aq) — keep as plain text or use $\\text{(s)}$.
+- Electron configurations: use LaTeX. Example: $1s^2\\,2s^2\\,2p^6$
+- If a full multi-step reaction mechanism or list of reactions appears in the question, preserve EACH step on its own line using \\n.
+- Structural formulas you CANNOT represent in LaTeX: set "hasQuestionImage": true and put "[See structural formula in figure]" in "text". Do NOT attempt to ASCII-art structural formulas in JSON.
+- Organic reaction conditions (e.g., "HCl", "conc. H₂SO₄", "NaOH/Δ") go above/below the reaction arrow using \\xrightarrow{\\text{condition}}.
 
 JSON SCHEMA (return one per question):
 {
@@ -678,14 +750,14 @@ JSON SCHEMA (return one per question):
   "section": "<section name or empty string>",
   "marks": <number, default 4>,
   "negativeMarks": <number, default 1>,
-  "text": "<complete question stem — merge both columns if split>",
-  "hasQuestionImage": <true if diagram present in question>,
-  "options": ["<A>", "<B>", "<C>", "<D>"],
+  "text": "<complete question stem with \\n for line breaks — merge both columns if split>",
+  "hasQuestionImage": <true if diagram/structural formula present in question>,
+  "options": ["<A with \\n for multiline>", "<B>", "<C>", "<D>"],
   "hasOptionImages": [false, false, false, false],
   "correctOption": "<A|B|C|D or empty>",
   "correctOptions": ["<A>","<C>"],
   "integerAnswer": "<number as string or empty>",
-  "solution": "<solution/explanation text if present>",
+  "solution": "<solution/explanation text with \\n for line breaks if present>",
   "hasSolutionImage": false,
   "topic": "<topic name or empty>"
 }
@@ -696,9 +768,11 @@ IMPORTANT RULES:
 3. For MSQ (multiple correct): fill "options" and "correctOptions" array.
 4. For Integer type: fill "integerAnswer" with the numeric answer.
 5. If a correct answer is shown, extract it. If not shown, leave those fields empty.
-6. Put any solution/explanation/hint into "solution" field.
+6. Put any solution/explanation/hint into "solution" field — preserve ALL steps with \\n.
 7. Questions with ONLY a diagram must still be extracted — put "[See figure]" in "text" and set "hasQuestionImage": true.
-8. LaTeX: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10^{-3}$, $\\lambda$.`;
+8. LaTeX math: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10^{-3}$, $\\lambda$.
+9. NEVER collapse multi-line content into one line. Use \\n to preserve visual structure.
+10. For chemistry: ALWAYS use proper LaTeX for formulas and reaction arrows as shown above.`;
 
         const result = await model.generateContent([
             {
