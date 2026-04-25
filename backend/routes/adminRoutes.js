@@ -414,13 +414,68 @@ router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) =>
         const masterPrompt = `You are an expert exam question extraction AI for Indian competitive exams (JEE Main, JEE Advanced, NEET, etc.).
 ${promptClarification}${diagramInstruction}
 
-PAGE LAYOUT — READ ORDER RULES:
-Some exam PDFs have a single-column layout. Others have a two-column layout with a vertical dividing line.
-- If the page is SINGLE COLUMN: read top to bottom normally.
-- If the page is TWO COLUMNS (divided by a vertical line): read the LEFT column fully first (top→bottom), then the RIGHT column (top→bottom).
-- If a question STARTS in the left column and its options appear in the right column for the SAME question number: combine them into ONE JSON object.
-- If options A/B are in the left column and C/D are in the right column for the SAME question: put all 4 into the "options" array.
-- NEVER output two separate JSON objects for one question that is split across columns.
+PAGE LAYOUT DETECTION & TWO-COLUMN MERGING (CRITICAL — READ CAREFULLY):
+
+STEP 1 — DETECT THE LAYOUT:
+- Look for a VERTICAL DIVIDING LINE or clear whitespace gap running top-to-bottom near the center of the page/image.
+- If NO dividing line exists → SINGLE COLUMN. Read top to bottom normally.
+- If a vertical line or gap EXISTS → TWO-COLUMN layout. Follow the two-column rules below.
+
+STEP 2 — TWO-COLUMN READ ORDER:
+- Read the ENTIRE LEFT COLUMN first (top → bottom).
+- Then read the ENTIRE RIGHT COLUMN (top → bottom).
+- Think of it as two tall strips placed side by side. Process left strip fully before right strip.
+
+STEP 3 — CROSS-COLUMN QUESTION MERGING (most important):
+In two-column exam PDFs, a SINGLE question is often split like this:
+
+  PATTERN A — Stem left, Options right:
+    LEFT COLUMN                    | RIGHT COLUMN
+    Q.5. A particle moves with ... |  (A) $2\text{ m/s}$
+    acceleration $a$. Find the ... |  (B) $4\text{ m/s}$
+    velocity after 2 seconds.      |  (C) $6\text{ m/s}$
+                                   |  (D) $8\text{ m/s}$
+  → CORRECT: ONE JSON with text from left + all 4 options from right.
+  → WRONG: Two separate JSONs.
+
+  PATTERN B — Options split A/B left, C/D right:
+    LEFT COLUMN                    | RIGHT COLUMN
+    Q.3. Which is correct?         |  (C) Both X and Y
+    (A) Only X                     |  (D) Neither X nor Y
+    (B) Only Y                     |
+  → CORRECT: ONE JSON. options = ["Only X", "Only Y", "Both X and Y", "Neither X nor Y"].
+  → WRONG: Two JSONs or missing C/D options.
+
+  PATTERN C — Question crosses divider mid-sentence:
+    LEFT COLUMN                    | RIGHT COLUMN
+    Q.7. The compound formed       |  when ethanol reacts with
+    ...                            |  acetic acid in presence of
+                                   |  $\text{H}_2\text{SO}_4$ is:
+                                   |  (A) Ester  (B) Ether
+                                   |  (C) Acid   (D) Alcohol
+  → CORRECT: Read left stem + right continuation as ONE text. Combine into ONE JSON.
+  → Join left and right text with a SPACE (not \n) when the sentence just continues.
+
+  PATTERN D — Multiple complete questions per column:
+    LEFT COLUMN has Q.1, Q.2, Q.3 and RIGHT COLUMN has Q.4, Q.5, Q.6.
+  → Treat left column first (output Q.1→Q.3), then right column (output Q.4→Q.6).
+  → Each question is its own JSON object.
+
+  PATTERN E — Solution in opposite column:
+    LEFT COLUMN has question + options. RIGHT COLUMN has the solution/explanation.
+  → Put the solution text in the "solution" field of the same JSON.
+
+STEP 4 — HOW TO IDENTIFY SAME QUESTION ACROSS COLUMNS:
+- Use the QUESTION NUMBER as the key signal. If Q.5 starts in the left column, scan the entire right column for options or continuation that belongs to Q.5 before starting Q.6.
+- If you see options (A), (B), (C), (D) anywhere — they always belong to the NEAREST preceding question number.
+- If text in the right column has NO question number prefix, it is a CONTINUATION or OPTIONS for the most recent question from the left column.
+
+STEP 5 — ABSOLUTE RULES:
+- NEVER produce two separate JSON objects for what is visually ONE question split across columns.
+- NEVER omit options just because they appear in the opposite column.
+- NEVER output a question JSON with an empty options array if options are visible anywhere on the page for that question.
+- If you are unsure whether content belongs to the current or next question: assign it to the current question (safer).
+- For partial/cut-off questions at page edges: still extract what is visible, mark the text clearly.
 
 OUTPUT FORMAT:
 - Output each complete question as ONE line of valid JSON (NDJSON format).
@@ -690,13 +745,68 @@ router.post('/tests/parse-image-gemini', async (req, res) => {
         const masterPrompt = `You are an expert exam question extraction AI for Indian competitive exams (JEE Main, JEE Advanced, NEET, etc.).
 ${diagramInstruction}
 
-PAGE LAYOUT — READ ORDER RULES:
-Some exam images have a single-column layout. Others have a two-column layout with a vertical dividing line.
-- If the image is SINGLE COLUMN: read top to bottom normally.
-- If the image is TWO COLUMNS (divided by a vertical line): read the LEFT column fully first (top→bottom), then the RIGHT column (top→bottom).
-- If a question STARTS in the left column and its options appear in the right column for the SAME question number: combine them into ONE JSON object.
-- If options A/B are in the left column and C/D are in the right column for the SAME question: put all 4 into the "options" array.
-- NEVER output two separate JSON objects for one question that is split across columns.
+PAGE LAYOUT DETECTION & TWO-COLUMN MERGING (CRITICAL — READ CAREFULLY):
+
+STEP 1 — DETECT THE LAYOUT:
+- Look for a VERTICAL DIVIDING LINE or clear whitespace gap running top-to-bottom near the center of the image.
+- If NO dividing line exists → SINGLE COLUMN. Read top to bottom normally.
+- If a vertical line or gap EXISTS → TWO-COLUMN layout. Follow the two-column rules below.
+
+STEP 2 — TWO-COLUMN READ ORDER:
+- Read the ENTIRE LEFT COLUMN first (top → bottom).
+- Then read the ENTIRE RIGHT COLUMN (top → bottom).
+- Think of it as two tall strips placed side by side. Process left strip fully before right strip.
+
+STEP 3 — CROSS-COLUMN QUESTION MERGING (most important):
+In two-column exam images, a SINGLE question is often split like this:
+
+  PATTERN A — Stem left, Options right:
+    LEFT COLUMN                    | RIGHT COLUMN
+    Q.5. A particle moves with ... |  (A) $2\text{ m/s}$
+    acceleration $a$. Find the ... |  (B) $4\text{ m/s}$
+    velocity after 2 seconds.      |  (C) $6\text{ m/s}$
+                                   |  (D) $8\text{ m/s}$
+  → CORRECT: ONE JSON with text from left + all 4 options from right.
+  → WRONG: Two separate JSONs.
+
+  PATTERN B — Options split A/B left, C/D right:
+    LEFT COLUMN                    | RIGHT COLUMN
+    Q.3. Which is correct?         |  (C) Both X and Y
+    (A) Only X                     |  (D) Neither X nor Y
+    (B) Only Y                     |
+  → CORRECT: ONE JSON. options = ["Only X", "Only Y", "Both X and Y", "Neither X nor Y"].
+  → WRONG: Two JSONs or missing C/D options.
+
+  PATTERN C — Question crosses divider mid-sentence:
+    LEFT COLUMN                    | RIGHT COLUMN
+    Q.7. The compound formed       |  when ethanol reacts with
+    ...                            |  acetic acid in presence of
+                                   |  $\text{H}_2\text{SO}_4$ is:
+                                   |  (A) Ester  (B) Ether
+                                   |  (C) Acid   (D) Alcohol
+  → CORRECT: Read left stem + right continuation as ONE text. Combine into ONE JSON.
+  → Join left and right text with a SPACE (not \n) when the sentence just continues.
+
+  PATTERN D — Multiple complete questions per column:
+    LEFT COLUMN has Q.1, Q.2, Q.3 and RIGHT COLUMN has Q.4, Q.5, Q.6.
+  → Treat left column first (output Q.1→Q.3), then right column (output Q.4→Q.6).
+  → Each question is its own JSON object.
+
+  PATTERN E — Solution in opposite column:
+    LEFT COLUMN has question + options. RIGHT COLUMN has the solution/explanation.
+  → Put the solution text in the "solution" field of the same JSON.
+
+STEP 4 — HOW TO IDENTIFY SAME QUESTION ACROSS COLUMNS:
+- Use the QUESTION NUMBER as the key signal. If Q.5 starts in the left column, scan the entire right column for options or continuation that belongs to Q.5 before starting Q.6.
+- If you see options (A), (B), (C), (D) anywhere — they always belong to the NEAREST preceding question number.
+- If text in the right column has NO question number prefix, it is a CONTINUATION or OPTIONS for the most recent question from the left column.
+
+STEP 5 — ABSOLUTE RULES:
+- NEVER produce two separate JSON objects for what is visually ONE question split across columns.
+- NEVER omit options just because they appear in the opposite column.
+- NEVER output a question JSON with an empty options array if options are visible anywhere on the image for that question.
+- If you are unsure whether content belongs to the current or next question: assign it to the current question (safer).
+- For partial/cut-off questions at image edges: still extract what is visible.
 
 OUTPUT FORMAT:
 - Output each complete question as ONE line of valid JSON (NDJSON format).
