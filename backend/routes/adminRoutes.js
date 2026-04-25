@@ -523,6 +523,110 @@ CHEMISTRY FORMATTING RULES (CRITICAL):
 - Structural formulas you CANNOT represent in LaTeX: set "hasQuestionImage": true and put "[See structural formula in figure]" in "text". Do NOT attempt to ASCII-art structural formulas in JSON.
 - Organic reaction conditions (e.g., "HCl", "conc. H₂SO₄", "NaOH/Δ") go above/below the reaction arrow using \\xrightarrow{\\text{condition}}.
 
+KATEX COMPATIBILITY RULES (CRITICAL — OUTPUT MUST RENDER IN KATEX, NOT FULL LATEX):
+
+The frontend renders your LaTeX output using KaTeX (a browser LaTeX engine). KaTeX does NOT support all LaTeX commands.
+You MUST use ONLY the commands listed below. If you do not know the KaTeX equivalent, write a plain-text description instead.
+
+DISPLAY MODE vs INLINE MODE:
+- Use $...$ for short inline math that fits in a sentence: values, symbols, small expressions.
+- Use $$...$$ (display mode, own line) for:
+    - ALL matrices and determinants
+    - Equations with \frac that are tall/multi-level
+    - Aligned equations (multi-step)
+    - Integrals, summations, limits with sub/superscripts
+    - Any math that needs more than ~15 characters
+- When in doubt: use $$...$$ — it is always safer.
+
+MATRIX SYNTAX (use $$...$$, NEVER $...$):
+    2x2 matrix:      $$\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}$$
+    3x3 matrix:      $$\\begin{pmatrix} a & b & c \\\\ d & e & f \\\\ g & h & i \\end{pmatrix}$$
+    Determinant:     $$\\begin{vmatrix} a & b \\\\ c & d \\end{vmatrix}$$
+    Square bracket:  $$\\begin{bmatrix} 1 & 0 \\\\ 0 & 1 \\end{bmatrix}$$
+    Augmented/cases: $$\\begin{cases} x + y = 1 \\\\ x - y = 3 \\end{cases}$$
+    Row separator:   \\\\\\ (four backslashes in JSON = two backslashes in LaTeX = newline)
+    Column separator: &
+
+ALIGNED EQUATIONS (multi-step solutions use $$...$$):
+    $$\\begin{aligned} F &= ma \\\\ &= 2 \\times 5 \\\\ &= 10 \\text{ N} \\end{aligned}$$
+
+FRACTIONS:
+    Inline:  $\\frac{a}{b}$ or $\\frac{x^2+1}{2x}$
+    Display: $$\\frac{d}{dx}\\left(\\frac{f(x)}{g(x)}\\right) = \\frac{f'g - fg'}{g^2}$$
+    Complex: always use $$ $$ for fractions nested inside fractions.
+
+INTEGRALS / SUMS / LIMITS:
+    $$\\int_0^{\\infty} e^{-x}\\,dx$$
+    $$\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6}$$
+    $$\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1$$
+    $$\\prod_{i=1}^{n} i = n!$$
+
+VECTORS AND SYMBOLS:
+    Vector (arrow):     $\\vec{F}$ or $\\vec{AB}$
+    Vector (bold):      $\\mathbf{F}$ (use this if \\boldsymbol fails)
+    Unit vector:        $\\hat{n}$
+    Absolute value:     $|x|$ or $\\left|\\frac{a}{b}\\right|$
+    Norm:               $\\|\\vec{v}\\|$
+    Dot product:        $\\vec{A} \\cdot \\vec{B}$
+    Cross product:      $\\vec{A} \\times \\vec{B}$
+    Partial derivative: $\\frac{\\partial f}{\\partial x}$
+    Double integral:    $\\iint$, Triple: $\\iiint$
+    Infinity:           $\\infty$
+    Angle:              $30^{\\circ}$ or $\\theta$
+    Proportional:       $\\propto$
+    Therefore:          $\\therefore$
+    Because:            $\\because$
+
+BRACKETS (always use \\left and \\right for tall expressions):
+    $\\left( \\frac{a}{b} \\right)$
+    $\\left[ x + y \\right]$
+    $\\left\\{ \\frac{1}{n} \\right\\}$
+    $\\left| \\frac{a}{b} \\right|$
+
+COMMON GREEK LETTERS:
+    $\\alpha, \\beta, \\gamma, \\delta, \\epsilon, \\zeta, \\eta, \\theta$
+    $\\lambda, \\mu, \\nu, \\pi, \\rho, \\sigma, \\tau, \\phi, \\psi, \\omega$
+    $\\Gamma, \\Delta, \\Theta, \\Lambda, \\Pi, \\Sigma, \\Phi, \\Psi, \\Omega$
+
+SPECIAL OPERATORS:
+    Square root:     $\\sqrt{x}$ or $\\sqrt[3]{x}$
+    Overline:        $\\overline{AB}$
+    Overrightarrow:  $\\overrightarrow{AB}$
+    Hat:             $\\hat{x}$
+    Tilde:           $\\tilde{x}$
+    Dot:             $\\dot{x}$, Double dot: $\\ddot{x}$
+    Underbrace:      $\\underbrace{a+b+c}_{\\text{label}}$
+    Overbrace:       $\\overbrace{a+b+c}^{\\text{label}}$
+    Arrow above:     $\\xrightarrow{\\text{label}}$
+    Not equal:       $\\neq$
+    Less/greater eq: $\\leq$, $\\geq$
+    Approximately:   $\\approx$
+    Equivalent:      $\\equiv$
+    Subset:          $\\subset$, $\\subseteq$
+    In:              $\\in$
+    Union/Intersect: $\\cup$, $\\cap$
+    Empty set:       $\\emptyset$
+    Implies:         $\\Rightarrow$, iff: $\\Leftrightarrow$
+
+COMMANDS YOU MUST NOT USE (not supported in KaTeX):
+    ✗ \\ce{} — use \\text{} for chemical formulas instead
+    ✗ \\cancel{} — write "crossed out" or skip; or use \\not{x}
+    ✗ \\boldsymbol{} — use \\mathbf{} instead
+    ✗ \\eqnarray — use aligned environment instead
+    ✗ \\substack — use \\substack{a\\\\b} (this one actually works in KaTeX)
+    ✗ \\mbox{} — use \\text{} instead
+    ✗ \\hline inside matrix — not needed
+    ✗ \\multicolumn, \\multirow — not supported
+    ✗ \\color{} — not needed
+    ✗ \\usepackage — never output package declarations
+    ✗ \\label, \\ref, \\cite — not applicable
+    ✗ \\newcommand — never define macros
+
+NUMBERING AND UNITS:
+    Always write units in \\text{}: $5\\text{ m/s}$, $9.8\\text{ m/s}^2$, $100\\text{ kJ/mol}$
+    Scientific notation: $6.02 \\times 10^{23}$
+    Percentage: $45\\%$
+
 JSON SCHEMA (return one per question):
 {
   "qNumber": <integer>,
@@ -553,7 +657,10 @@ IMPORTANT RULES:
 7. Questions with ONLY a diagram must still be extracted — put "[See figure]" in "text" and set "hasQuestionImage": true.
 8. LaTeX math: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10^{-3}$, $\\lambda$.
 9. NEVER collapse multi-line content into one line. Use \\n to preserve visual structure.
-10. For chemistry: ALWAYS use proper LaTeX for formulas and reaction arrows as shown above.`;
+10. For chemistry: ALWAYS use proper LaTeX for formulas and reaction arrows as shown above.
+11. For matrices/determinants: ALWAYS use $$...$$ display mode, NEVER inline $...$.
+12. Prefer \\mathbf{} over \\boldsymbol{}. Prefer \\text{} over \\mbox{}.`;
+
 
         let totalQuestionsCount = 0;
         let totalErrorCount = 0;
@@ -852,6 +959,54 @@ CHEMISTRY FORMATTING RULES (CRITICAL):
 - Structural formulas you CANNOT represent in LaTeX: set "hasQuestionImage": true and put "[See structural formula in figure]" in "text". Do NOT attempt to ASCII-art structural formulas in JSON.
 - Organic reaction conditions (e.g., "HCl", "conc. H₂SO₄", "NaOH/Δ") go above/below the reaction arrow using \\xrightarrow{\\text{condition}}.
 
+KATEX COMPATIBILITY RULES (CRITICAL — OUTPUT MUST RENDER IN KATEX, NOT FULL LATEX):
+
+The frontend renders your LaTeX output using KaTeX. KaTeX does NOT support all LaTeX commands.
+Use ONLY the commands listed below. If unsure, write plain-text description.
+
+DISPLAY MODE vs INLINE MODE:
+- Use $...$ for short inline math: values, symbols, small expressions.
+- Use $$...$$ (display mode) for: ALL matrices, tall fractions, aligned equations, integrals with limits.
+- When in doubt: use $$...$$ — always safer.
+
+MATRIX SYNTAX (ALWAYS use $$...$$, NEVER $...$):
+    $$\\begin{pmatrix} a & b \\\\\\\\ c & d \\end{pmatrix}$$
+    $$\\begin{vmatrix} a & b \\\\\\\\ c & d \\end{vmatrix}$$  (determinant)
+    $$\\begin{bmatrix} 1 & 0 \\\\\\\\ 0 & 1 \\end{bmatrix}$$
+    $$\\begin{cases} x+y=1 \\\\\\\\ x-y=3 \\end{cases}$$
+    Row separator: \\\\\\\\ (four backslashes in JSON), Column separator: &
+
+ALIGNED EQUATIONS:
+    $$\\begin{aligned} F &= ma \\\\\\\\ &= 10\\text{ N} \\end{aligned}$$
+
+FRACTIONS: $\\frac{a}{b}$ inline, $$\\frac{...}{...}$$ for complex ones.
+
+INTEGRALS/SUMS/LIMITS:
+    $$\\int_0^{\\infty} e^{-x}\\,dx$$
+    $$\\sum_{n=1}^{N} a_n$$
+    $$\\lim_{x \\to 0} f(x)$$
+
+VECTORS: $\\vec{F}$, $\\mathbf{F}$ (use mathbf NOT boldsymbol), $\\hat{n}$
+BRACKETS: $\\left( \\frac{a}{b} \\right)$, $\\left[ x \\right]$, $\\left\\{ y \\right\\}$
+ROOTS: $\\sqrt{x}$, $\\sqrt[3]{x}$
+SPECIAL: $\\overline{AB}$, $\\overrightarrow{AB}$, $\\underbrace{a+b}_{\\text{sum}}$
+ARROWS: $\\xrightarrow{\\text{label}}$, $\\rightarrow$, $\\Rightarrow$, $\\rightleftharpoons$
+
+COMMONLY NEEDED SYMBOLS:
+    $\\alpha,\\beta,\\gamma,\\delta,\\theta,\\lambda,\\mu,\\pi,\\sigma,\\omega,\\Omega$
+    $\\infty, \\neq, \\leq, \\geq, \\approx, \\equiv, \\propto, \\therefore, \\because$
+    $\\in, \\subset, \\cup, \\cap, \\emptyset, \\Rightarrow, \\Leftrightarrow$
+    $\\partial, \\nabla, \\pm, \\mp, \\times, \\div, \\cdot, \\circ$
+    Units: $5\\text{ m/s}$, $9.8\\text{ m/s}^2$, $6.02\\times 10^{23}$
+
+DO NOT USE (not supported in KaTeX):
+    \\ce{} → use \\text{} instead
+    \\boldsymbol{} → use \\mathbf{} instead
+    \\cancel{} → use \\not{x} instead
+    \\mbox{} → use \\text{} instead
+    \\eqnarray → use aligned instead
+    \\color{}, \\usepackage, \\newcommand, \\label, \\ref
+
 JSON SCHEMA (return one per question):
 {
   "qNumber": <integer>,
@@ -880,9 +1035,10 @@ IMPORTANT RULES:
 5. If a correct answer is shown, extract it. If not shown, leave those fields empty.
 6. Put any solution/explanation/hint into "solution" field — preserve ALL steps with \\n.
 7. Questions with ONLY a diagram must still be extracted — put "[See figure]" in "text" and set "hasQuestionImage": true.
-8. LaTeX math: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10^{-3}$, $\\lambda$.
-9. NEVER collapse multi-line content into one line. Use \\n to preserve visual structure.
-10. For chemistry: ALWAYS use proper LaTeX for formulas and reaction arrows as shown above.`;
+8. NEVER collapse multi-line content into one line. Use \\n to preserve visual structure.
+9. For chemistry: ALWAYS use proper LaTeX for formulas and reaction arrows.
+10. For matrices/determinants: ALWAYS use $$...$$ display mode, NEVER inline $...$.
+11. Prefer \\mathbf{} over \\boldsymbol{}. Prefer \\text{} over \\mbox{}.\`;
 
         const result = await model.generateContent([
             {
