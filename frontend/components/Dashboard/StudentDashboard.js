@@ -11,7 +11,7 @@ import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import NotesSection from './NotesSection';
 
 export default function StudentDashboard() {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     const pathname = usePathname();
@@ -505,7 +505,14 @@ export default function StudentDashboard() {
                 <div className="bg-white p-1 rounded-xl shadow-inner border border-white/10 flex-shrink-0 w-10 h-10 flex items-center justify-center">
                     <img src="/logo.png" alt="Apex Logo" className="w-full h-full object-contain" />
                 </div>
-                <span className="text-white font-black text-2xl tracking-tighter">APEX</span>
+                <div className="flex flex-col min-w-0">
+                    <span className="text-white font-black text-2xl tracking-tighter leading-none">APEX</span>
+                    {(user.instituteName || user.instituteCode) && (
+                        <span className="text-white/90 font-black text-[10px] uppercase tracking-widest truncate max-w-[140px] mt-1" title={user.instituteName || user.instituteCode}>
+                            ✕ {user.instituteName || user.instituteCode}
+                        </span>
+                    )}
+                </div>
             </div>
 
             <nav className="flex-1 px-4 space-y-2 mt-2 overflow-y-auto w-full custom-scrollbar">
@@ -534,7 +541,7 @@ export default function StudentDashboard() {
             </nav>
 
             <div className="p-4 mb-4">
-                <button className="flex items-center gap-4 px-5 py-3.5 w-full text-white/60 hover:text-white hover:bg-white/5 rounded-2xl transition-colors font-bold group">
+                <button onClick={logout} className="flex items-center gap-4 px-5 py-3.5 w-full text-white/60 hover:text-white hover:bg-white/5 rounded-2xl transition-colors font-bold group">
                     <span className="group-hover:scale-110 transition-transform shrink-0"><LogOut size={20} /></span>
                     <span className="text-[14px] tracking-wide text-left">Logout</span>
                 </button>
@@ -658,6 +665,7 @@ export default function StudentDashboard() {
                                     <SeriesCard
                                         key={s._id || s.id}
                                         series={s}
+                                        user={user}
                                         onAction={(series) => processDemoPayment(series, 'series')}
                                         actionLabel={enrolledSeriesIds.has(String(s._id || s.id)) ? 'View Series' : (s.price > 0 ? 'Buy Now' : 'Start Free')}
                                     />
@@ -726,7 +734,14 @@ export default function StudentDashboard() {
                                 <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-md tracking-wider ${test.category === 'JEE' ? 'bg-orange-50 text-orange-600' :
                                     test.category === 'NEET' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'
                                     }`}>{test.category}</span>
-                                {test.accessType === 'paid' && <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100"><Star size={10} fill="currentColor" /> PREMIUM</span>}
+                                <div className="flex gap-2">
+                                    {test.instituteCode && (
+                                        <span className="flex items-center gap-1.5 text-[10px] font-black text-white bg-gradient-to-r from-violet-600 to-indigo-600 px-2.5 py-0.5 rounded-md shadow-md shadow-violet-200 ring-1 ring-white/50 backdrop-blur-sm">
+                                            ✨ {user.instituteName ? `${user.instituteName.toUpperCase()} EXCLUSIVE` : 'INSTITUTE EXCLUSIVE'}
+                                        </span>
+                                    )}
+                                    {test.accessType === 'paid' && <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100"><Star size={10} fill="currentColor" /> PREMIUM</span>}
+                                </div>
                             </div>
 
                             <h3 className="text-lg font-bold text-gray-900 mb-3 line-clamp-2 leading-snug group-hover:text-indigo-600 transition-colors">{test.title}</h3>
@@ -1022,7 +1037,14 @@ export default function StudentDashboard() {
                         <div className="bg-white p-1 rounded-xl shadow-inner border border-white/10 flex-shrink-0 w-8 h-8 flex items-center justify-center">
                             <img src="/logo.png" alt="Apex Logo" className="w-full h-full object-contain" />
                         </div>
-                        <span className="font-black text-xl tracking-tighter">APEX</span>
+                        <div className="flex flex-col min-w-0">
+                            <span className="font-black text-xl tracking-tighter leading-none">APEX</span>
+                            {(user.instituteName || user.instituteCode) && (
+                                <span className="text-white/90 font-black text-[9px] uppercase tracking-widest truncate max-w-[120px] mt-0.5" title={user.instituteName || user.instituteCode}>
+                                    ✕ {user.instituteName || user.instituteCode}
+                                </span>
+                            )}
+                        </div>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center font-bold text-xs backdrop-blur-sm shadow-inner">

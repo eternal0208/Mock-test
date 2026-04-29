@@ -4,9 +4,10 @@ import { motion } from 'framer-motion';
 import { Star, Award, CheckCircle, ArrowRight } from 'lucide-react';
 
 /**
- * @param {{ series: any, onAction: Function, actionLabel?: string }} props
+/**
+ * @param {{ series: any, onAction: Function, actionLabel?: string, user?: any }} props
  */
-const SeriesCard = ({ series, onAction, actionLabel = undefined }) => {
+const SeriesCard = ({ series, onAction, actionLabel = undefined, user = null }) => {
     const isFree = series.price === 0 || series.isPaid === false;
 
     return (
@@ -27,12 +28,21 @@ const SeriesCard = ({ series, onAction, actionLabel = undefined }) => {
                     </div>
                 )}
 
-                {/* Premium Badge */}
-                {!isFree && (
-                    <div className="absolute top-4 right-4 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 px-3 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 shadow-[0_4px_15px_rgba(251,191,36,0.3)] ring-1 ring-white/60 backdrop-blur-md">
-                        <Star size={12} fill="currentColor" /> Premium
-                    </div>
-                )}
+                {/* Badges Container */}
+                <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+                    {/* Institute Private Badge */}
+                    {series.instituteCode && (
+                        <div className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-3 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 shadow-[0_4px_15px_rgba(79,70,229,0.3)] ring-1 ring-white/50 backdrop-blur-md">
+                            ✨ {user?.instituteName ? `${user.instituteName.toUpperCase()} EXCLUSIVE` : 'INSTITUTE EXCLUSIVE'}
+                        </div>
+                    )}
+                    {/* Premium Badge */}
+                    {!isFree && (
+                        <div className="bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 px-3 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 shadow-[0_4px_15px_rgba(251,191,36,0.3)] ring-1 ring-white/60 backdrop-blur-md">
+                            <Star size={12} fill="currentColor" /> Premium
+                        </div>
+                    )}
+                </div>
 
                 {/* Category Badge */}
                 <div className="absolute bottom-4 left-4 z-20">

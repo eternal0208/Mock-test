@@ -154,6 +154,25 @@ export default function SignupDetailsPage() {
             return;
         }
 
+        let validatedInstituteName = '';
+        // Validate Institute Code if provided
+        if (instituteCode.trim()) {
+            try {
+                const validateRes = await fetch(`${API_BASE_URL}/api/auth/institutes/validate/${encodeURIComponent(instituteCode.trim().toUpperCase())}`);
+                const validateData = await validateRes.json();
+                if (!validateRes.ok) {
+                    setError(validateData.message || 'Invalid institute code');
+                    setLoading(false);
+                    return;
+                }
+                validatedInstituteName = validateData.name;
+            } catch (err) {
+                setError('Failed to validate institute code. Please try again.');
+                setLoading(false);
+                return;
+            }
+        }
+
         // Client-side compression settings for mobile optimization
         try {
             let finalPhotoURL = photoURL;
@@ -206,6 +225,7 @@ export default function SignupDetailsPage() {
                         state: state,
                         city: city,
                         instituteCode: instituteCode.trim(),
+                        instituteName: validatedInstituteName,
                         photoURL: finalPhotoURL || '',
                         firebaseUid: user.uid,
                         authProvider: 'google',

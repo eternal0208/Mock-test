@@ -22,6 +22,7 @@ interface Note {
     isDownloadable: boolean;
     createdAt: string;
     isPurchased?: boolean;
+    instituteCode?: string;
 }
 
 interface Section {
@@ -36,6 +37,7 @@ interface Section {
     subsections: Section[];
     notes: Note[];
     isPurchased?: boolean;
+    instituteCode?: string;
 }
 
 interface ViewingNote {
@@ -331,6 +333,11 @@ export default function NotesSection() {
                                             : 'bg-emerald-100 text-emerald-800'}`}>
                                             {section.type === 'paid' ? (section.isPurchased ? '✅ Unlocked' : `👑 Premium • ₹${section.price || 499}`) : '✅ Free'}
                                         </span>
+                                        {section.instituteCode && (
+                                            <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-200">
+                                                ✨ {user?.instituteName ? `${user.instituteName.toUpperCase()} EXCLUSIVE` : 'INSTITUTE EXCLUSIVE'}
+                                            </span>
+                                        )}
                                         <span className="text-xs text-slate-500 font-bold bg-slate-100/80 px-2.5 py-1 rounded-full">
                                             {section.notes.length + section.subsections.reduce((s, ss) => s + ss.notes.length, 0)} notes
                                         </span>
@@ -381,7 +388,8 @@ export default function NotesSection() {
                                                 sectionPrice={section.price}
                                                 onOpen={openNote} 
                                                 loadingId={loadingNote} 
-                                                formatSize={formatFileSize} 
+                                                formatSize={formatFileSize}
+                                                user={user} 
                                             />
                                         ))}
                                     </div>
@@ -406,6 +414,11 @@ export default function NotesSection() {
                                                 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                                 {sub.type} {sub.type === 'paid' && `• ₹${sub.price || 499}`}
                                             </span>
+                                            {sub.instituteCode && (
+                                                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm">
+                                                    ✨ {user?.instituteName ? `${user.instituteName.toUpperCase()} EXCLUSIVE` : 'INSTITUTE EXCLUSIVE'}
+                                                </span>
+                                            )}
                                             <span className="text-xs font-bold text-slate-400 bg-slate-200/50 px-2 py-0.5 rounded-full">({sub.notes.length})</span>
                                             <div className={`ml-auto w-8 h-8 rounded-full flex items-center justify-center transition-all text-slate-400 group-hover/sub:bg-indigo-50 group-hover/sub:text-indigo-600 ${expandedSections.has(sub.id) ? 'rotate-180 bg-indigo-50 text-indigo-600' : ''}`}>
                                                 <ChevronDown size={16} />
@@ -424,6 +437,7 @@ export default function NotesSection() {
                                                             onOpen={openNote} 
                                                             loadingId={loadingNote} 
                                                             formatSize={formatFileSize} 
+                                                            user={user}
                                                         />
                                                     </div>
                                                 ))}
@@ -478,13 +492,14 @@ export default function NotesSection() {
 }
 
 // Reusable Note Card
-function NoteCard({ note, sectionType, sectionPrice, onOpen, loadingId, formatSize }: { 
-    note: Note; 
+function NoteCard({ note, sectionType, sectionPrice, onOpen, loadingId, formatSize, user }: { 
+    note: NoteItem, 
     sectionType?: 'free' | 'paid';
     sectionPrice?: number;
     onOpen: (id: string) => void; 
     loadingId: string | null; 
-    formatSize: (b: number) => string 
+    formatSize: (bytes: number) => string,
+    user?: any
 }) {
     const isLoading = loadingId === note.id;
     // A note is considered paid if it's explicitly marked paid OR it's in a paid section
@@ -517,6 +532,11 @@ function NoteCard({ note, sectionType, sectionPrice, onOpen, loadingId, formatSi
                     <span className={`text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-md ${isUnlocked ? 'bg-emerald-100 text-emerald-700 border border-emerald-200/50' : 'bg-amber-100 text-amber-700 border border-amber-200/50'}`}>
                         {!isActuallyPaid ? 'Free' : (note.isPurchased ? '✅ Unlocked' : `Premium • ₹${displayPrice}`)}
                     </span>
+                    {note.instituteCode && (
+                        <span className="text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-md bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm">
+                            ✨ {user?.instituteName ? `${user.instituteName.toUpperCase()} EXCLUSIVE` : 'INSTITUTE EXCLUSIVE'}
+                        </span>
+                    )}
                 </div>
             </div>
             <div className="shrink-0 flex items-center gap-3">

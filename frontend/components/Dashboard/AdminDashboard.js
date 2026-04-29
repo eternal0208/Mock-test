@@ -2848,7 +2848,7 @@ export default function AdminDashboard() {
                             <button onClick={() => setActiveTab('revenue')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'revenue' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Revenue</button>
                             <button onClick={() => setActiveTab('content')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'content' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Content & Config</button>
                             <button onClick={() => setActiveTab('notes')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'notes' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>📚 Notes</button>
-                            {user?.adminLevel === 1 && <button onClick={() => setActiveTab('institutes')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'institutes' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Institutes</button>}
+                            {user?.adminLevel !== 3 && <button onClick={() => setActiveTab('institutes')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'institutes' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>Institutes</button>}
                             <button onClick={() => setActiveTab('create')} className={`px-3 py-2 sm:px-4 rounded-md text-sm whitespace-nowrap ${activeTab === 'create' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>+ Create</button>
                         </>
                     )}

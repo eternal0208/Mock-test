@@ -1038,7 +1038,7 @@ IMPORTANT RULES:
 8. NEVER collapse multi-line content into one line. Use \\n to preserve visual structure.
 9. For chemistry: ALWAYS use proper LaTeX for formulas and reaction arrows.
 10. For matrices/determinants: ALWAYS use $$...$$ display mode, NEVER inline $...$.
-11. Prefer \\mathbf{} over \\boldsymbol{}. Prefer \\text{} over \\mbox{}.\`;
+11. Prefer \\mathbf{} over \\boldsymbol{}. Prefer \\text{} over \\mbox{}.`;
 
         const result = await model.generateContent([
             {
@@ -1113,7 +1113,7 @@ IMPORTANT RULES:
         sendEvent({ 
             status: 'complete', 
             totalQuestions: questionCount, 
-            message: `Successfully extracted ${questionCount} questions!` 
+            message: 'Successfully extracted ' + questionCount + ' questions!' 
         });
         res.end();
     } catch (error) {
@@ -1739,6 +1739,84 @@ router.delete('/institutes/:id', async (req, res) => {
 
         const { id } = req.params;
         await db.collection('institutes').doc(id).delete();
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Validate Institute Code (Public / No Auth Required)
+// We will place it before protect middleware if possible, but since adminRoutes has protect on top,
+// we might need to move this to authRoutes or add it here and assume users are logged in.
+// Actually, adminRoutes is fully protected. Let's put the public validation route in authRoutes later,
+// and just add the admin ones here.
+
+router.get('/institutes/validate/:code', async (req, res) => {
+    try {
+        const { code } = req.params;
+        const snapshot = await db.collection('institutes').where('instituteCode', '==', code).limit(1).get();
+        if (snapshot.empty) {
+            return res.status(404).json({ valid: false, message: 'Institute code not found' });
+        }
+        const data = snapshot.docs[0].data();
+        res.json({ valid: true, name: data.name });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get content assigned to an institute code
+router.get('/institutes/:code/content', async (req, res) => {
+    try {
+        const { code } = req.params;
+        const [testsSnap, seriesSnap, notesSnap] = await Promise.all([
+            db.collection('tests').where('instituteCode', '==', code).get(),
+            db.collection('testSeries').where('instituteCode', '==', code).get(),
+            db.collection('notesSections').where('instituteCode', '==', code).get()
+        ]);
+
+        res.json({
+            tests: testsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+            series: seriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+            notes: notesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Assign content to an institute code
+router.post('/institutes/:code/assign', async (req, res) => {
+    try {
+        // Level 1 or 2 can assign
+        const adminLevel = req.user.adminLevel || (req.user.role === 'admin' ? 1 : 0);
+        if (adminLevel > 2) return res.status(403).json({ error: 'Permission denied' });
+
+        const { code } = req.params;
+        const { type, id } = req.body; // type: 'tests' | 'testSeries' | 'notesSections'
+        
+        const validTypes = ['tests', 'testSeries', 'notesSections'];
+        if (!validTypes.includes(type)) return res.status(400).json({ error: 'Invalid content type' });
+
+        await db.collection(type).doc(id).update({ instituteCode: code });
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Unassign content from an institute code
+router.post('/institutes/:code/unassign', async (req, res) => {
+    try {
+        const adminLevel = req.user.adminLevel || (req.user.role === 'admin' ? 1 : 0);
+        if (adminLevel > 2) return res.status(403).json({ error: 'Permission denied' });
+
+        const { type, id } = req.body;
+        
+        const validTypes = ['tests', 'testSeries', 'notesSections'];
+        if (!validTypes.includes(type)) return res.status(400).json({ error: 'Invalid content type' });
+
+        await db.collection(type).doc(id).update({ instituteCode: '' });
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });

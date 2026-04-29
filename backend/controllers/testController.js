@@ -195,19 +195,21 @@ exports.getAllTests = async (req, res) => {
             // STUDENT: Apply strict filters
             const testCategory = data.category;
             const testInstituteCode = data.instituteCode || '';
-
-            // Filter 0: Institute Code Rule (Private tests are only visible to matched students)
-            if (testInstituteCode && testInstituteCode !== userInstituteCode) {
-                return;
-            }
-
-            // Debug check for specific tests if needed
-            // console.log(`🔍 Checking Test ${data.title}: UserCat=${userCategory}, TestCat=${testCategory}, Visible=${data.isVisible}`);
-
-            // Filter 1: Category must match (Case Insensitive)
-            if (!userCategory || !testCategory || userCategory.toLowerCase() !== testCategory.toLowerCase()) {
-                // console.log(`❌ Skipping Test ${data.title}: Category Mismatch (${userCategory} vs ${testCategory})`);
-                return;
+            // Filter 0: Institute Code Rule & Category Rule
+            if (testInstituteCode) {
+                // It's a Private Institute Test
+                // ONLY show if student belongs to this institute
+                if (testInstituteCode !== userInstituteCode) {
+                    return; // Hide from others
+                }
+                // If it matches, we bypass the category filter to ensure they see all their institute's tests
+            } else {
+                // It's a Public Test
+                // Filter 1: Category must match (Case Insensitive)
+                if (!userCategory || !testCategory || userCategory.toLowerCase() !== testCategory.toLowerCase()) {
+                    // console.log(`❌ Skipping Test ${data.title}: Category Mismatch (${userCategory} vs ${testCategory})`);
+                    return;
+                }
             }
 
             // Filter 2: Only show visible tests and NOT drafts
@@ -953,10 +955,38 @@ exports.getAllSeries = async (req, res) => {
     try {
         const snapshot = await db.collection('testSeries').where('isActive', '==', true).get();
 
+        const isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'institute_admin');
+
+        // Get the requesting user's institute code
+        let userInstituteCode = req.user?.instituteCode || '';
+
+        // Fallback: fetch from Firestore if not in token
+        if (!isAdmin && !userInstituteCode && req.user?.uid) {
+            try {
+                const userDoc = await db.collection('users').doc(req.user.uid).get();
+                if (userDoc.exists) {
+                    userInstituteCode = userDoc.data().instituteCode || '';
+                }
+            } catch (e) {
+                console.error('Error fetching user instituteCode for series:', e);
+            }
+        }
+
         const series = [];
         snapshot.forEach(doc => {
             const data = doc.data();
-            series.push({ id: doc.id, ...data });
+            const seriesInstituteCode = data.instituteCode || '';
+
+            // Admins see everything
+            if (isAdmin) {
+                series.push({ id: doc.id, ...data });
+                return;
+            }
+
+            // Students: show public series (no instituteCode) OR their institute's series
+            if (!seriesInstituteCode || seriesInstituteCode === userInstituteCode) {
+                series.push({ id: doc.id, ...data });
+            }
         });
 
         res.status(200).json(series);

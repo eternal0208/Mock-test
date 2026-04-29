@@ -107,6 +107,7 @@ router.post('/sections', authorize('admin'), async (req, res) => {
             field,
             parentId: parentId || null,
             type: type || 'free', // 'free' | 'paid'
+            instituteCode: req.body.instituteCode || '',
             price: type === 'paid' ? (Number(price) || 499) : 0,
             order: Number(order) || 0,
             icon: icon || '📄',
@@ -264,6 +265,7 @@ router.post('/confirm-upload', authorize('admin'), async (req, res) => {
             title: (title || fileName?.replace('.pdf', '') || 'Untitled').trim(),
             sectionId,
             field,
+            instituteCode: req.body.instituteCode || '',
             type: type || 'free',
             price: type === 'paid' ? (Number(price) || 99) : 0,
             fileUrl,
@@ -345,6 +347,7 @@ router.post('/upload', authorize('admin'), upload.single('pdf'), async (req, res
             title: (title || req.file.originalname.replace('.pdf', '')).trim(),
             sectionId,
             field,
+            instituteCode: req.body.instituteCode || '',
             type: type || sectionDoc.data().type || 'free',
             fileUrl,
             storagePath,
@@ -452,20 +455,29 @@ router.get('/browse/:field', async (req, res) => {
         const userField = req.user.category || req.user.selectedField;
 
         // Students can only see their own field's notes (admins can see all)
-        if (req.user.role !== 'admin' && userField !== field) {
-            return res.status(403).json({ error: 'You can only access notes for your registered field' });
-        }
+        // Bypassing strict 403 to allow fetching institute notes even if field mismatches slightly
+        // if (req.user.role !== 'admin' && userField !== field) {
+        //     return res.status(403).json({ error: 'You can only access notes for your registered field' });
+        // }
 
-        // Get sections for this field
-        const sectionsSnap = await db.collection('notesSections')
-            .where('field', '==', field)
-            .get();
-
-        // --- ENRICH WITH PURCHASE STATUS ---
         const userDoc = await db.collection('users').doc(req.user.uid).get();
         const userData = userDoc.exists ? userDoc.data() : {};
         const purchasedNotes = userData.purchasedNotes || [];
         const purchasedSections = userData.purchasedSections || [];
+        const userInstituteCode = req.user.instituteCode || userData.instituteCode || '';
+
+        // 1. Fetch by Field
+        const fieldSectionsSnap = await db.collection('notesSections').where('field', '==', field).get();
+        const sectionsDocsMap = new Map();
+        fieldSectionsSnap.docs.forEach(d => sectionsDocsMap.set(d.id, d));
+
+        // 2. Fetch by Institute Code (bypassing field check to ensure all institute content is visible)
+        if (userInstituteCode && req.user.role !== 'admin') {
+            const instSectionsSnap = await db.collection('notesSections').where('instituteCode', '==', userInstituteCode).get();
+            instSectionsSnap.docs.forEach(d => sectionsDocsMap.set(d.id, d));
+        }
+
+        const sectionsSnapDocs = Array.from(sectionsDocsMap.values());
 
         // Fetch paid orders to check for bundled access
         const ordersSnap = await db.collection('orders')
@@ -487,19 +499,33 @@ router.get('/browse/:field', async (req, res) => {
             }
         }
 
-        const snapshotSections = sectionsSnap.docs
+        const snapshotSections = sectionsSnapDocs
             .map(doc => ({ id: doc.id, ...doc.data() }))
             .filter(s => s.isActive !== false)
+            .filter(s => {
+                const sCode = s.instituteCode || '';
+                return req.user.role === 'admin' || !sCode || sCode === userInstituteCode;
+            })
             .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
 
         // Get notes for this field
-        const notesSnap = await db.collection('notes')
-            .where('field', '==', field)
-            .get();
+        const fieldNotesSnap = await db.collection('notes').where('field', '==', field).get();
+        const notesDocsMap = new Map();
+        fieldNotesSnap.docs.forEach(d => notesDocsMap.set(d.id, d));
 
-        const allNotes = notesSnap.docs
+        // Get institute notes
+        if (userInstituteCode && req.user.role !== 'admin') {
+            const instNotesSnap = await db.collection('notes').where('instituteCode', '==', userInstituteCode).get();
+            instNotesSnap.docs.forEach(d => notesDocsMap.set(d.id, d));
+        }
+
+        const allNotes = Array.from(notesDocsMap.values())
             .map(doc => ({ id: doc.id, ...doc.data() }))
             .filter(n => n.isActive !== false)
+            .filter(n => {
+                const nCode = n.instituteCode || '';
+                return req.user.role === 'admin' || !nCode || nCode === userInstituteCode;
+            })
             .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
 
         const sections = snapshotSections.map(data => {
@@ -515,6 +541,7 @@ router.get('/browse/:field', async (req, res) => {
                 price: data.price || 499,
                 icon: data.icon || '📂',
                 parentId: data.parentId || null,
+                instituteCode: data.instituteCode || '',
                 isPurchased: isDirectlyPurchased || isParentPurchased
             };
         });
@@ -536,6 +563,7 @@ router.get('/browse/:field', async (req, res) => {
                 fileName: data.fileName,
                 fileSize: data.fileSize,
                 isDownloadable: data.isDownloadable,
+                instituteCode: data.instituteCode || '',
                 createdAt: data.createdAt,
                 isPurchased: isDirectlyPurchased || isSectionPurchased || isParentSectionPurchased
             };

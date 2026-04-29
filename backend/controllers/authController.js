@@ -5,7 +5,7 @@ const { db, auth } = require('../config/firebaseAdmin');
 exports.syncUser = async (req, res) => {
     // Security: Use UID from Token (req.user) if available (via protect middleware)
     const uidFromToken = req.user ? req.user.uid : null;
-    const { name, email, firebaseUid, role, phoneNumber, phone, class: studentClass, category, state, city, authProvider, photoURL, instituteCode } = req.body;
+    const { name, email, firebaseUid, role, phoneNumber, phone, class: studentClass, category, state, city, authProvider, photoURL, instituteCode, instituteName } = req.body;
 
     // Use token UID as source of truth, fall back to body only if middleware missing (shouldn't happen now)
     const targetUid = uidFromToken || firebaseUid;
@@ -45,6 +45,7 @@ exports.syncUser = async (req, res) => {
                 city: city || userData.city || '',
                 authProvider: authProvider || userData.authProvider || 'phone',
                 instituteCode: instituteCode !== undefined ? instituteCode : (userData.instituteCode || ''), // Optional field
+                instituteName: instituteName !== undefined ? instituteName : (userData.instituteName || ''),
                 updatedAt: new Date().toISOString()
             });
 
@@ -86,6 +87,7 @@ exports.syncUser = async (req, res) => {
             status: 'active',
             purchasedTests: [],
             instituteCode: instituteCode || '',
+            instituteName: instituteName || '',
             createdAt: new Date().toISOString()
         };
 
@@ -197,6 +199,18 @@ exports.updateProfile = async (req, res) => {
         // 3. Institute Code update
         if (instituteCode !== undefined && instituteCode !== userData.instituteCode) {
             updates.instituteCode = instituteCode;
+            
+            // Fetch and update instituteName
+            if (instituteCode) {
+                const instQuery = await db.collection('institutes').where('instituteCode', '==', instituteCode).limit(1).get();
+                if (!instQuery.empty) {
+                    updates.instituteName = instQuery.docs[0].data().name;
+                } else {
+                    updates.instituteName = '';
+                }
+            } else {
+                updates.instituteName = '';
+            }
         }
 
         if (Object.keys(updates).length > 0) {
