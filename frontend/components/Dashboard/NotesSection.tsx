@@ -493,7 +493,7 @@ export default function NotesSection() {
 
 // Reusable Note Card
 function NoteCard({ note, sectionType, sectionPrice, onOpen, loadingId, formatSize, user }: { 
-    note: NoteItem, 
+    note: Note, 
     sectionType?: 'free' | 'paid';
     sectionPrice?: number;
     onOpen: (id: string) => void; 
