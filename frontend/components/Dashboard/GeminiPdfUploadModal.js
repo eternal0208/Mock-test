@@ -8,15 +8,12 @@ import {
     Edit3, Image as ImageIcon, Zap, Merge, Sparkle,
     Command, ListChecks, ArrowUpCircle, ArrowDownCircle, MousePointer2,
     Calendar, Clock, AlignLeft, ShieldCheck, Check,
-    Eye, Info, Activity, Wand2, Target, Type as TypeIcon, AlertTriangle
+    Eye, Info, Activity, Wand2, Target, Type as TypeIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../lib/config';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { storage } from '../../lib/firebase';
 import RichMathEditor from './RichMathEditor';
-import LiveEditableField from './LiveEditableField';
 import PdfViewer from './PdfViewer';
 import MathText from '@/components/ui/MathText';
 import 'katex/dist/katex.min.css';
@@ -24,7 +21,7 @@ import 'katex/dist/katex.min.css';
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
 
 /**
- * APEX MOCK AI Workbench
+ * Apex Mock AI Workbench
  * A high-fidelity, light-themed digitization environment.
  */
 const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
@@ -40,7 +37,6 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
     const [scanError, setScanError] = useState('');
     const [showMeta, setShowMeta] = useState(false);
     const [showCommandCentre, setShowCommandCentre] = useState(false);
-    const [extractDiagrams, setExtractDiagrams] = useState(true);
 
     // ✅ BODY SCROLL LOCK: Freeze background when Apex Workbench is active
     useEffect(() => {
@@ -101,7 +97,6 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
             
             // Transfer missing image
             if (!target.image && source.image) target.image = source.image;
-            if (!target.solutionImage && source.solutionImage) target.solutionImage = source.solutionImage;
             
             // Transfer metadata if missing
             if (!target.subject && source.subject) target.subject = source.subject;
@@ -110,7 +105,6 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
             // Simple option merge if target is empty
             if ((!target.options || target.options.every(o => !o)) && source.options) {
                 target.options = source.options;
-                if (source.optionImages) target.optionImages = source.optionImages;
             }
 
             next[targetIdx] = target;
@@ -152,7 +146,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
         setPdfFile(file);
     };
 
-    const handleScan = async (base64Image = null, isSelection = false, scanMode = 'full') => {
+    const handleScan = async (base64Image = null, isSelection = false) => {
         if (!base64Image && !pdfFile) {
             setScanError('Please select a PDF file first.');
             return;
@@ -160,7 +154,8 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
 
         setIsScanning(true);
         setScanError('');
-        setScanStatus(isSelection ? (scanMode === 'full' ? 'Digitizing Selection...' : `Targeted Scan: ${scanMode}`) : 'Surgical Page OCR...');
+        // ✅ APEX MOD: Do not clear questions; append for continuous extraction
+        setScanStatus(isSelection ? 'Digitizing Selection...' : 'Surgical Page OCR...');
 
         try {
             const token = await user.getIdToken();
@@ -169,12 +164,10 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
             if (base64Image) {
                 formData.append('base64Image', base64Image);
                 formData.append('isSelection', isSelection.toString());
-                formData.append('scanMode', scanMode);
             } else {
                 formData.append('pdf', pdfFile);
             }
             formData.append('isImageDirect', !!base64Image ? 'true' : 'false');
-            formData.append('extractDiagrams', extractDiagrams ? 'true' : 'false');
 
             const res = await fetch(`${API_BASE_URL}/api/admin/tests/parse-pdf-gemini`, {
                 method: 'POST',
@@ -223,80 +216,14 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
 
                         if (data.question) {
                             setExtractedQuestions(prev => {
-                                // ─── TARGETED SCAN: Merge into active question ───
-                                if (scanMode !== 'full') {
-                                    if (prev.length === 0) {
-                                        setScanError(`⚠️ Targeted scan (${scanMode}) requires at least one question in the queue. Add a question first.`);
-                                        return prev;
-                                    }
-                                    const next = [...prev];
-                                    const targetIdx = activeQuestionIndex >= 0 && activeQuestionIndex < next.length
-                                        ? activeQuestionIndex
-                                        : next.length - 1;
-                                    const q = { ...next[targetIdx] };
-
-                                    if (scanMode === 'text') {
-                                        // Text-only scan: grab text field, fallback to solution
-                                        const extracted = data.question.text || data.question.solution || '';
-                                        if (extracted) {
-                                            q.text = (q.text ? q.text + '\n' : '') + extracted;
-                                            setScanStatus(`✅ Q-Text merged into Question ${targetIdx + 1}`);
-                                        } else {
-                                            setScanError('⚠️ No text content found in scan result. Try scanning the question text area again.');
-                                        }
-                                    } else if (scanMode === 'solution') {
-                                        // Solution scan: Gemini sometimes puts solution in "solution", "text", or both
-                                        const extracted = data.question.solution || data.question.text || '';
-                                        if (extracted) {
-                                            q.solution = (q.solution ? q.solution + '\n' : '') + extracted;
-                                            setScanStatus(`✅ Solution merged into Question ${targetIdx + 1}`);
-                                        } else {
-                                            setScanError('⚠️ No solution content found in scan. Try again or manually type the solution.');
-                                        }
-                                    } else if (scanMode === 'options') {
-                                        // Options scan: Grab from options array, or parse from text as fallback
-                                        const newOpts = [...(q.options || ['', '', '', ''])];
-                                        let merged = false;
-
-                                        if (data.question.options && Array.isArray(data.question.options) && data.question.options.some(o => o)) {
-                                            data.question.options.forEach((opt, i) => { if (opt) newOpts[i] = opt; });
-                                            merged = true;
-                                        } else if (data.question.text) {
-                                            // Fallback: Gemini may have put options as "A) ... B) ... C) ... D) ..." in text
-                                            const rawText = data.question.text;
-                                            const aMatch = rawText.match(/(?:^|\n)\s*(?:\(A\)|A[).:])\s*(.+?)(?=\n\s*(?:\(B\)|B[).:])|$)/si);
-                                            const bMatch = rawText.match(/\n\s*(?:\(B\)|B[).:])\s*(.+?)(?=\n\s*(?:\(C\)|C[).:])|$)/si);
-                                            const cMatch = rawText.match(/\n\s*(?:\(C\)|C[).:])\s*(.+?)(?=\n\s*(?:\(D\)|D[).:])|$)/si);
-                                            const dMatch = rawText.match(/\n\s*(?:\(D\)|D[).:])\s*(.+?)$/si);
-                                            if (aMatch) { newOpts[0] = aMatch[1].trim(); merged = true; }
-                                            if (bMatch) { newOpts[1] = bMatch[1].trim(); merged = true; }
-                                            if (cMatch) { newOpts[2] = cMatch[1].trim(); merged = true; }
-                                            if (dMatch) { newOpts[3] = dMatch[1].trim(); merged = true; }
-                                        }
-
-                                        if (merged) {
-                                            q.options = newOpts;
-                                            setScanStatus(`✅ Options merged into Question ${targetIdx + 1}`);
-                                        } else {
-                                            setScanError('⚠️ No options found in scan. Try again or type them manually.');
-                                        }
-                                    }
-
-                                    next[targetIdx] = q;
-                                    return next;
-                                }
-
-                                // ─── FULL SCAN: Add as new question ───
-                                const prevQ = prev.length > 0 ? prev[prev.length - 1] : null;
-
                                 const newQ = {
                                     ...data.question,
                                     qNumber: (prev.length + 1),
-                                    marks: data.question.marks !== undefined ? data.question.marks : (prevQ?.marks ?? 4),
-                                    negativeMarks: data.question.negativeMarks !== undefined ? data.question.negativeMarks : (prevQ?.negativeMarks ?? 1),
-                                    type: data.question.type || (prevQ?.type ?? 'mcq'),
-                                    subject: data.question.subject || (prevQ?.subject ?? testMeta.subject),
-                                    section: data.question.section || (prevQ?.section ?? ''),
+                                    marks: data.question.marks || 4,
+                                    negativeMarks: data.question.negativeMarks || 1,
+                                    type: data.question.type || 'mcq',
+                                    subject: data.question.subject || testMeta.subject,
+                                    section: data.question.section || '',
                                     isStaged: false
                                 };
                                 // Auto-focus first question of a new scan session
@@ -325,18 +252,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
 
     const handleSolutionCropCapture = (data) => {
         if (!activeQ) return;
-        // Append to solutionImages array, initializing if needed
-        setExtractedQuestions(prev => {
-            const next = [...prev];
-            const idx = activeQuestionIndex;
-            if (idx < 0 || idx >= next.length) return prev;
-            const q = { ...next[idx] };
-            const imgs = q.solutionImages ? [...q.solutionImages] : [];
-            imgs.push(data);
-            q.solutionImages = imgs;
-            next[idx] = q;
-            return next;
-        });
+        updateActiveQuestion('solutionImage', data);
     };
 
     const handleOptionCropCapture = (data, idx) => {
@@ -345,8 +261,10 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
     };
 
     const handlePublish = async () => {
+        if (!testMeta.title || !testMeta.seriesId) return alert("Title and Series are mandatory.");
+        
         const stagedQuestions = extractedQuestions.filter(q => q.isStaged);
-        if (stagedQuestions.length === 0) return alert("Please stage at least one question into the Queue!");
+        if (stagedQuestions.length === 0) return alert("Please stage at least one question into the Sync Queue!");
 
         // Validation only for staged ones
         const invalidQ = stagedQuestions.findIndex((q) => {
@@ -363,41 +281,17 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
         }
 
         setIsPublishing(true);
-        setScanStatus("Uploading images to Cloud Storage...");
-
         try {
-            const finalQuestions = [];
-            for (const q of stagedQuestions) {
-                const updatedQ = { ...q };
-
-                const uploadBase64 = async (b64) => {
-                    if (!b64 || !b64.startsWith('data:image')) return b64;
-                    const filename = `images/mock_tests/img_${Date.now()}_${Math.random().toString(36).substring(2,10)}`;
-                    const imgRef = ref(storage, filename);
-                    await uploadString(imgRef, b64, 'data_url');
-                    return await getDownloadURL(imgRef);
-                };
-
-                if (updatedQ.image) updatedQ.image = await uploadBase64(updatedQ.image);
-                if (updatedQ.solutionImage) updatedQ.solutionImage = await uploadBase64(updatedQ.solutionImage);
-                if (updatedQ.solutionImages && updatedQ.solutionImages.length) {
-                    updatedQ.solutionImages = await Promise.all(updatedQ.solutionImages.map(img => uploadBase64(img)));
-                }
-                if (updatedQ.optionImages) {
-                    updatedQ.optionImages = await Promise.all(updatedQ.optionImages.map(img => uploadBase64(img)));
-                }
-
-                finalQuestions.push(updatedQ);
-            }
-
-            onUpload(finalQuestions);
-            setIsPublishing(false);
-            onClose();
-        } catch (err) {
-            console.error("Upload error:", err);
-            alert("Failed to upload images. Check console.");
-            setIsPublishing(false);
-        }
+            const token = await user.getIdToken();
+            const payload = { ...testMeta, questions: stagedQuestions, status: 'published' };
+            const res = await fetch(`${API_BASE_URL}/api/admin/tests`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) { alert(`Sync Successful! ${stagedQuestions.length} Questions published.`); onClose(); }
+        } catch (error) { alert("Publish failed."); }
+        finally { setIsPublishing(false); }
     };
 
     return (
@@ -409,7 +303,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                 {/* --- APEX BRANDED HEADER --- */}
                 <header className="h-16 bg-white border-b border-slate-200/60 flex items-center justify-between px-6 shrink-0 z-[110] shadow-sm">
                     <div className="flex items-center gap-4">
-                        <img src="/logo.png" className="h-9 w-auto" alt="APEX MOCK Logo" />
+                        <img src="/logo.png" className="h-9 w-auto" alt="Apex Mock Logo" />
                         <div className="h-6 w-[1.5px] bg-slate-200 rounded-full" />
                         <h1 className="text-lg font-black tracking-tight flex items-center gap-2">
                             <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">AI WORKBENCH</span>
@@ -418,14 +312,6 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setExtractDiagrams(!extractDiagrams)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all border shadow-sm ${extractDiagrams ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-slate-200/60 text-slate-500 hover:bg-slate-100'}`}
-                            title="Auto-reconstruct diagrams, graphs, and chemical equations as SVG"
-                        >
-                            <ImageIcon size={14} className={extractDiagrams ? 'text-indigo-600' : 'text-slate-400'} />
-                            {extractDiagrams ? 'Extracting Diagrams' : 'Ignore Diagrams'}
-                        </button>
                         <button 
                             onClick={() => setShowMeta(true)}
                             className="group flex items-center gap-2 px-4 py-2 bg-slate-50 hover:bg-white text-slate-600 rounded-xl font-bold text-xs transition-all border border-slate-200/60 shadow-sm"
@@ -445,7 +331,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                             className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 text-white rounded-xl font-black text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
                         >
                             {isPublishing ? <Loader2 className="animate-spin" size={14} /> : <ArrowUpCircle size={14} />}
-                            TRANSFER QUEUE ({extractedQuestions.filter(q => q.isStaged).length})
+                            SYNC QUEUE ({extractedQuestions.filter(q => q.isStaged).length})
                         </button>
                         <div className="h-6 w-[1.5px] bg-slate-200 rounded-full mx-1" />
                         <button onClick={onClose} className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-lg transition-colors">
@@ -462,11 +348,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                             <span className="text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{extractedQuestions.length} Items</span>
                         </div>
                         <div className="flex-1 p-3 space-y-1.5">
-                            {extractedQuestions.map((q, idx) => {
-                                const textLength = (q.text || '').length + (q.solution || '').length + (q.options || []).join('').length;
-                                const isHeavyText = textLength > 2500;
-                                
-                                return (
+                            {extractedQuestions.map((q, idx) => (
                                 <div key={idx} className="relative group">
                                     <button
                                         onClick={() => setActiveQuestionIndex(idx)}
@@ -481,9 +363,8 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                             <p className="text-[11px] font-bold truncate max-w-[120px]">{q.text?.substring(0, 20) || 'Empty Question...'}</p>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <div className="flex flex-col gap-0.5 items-center">
-                                                {isHeavyText && <AlertTriangle size={12} className={`animate-pulse ${activeQuestionIndex === idx ? 'text-amber-300' : 'text-amber-500'}`} title="High text size limit warning!" />}
-                                                {(q.image || (q.optionImages && q.optionImages.some(img => img)) || q.solutionImage) && <div className={`w-1.5 h-1.5 rounded-full mt-1 ${activeQuestionIndex === idx ? 'bg-indigo-200' : 'bg-blue-400'}`} />}
+                                            <div className="flex flex-col gap-0.5">
+                                                {(q.image || q.optionImages?.some(img => img)) && <div className={`w-1.5 h-1.5 rounded-full ${activeQuestionIndex === idx ? 'bg-indigo-200' : 'bg-blue-400'}`} />}
                                                 {(q.correctOption || q.correctValue !== undefined) && <div className={`w-1.5 h-1.5 rounded-full ${activeQuestionIndex === idx ? 'bg-emerald-200' : 'bg-emerald-400'}`} />}
                                             </div>
                                             {q.isStaged && (
@@ -527,8 +408,7 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                         </div>
                                     </div>
                                 </div>
-                                );
-                            })}
+                            ))}
                             <button 
                                 onClick={() => setExtractedQuestions([...extractedQuestions, { text: '', options: ['', '', '', ''], type: 'mcq' }])}
                                 className="w-full flex items-center justify-center gap-3 p-4 border-2 border-dashed border-indigo-100 hover:border-indigo-400 rounded-3xl text-slate-400 hover:text-indigo-600 transition-all font-black text-xs group bg-slate-50/30 hover:bg-white hover:shadow-xl shadow-indigo-500/5"
@@ -546,8 +426,8 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                         {pdfFile ? (
                             <PdfViewer 
                                 file={pdfFile} 
-                                onScanPage={(img) => handleScan(img, false, 'full')}
-                                onScanSelection={(img, scanMode = 'full') => handleScan(img, true, scanMode)}
+                                onScanPage={(img) => handleScan(img, false)}
+                                onScanSelection={(img) => handleScan(img, true)}
                                 onCropCapture={handleCropCapture}
                                 onSolutionCropCapture={handleSolutionCropCapture}
                                 onOptionCropCapture={handleOptionCropCapture}
@@ -669,16 +549,22 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                                 Rescan Document...
                                             </button>
                                         </div>
-                                        <div className="bg-slate-50/50 rounded-[32px] border border-slate-200/60 p-3">
-                                            <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2 px-1 flex items-center gap-1.5"><Eye size={9}/> Click preview to edit · Esc to discard</p>
-                                            <LiveEditableField
-                                                value={activeQ.text || ''}
-                                                onChange={(val) => updateActiveQuestion('text', val)}
-                                                placeholder="Click here to write/edit question text…"
+                                        <div className="bg-slate-50/50 rounded-[32px] border border-slate-200/60 p-1 group focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all">
+                                            <RichMathEditor 
+                                                value={activeQ.text || ''} 
+                                                onChange={(val) => updateActiveQuestion('text', val)} 
                                                 rows={4}
-                                                previewClass="text-slate-800 text-base leading-relaxed"
-                                                label="Q-Text"
+                                                className="bg-transparent border-none text-slate-800 text-lg leading-relaxed font-serif"
                                             />
+                                            {/* Live Output Card */}
+                                            {activeQ.text && (
+                                                <div className="m-3 p-6 bg-white rounded-[26px] border border-slate-100 shadow-sm transition-all group-hover:shadow-md">
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.2em] flex items-center gap-2"><Eye size={10}/> Visual Engine Output</span>
+                                                    </div>
+                                                    <MathText text={activeQ.text} className="text-slate-800 text-lg leading-relaxed" />
+                                                </div>
+                                            )}
                                         </div>
                                         {activeQ.image && (
                                             <div className="relative group rounded-3xl overflow-hidden border-2 border-slate-100 shadow-xl bg-white p-2">
@@ -719,18 +605,20 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                                                     {letter}
                                                                 </button>
                                                                 <div className="flex-1">
-                                                                    <LiveEditableField
-                                                                        value={opt}
+                                                                    <RichMathEditor 
+                                                                        minimal={true} value={opt} 
                                                                         onChange={(val) => {
                                                                             const next = [...activeQ.options];
                                                                             next[idx] = val;
                                                                             updateActiveQuestion('options', next);
-                                                                        }}
-                                                                        placeholder={`Option ${letter}…`}
-                                                                        rows={2}
-                                                                        previewClass="text-slate-700 text-sm"
-                                                                        label={`Option ${letter}`}
+                                                                        }} 
+                                                                        className="bg-transparent text-slate-700 min-h-[40px]"
                                                                     />
+                                                                    {opt && (
+                                                                        <div className="mt-2 pt-2 border-t border-slate-50 italic">
+                                                                            <MathText text={opt} className="text-slate-500 text-sm" />
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                             {activeQ.optionImages?.[idx] && (
@@ -768,46 +656,16 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                     {/* Solution Strategy */}
                                     <div className="space-y-6">
                                         <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-1.5"><Sparkles size={10} /> Solution Strategy</span>
-                                        <div className="p-3 bg-amber-50/30 rounded-[32px] border border-amber-100/50 shadow-sm">
-                                            <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-1 px-1 flex items-center gap-1.5"><Eye size={9}/> Click preview to edit</p>
-                                            <LiveEditableField
-                                                value={activeQ.solution || ''}
+                                        <div className="p-6 bg-amber-50/30 rounded-[32px] border border-amber-100/50 shadow-sm transition-all group-hover:shadow-md">
+                                            <RichMathEditor 
+                                                value={activeQ.solution || ''} 
                                                 onChange={(val) => updateActiveQuestion('solution', val)}
-                                                placeholder="Click to write/edit solution…"
-                                                rows={5}
-                                                previewClass="text-slate-600 text-sm leading-relaxed"
-                                                label="Solution"
+                                                className="bg-transparent text-slate-700 min-h-[100px]"
+                                                placeholder="Crafting the authoritative solution..."
                                             />
-                                        </div>
-                                        {/* Multiple Solution Images */}
-                                        <div className="flex flex-col gap-4 mt-4">
-                                            {activeQ.solutionImages?.map((img, sIdx) => (
-                                                <div key={sIdx} className="relative group rounded-3xl overflow-hidden border-2 border-amber-100/50 shadow-md bg-white p-2 animate-in fade-in zoom-in-95 duration-200">
-                                                    <img src={img} alt={`Solution Diagram ${sIdx + 1}`} className="w-full h-auto rounded-2xl" />
-                                                    <button 
-                                                        onClick={() => {
-                                                            const next = activeQ.solutionImages.filter((_, i) => i !== sIdx);
-                                                            updateActiveQuestion('solutionImages', next);
-                                                        }}
-                                                        className="absolute top-4 right-4 p-2 bg-rose-500 text-white rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100"
-                                                        title="Remove Image"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                            
-                                            {/* Legacy single image support */}
-                                            {activeQ.solutionImage && !activeQ.solutionImages?.includes(activeQ.solutionImage) && (
-                                                <div className="relative group rounded-3xl overflow-hidden border-2 border-amber-100/50 shadow-md bg-white p-2 animate-in fade-in zoom-in-95 duration-200">
-                                                    <img src={activeQ.solutionImage} alt="Legacy Solution Diagram" className="w-full h-auto rounded-2xl" />
-                                                    <button 
-                                                        onClick={() => updateActiveQuestion('solutionImage', null)}
-                                                        className="absolute top-4 right-4 p-2 bg-rose-500 text-white rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100"
-                                                        title="Remove Legacy Image"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                            {activeQ.solution && (
+                                                <div className="mt-4 pt-4 border-t border-amber-100/50">
+                                                    <MathText text={activeQ.solution} className="text-slate-600 text-sm leading-relaxed" />
                                                 </div>
                                             )}
                                         </div>
@@ -819,30 +677,11 @@ const GeminiPdfUploadModal = ({ onUpload, onClose, allSeries = [] }) => {
                                         <div className="grid grid-cols-2 gap-6">
                                             <div>
                                                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Subject</label>
-                                                {/* Subject Dropdown (fixed options) */}
-                                                <select
-                                                    value={activeQ.subject || ''}
-                                                    onChange={(e) => updateActiveQuestion('subject', e.target.value)}
-                                                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 shadow-sm"
-                                                >
-                                                    <option value="" disabled>Select Subject</option>
-                                                    <option value="Mathematics">Mathematics</option>
-                                                    <option value="Physics">Physics</option>
-                                                    <option value="Chemistry">Chemistry</option>
-                                                    <option value="Biology">Biology</option>
-                                                </select>
+                                                <input value={activeQ.subject || ''} onChange={(e) => updateActiveQuestion('subject', e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 shadow-sm" />
                                             </div>
                                             <div>
                                                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Section</label>
-                                                <select value={activeQ.section || ''} onChange={(e) => updateActiveQuestion('section', e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 shadow-sm outline-none">
-                                                    <option value="">None</option>
-                                                    <option value="Section A">Section A</option>
-                                                    <option value="Section B">Section B</option>
-                                                    <option value="Section C">Section C</option>
-                                                    <option value="Section D">Section D</option>
-                                                    <option value="Section E">Section E</option>
-                                                    <option value="Section F">Section F</option>
-                                                </select>
+                                                <input value={activeQ.section || ''} onChange={(e) => updateActiveQuestion('section', e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 shadow-sm" />
                                             </div>
                                             <div>
                                                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Rewards</label>

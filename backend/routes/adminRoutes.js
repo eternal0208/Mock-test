@@ -112,17 +112,7 @@ router.post('/series', async (req, res) => {
 // GET /api/admin/series - Get All Series
 router.get('/series', async (req, res) => {
     try {
-        let query = db.collection('testSeries');
-        
-        // Scope to institute level for institute_admin
-        if (req.user.role === 'institute_admin') {
-            if (!req.user.instituteCode) {
-                return res.status(403).json({ error: 'Institute admin missing institute code.' });
-            }
-            query = query.where('instituteCode', '==', req.user.instituteCode);
-        }
-
-        const snapshot = await query.get();
+        const snapshot = await db.collection('testSeries').get();
         const series = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         res.json(series);
     } catch (error) {
@@ -329,7 +319,7 @@ router.options('/tests/parse-pdf-gemini', (req, res) => {
 
 // POST /api/admin/tests/parse-pdf-gemini
 router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) => {
-    const { base64Image, isSelection, scanMode = 'full', extractDiagrams = 'false' } = req.body;
+    const { base64Image, isSelection } = req.body;
     
     if (!req.file && !base64Image) {
         return res.status(400).json({ error: 'No PDF file or Image selection provided' });
@@ -367,300 +357,41 @@ router.post('/tests/parse-pdf-gemini', upload.single('pdf'), async (req, res) =>
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-        let promptClarification = '';
-        if (scanMode === 'text') {
-            promptClarification = 'TARGETED EXTRACTION — Q-TEXT ONLY:\n' +
-                'Extract ONLY the question text/stem from this image. Ignore all options (A/B/C/D) and solutions.\n' +
-                'Return EXACTLY ONE JSON object with ONLY the "text" field populated (with LaTeX formatting) and "qNumber": 1.\n' +
-                'If it contains math, use LaTeX. Example: { "qNumber": 1, "text": "A block of mass $m$ is placed on a surface..." }';
-        } else if (scanMode === 'options') {
-            promptClarification = 'TARGETED EXTRACTION — OPTIONS ONLY:\n' +
-                'Extract ONLY the answer options (A, B, C, D) from this image. Ignore the question stem and solutions.\n' +
-                'Return EXACTLY ONE JSON object with ONLY the "options" array populated with exactly 4 strings (with LaTeX formatting) and "qNumber": 1.\n' +
-                'If fewer than 4 options are visible, leave the rest as empty string "".\n' +
-                'Example: { "qNumber": 1, "options": ["$2\\text{ m/s}$", "$4\\text{ m/s}$", "$6\\text{ m/s}$", "$8\\text{ m/s}$"] }\n' +
-                'CRITICAL: Never put option text in the "text" field. Always put in "options" array.';
-        } else if (scanMode === 'solution') {
-            promptClarification = 'TARGETED EXTRACTION — SOLUTION ONLY:\n' +
-                'Extract ONLY the solution, explanation, hint, or working/derivation from this image. Ignore the question stem and options.\n' +
-                'Return EXACTLY ONE JSON object with ONLY the "solution" field populated (with LaTeX formatting) and "qNumber": 1.\n' +
-                'Include ALL steps, equations, reasoning present in the image.\n' +
-                'Example: { "qNumber": 1, "solution": "Using Newton\'s second law, $F = ma$. Thus $a = F/m = 10/2 = 5\\text{ m/s}^2$." }\n' +
-                'CRITICAL: Never put solution text in the "text" field. Always put in "solution" field.';
-        } else {
-            promptClarification = 'Extract EVERY question from this image/PDF snippet.';
-        }
-
-        let diagramInstruction = '';
-        if (extractDiagrams === 'true') {
-            diagramInstruction = '\n\nIMPORTANT DIAGRAM/FIGURE EXTRACTION INSTRUCTION:\n' +
-                'If you detect ANY visual figure, diagram, graph, plot, Free Body Diagram (FBD), circuit diagram, ' +
-                'chemical reaction structure, benzene ring, organic compound, coordinate geometry figure, ' +
-                'geometric shape, Venn diagram, bar chart, or any other illustration in the image — ' +
-                'you MUST reconstruct it as a valid, self-contained inline SVG element.\n' +
-                'RULES for SVG reconstruction:\n' +
-                '1. Start with: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">\n' +
-                '2. Use correct geometric primitives: <line>, <circle>, <rect>, <path>, <ellipse>, <polygon>, <polyline>\n' +
-                '3. Use <text> SVG elements for axis labels, variable names, reaction arrows etc.\n' +
-                '4. For graphs: draw X and Y axes, tick marks, curve/line using <path d="M...C..." />, label axes.\n' +
-                '5. For FBDs: draw the object as a box/circle, arrows for forces using <line> + arrowhead <polygon>.\n' +
-                '6. For chemical structures: use lines for bonds, <text> for atom symbols. For benzene ring use <polygon> + alternating bonds.\n' +
-                '7. Preserve ALL geometric relationships, angles, and labels accurately from the source image.\n' +
-                '8. Embed the complete <svg>...</svg> tag DIRECTLY inside the "text", "solution", or whichever field it belongs to — NOT as a code block.\n' +
-                '9. Do NOT use base64 or external URLs inside the SVG. Keep it pure vector.\n' +
-                '10. If the diagram is in the question, embed SVG in the "text" field. If in the solution, embed in "solution" field.';
-        }
-
-        const masterPrompt = `You are an expert exam question extraction AI for Indian competitive exams (JEE Main, JEE Advanced, NEET, etc.).
-${promptClarification}${diagramInstruction}
-
-PAGE LAYOUT DETECTION & TWO-COLUMN MERGING (CRITICAL — READ CAREFULLY):
-
-STEP 1 — DETECT THE LAYOUT:
-- Look for a VERTICAL DIVIDING LINE or clear whitespace gap running top-to-bottom near the center of the page/image.
-- If NO dividing line exists → SINGLE COLUMN. Read top to bottom normally.
-- If a vertical line or gap EXISTS → TWO-COLUMN layout. Follow the two-column rules below.
-
-STEP 2 — TWO-COLUMN READ ORDER:
-- Read the ENTIRE LEFT COLUMN first (top → bottom).
-- Then read the ENTIRE RIGHT COLUMN (top → bottom).
-- Think of it as two tall strips placed side by side. Process left strip fully before right strip.
-
-STEP 3 — CROSS-COLUMN QUESTION MERGING (most important):
-In two-column exam PDFs, a SINGLE question is often split like this:
-
-  PATTERN A — Stem left, Options right:
-    LEFT COLUMN                    | RIGHT COLUMN
-    Q.5. A particle moves with ... |  (A) $2\text{ m/s}$
-    acceleration $a$. Find the ... |  (B) $4\text{ m/s}$
-    velocity after 2 seconds.      |  (C) $6\text{ m/s}$
-                                   |  (D) $8\text{ m/s}$
-  → CORRECT: ONE JSON with text from left + all 4 options from right.
-  → WRONG: Two separate JSONs.
-
-  PATTERN B — Options split A/B left, C/D right:
-    LEFT COLUMN                    | RIGHT COLUMN
-    Q.3. Which is correct?         |  (C) Both X and Y
-    (A) Only X                     |  (D) Neither X nor Y
-    (B) Only Y                     |
-  → CORRECT: ONE JSON. options = ["Only X", "Only Y", "Both X and Y", "Neither X nor Y"].
-  → WRONG: Two JSONs or missing C/D options.
-
-  PATTERN C — Question crosses divider mid-sentence:
-    LEFT COLUMN                    | RIGHT COLUMN
-    Q.7. The compound formed       |  when ethanol reacts with
-    ...                            |  acetic acid in presence of
-                                   |  $\text{H}_2\text{SO}_4$ is:
-                                   |  (A) Ester  (B) Ether
-                                   |  (C) Acid   (D) Alcohol
-  → CORRECT: Read left stem + right continuation as ONE text. Combine into ONE JSON.
-  → Join left and right text with a SPACE (not \n) when the sentence just continues.
-
-  PATTERN D — Multiple complete questions per column:
-    LEFT COLUMN has Q.1, Q.2, Q.3 and RIGHT COLUMN has Q.4, Q.5, Q.6.
-  → Treat left column first (output Q.1→Q.3), then right column (output Q.4→Q.6).
-  → Each question is its own JSON object.
-
-  PATTERN E — Solution in opposite column:
-    LEFT COLUMN has question + options. RIGHT COLUMN has the solution/explanation.
-  → Put the solution text in the "solution" field of the same JSON.
-
-STEP 4 — HOW TO IDENTIFY SAME QUESTION ACROSS COLUMNS:
-- Use the QUESTION NUMBER as the key signal. If Q.5 starts in the left column, scan the entire right column for options or continuation that belongs to Q.5 before starting Q.6.
-- If you see options (A), (B), (C), (D) anywhere — they always belong to the NEAREST preceding question number.
-- If text in the right column has NO question number prefix, it is a CONTINUATION or OPTIONS for the most recent question from the left column.
-
-STEP 5 — ABSOLUTE RULES:
-- NEVER produce two separate JSON objects for what is visually ONE question split across columns.
-- NEVER omit options just because they appear in the opposite column.
-- NEVER output a question JSON with an empty options array if options are visible anywhere on the page for that question.
-- If you are unsure whether content belongs to the current or next question: assign it to the current question (safer).
-- For partial/cut-off questions at page edges: still extract what is visible, mark the text clearly.
+        const masterPrompt = `You are an expert exam question extraction AI.
+Extract EVERY question from this image/PDF page.
 
 OUTPUT FORMAT:
-- Output each complete question as ONE line of valid JSON (NDJSON format).
-- Each question on its own line. No markdown fences. No explanations between JSONs.
+Output each question as a SINGLE LINE JSON object (NDJSON).
 
-TEXT FORMATTING — GENERAL:
-- Write all regular English text as plain text (not wrapped in LaTeX).
-- Use LaTeX $...$ ONLY for math: equations, symbols, units, values.
-- Good: "A block of mass $m = 2\\text{ kg}$ is on a $30^{\\circ}$ incline"
-- Bad: "$\\text{A block of mass}$"
+TEXT STYLE:
+- Use NATURAL HUMAN TEXT for all words and sentences.
+- Use LaTeX ($...$) ONLY for mathematical symbols, values, units, and equations.
+- Example: "A block of mass $m=2\\text{ kg}$ is placed on a $30^{\\circ}$ inclined plane."
+- NOT: "$\\text{A block of mass } m=2\\text{ kg} ...$" (Don't wrap everything in LaTeX).
 
-MULTI-LINE CONTENT PRESERVATION (CRITICAL):
-- If a question, option, or solution spans MULTIPLE LINES in the PDF, you MUST preserve those line breaks using the literal \\n (escaped newline) inside the JSON string.
-- Example for a question with a table or reaction on the next line:
-  "text": "Consider the following reaction:\\n$\\text{CH}_3\\text{COOH} + \\text{NaOH} \\rightarrow \\text{CH}_3\\text{COONa} + \\text{H}_2\\text{O}$\\nThe product formed is:"
-- Example for an option that has an equation below its label:
-  "options": ["$\\text{NaCl}$\\n(a white solid)", ...]
-- NEVER merge multiple visual lines into one run-on sentence without the \\n separator.
-- If a list, table, or set of reactions appears across multiple visual lines, each line must be separated by \\n in the JSON string.
-
-CHEMISTRY FORMATTING RULES (CRITICAL):
-- Chemical formulas: Use LaTeX with \\text{} for element symbols. Examples:
-    H₂O  →  $\\text{H}_2\\text{O}$
-    CO₂  →  $\\text{CO}_2$
-    H₂SO₄ →  $\\text{H}_2\\text{SO}_4$
-    Na⁺  →  $\\text{Na}^+$
-    Fe³⁺ →  $\\text{Fe}^{3+}$
-    CH₃COOH → $\\text{CH}_3\\text{COOH}$
-    C₆H₆ (benzene) → $\\text{C}_6\\text{H}_6$
-    C₂H₅OH → $\\text{C}_2\\text{H}_5\\text{OH}$
-- Chemical reaction arrows:
-    →   use  $\\rightarrow$
-    ⇌   use  $\\rightleftharpoons$
-    ↑   use  $\\uparrow$ (gas evolved)
-    ↓   use  $\\downarrow$ (precipitate)
-    Δ above arrow: $\\xrightarrow{\\Delta}$
-    Catalyst above arrow: $\\xrightarrow{\\text{cat}}$ or $\\overset{\\text{Catalyst}}{\\rightarrow}$
-- Full reaction example:
-    CH₄ + 2O₂ → CO₂ + 2H₂O  →  $\\text{CH}_4 + 2\\text{O}_2 \\rightarrow \\text{CO}_2 + 2\\text{H}_2\\text{O}$
-- IUPAC names and organic compound names: write as plain text (no LaTeX wrapping).
-    Example: "2-methylpropan-1-ol" — keep as-is, no LaTeX.
-- State symbols: (s), (l), (g), (aq) — keep as plain text or use $\\text{(s)}$.
-- Electron configurations: use LaTeX. Example: $1s^2\\,2s^2\\,2p^6$
-- If a full multi-step reaction mechanism or list of reactions appears in the question, preserve EACH step on its own line using \\n.
-- Structural formulas you CANNOT represent in LaTeX: set "hasQuestionImage": true and put "[See structural formula in figure]" in "text". Do NOT attempt to ASCII-art structural formulas in JSON.
-- Organic reaction conditions (e.g., "HCl", "conc. H₂SO₄", "NaOH/Δ") go above/below the reaction arrow using \\xrightarrow{\\text{condition}}.
-
-KATEX COMPATIBILITY RULES (CRITICAL — OUTPUT MUST RENDER IN KATEX, NOT FULL LATEX):
-
-The frontend renders your LaTeX output using KaTeX (a browser LaTeX engine). KaTeX does NOT support all LaTeX commands.
-You MUST use ONLY the commands listed below. If you do not know the KaTeX equivalent, write a plain-text description instead.
-
-DISPLAY MODE vs INLINE MODE:
-- Use $...$ for short inline math that fits in a sentence: values, symbols, small expressions.
-- Use $$...$$ (display mode, own line) for:
-    - ALL matrices and determinants
-    - Equations with \frac that are tall/multi-level
-    - Aligned equations (multi-step)
-    - Integrals, summations, limits with sub/superscripts
-    - Any math that needs more than ~15 characters
-- When in doubt: use $$...$$ — it is always safer.
-
-MATRIX SYNTAX (use $$...$$, NEVER $...$):
-    2x2 matrix:      $$\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}$$
-    3x3 matrix:      $$\\begin{pmatrix} a & b & c \\\\ d & e & f \\\\ g & h & i \\end{pmatrix}$$
-    Determinant:     $$\\begin{vmatrix} a & b \\\\ c & d \\end{vmatrix}$$
-    Square bracket:  $$\\begin{bmatrix} 1 & 0 \\\\ 0 & 1 \\end{bmatrix}$$
-    Augmented/cases: $$\\begin{cases} x + y = 1 \\\\ x - y = 3 \\end{cases}$$
-    Row separator:   \\\\\\ (four backslashes in JSON = two backslashes in LaTeX = newline)
-    Column separator: &
-
-ALIGNED EQUATIONS (multi-step solutions use $$...$$):
-    $$\\begin{aligned} F &= ma \\\\ &= 2 \\times 5 \\\\ &= 10 \\text{ N} \\end{aligned}$$
-
-FRACTIONS:
-    Inline:  $\\frac{a}{b}$ or $\\frac{x^2+1}{2x}$
-    Display: $$\\frac{d}{dx}\\left(\\frac{f(x)}{g(x)}\\right) = \\frac{f'g - fg'}{g^2}$$
-    Complex: always use $$ $$ for fractions nested inside fractions.
-
-INTEGRALS / SUMS / LIMITS:
-    $$\\int_0^{\\infty} e^{-x}\\,dx$$
-    $$\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6}$$
-    $$\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1$$
-    $$\\prod_{i=1}^{n} i = n!$$
-
-VECTORS AND SYMBOLS:
-    Vector (arrow):     $\\vec{F}$ or $\\vec{AB}$
-    Vector (bold):      $\\mathbf{F}$ (use this if \\boldsymbol fails)
-    Unit vector:        $\\hat{n}$
-    Absolute value:     $|x|$ or $\\left|\\frac{a}{b}\\right|$
-    Norm:               $\\|\\vec{v}\\|$
-    Dot product:        $\\vec{A} \\cdot \\vec{B}$
-    Cross product:      $\\vec{A} \\times \\vec{B}$
-    Partial derivative: $\\frac{\\partial f}{\\partial x}$
-    Double integral:    $\\iint$, Triple: $\\iiint$
-    Infinity:           $\\infty$
-    Angle:              $30^{\\circ}$ or $\\theta$
-    Proportional:       $\\propto$
-    Therefore:          $\\therefore$
-    Because:            $\\because$
-
-BRACKETS (always use \\left and \\right for tall expressions):
-    $\\left( \\frac{a}{b} \\right)$
-    $\\left[ x + y \\right]$
-    $\\left\\{ \\frac{1}{n} \\right\\}$
-    $\\left| \\frac{a}{b} \\right|$
-
-COMMON GREEK LETTERS:
-    $\\alpha, \\beta, \\gamma, \\delta, \\epsilon, \\zeta, \\eta, \\theta$
-    $\\lambda, \\mu, \\nu, \\pi, \\rho, \\sigma, \\tau, \\phi, \\psi, \\omega$
-    $\\Gamma, \\Delta, \\Theta, \\Lambda, \\Pi, \\Sigma, \\Phi, \\Psi, \\Omega$
-
-SPECIAL OPERATORS:
-    Square root:     $\\sqrt{x}$ or $\\sqrt[3]{x}$
-    Overline:        $\\overline{AB}$
-    Overrightarrow:  $\\overrightarrow{AB}$
-    Hat:             $\\hat{x}$
-    Tilde:           $\\tilde{x}$
-    Dot:             $\\dot{x}$, Double dot: $\\ddot{x}$
-    Underbrace:      $\\underbrace{a+b+c}_{\\text{label}}$
-    Overbrace:       $\\overbrace{a+b+c}^{\\text{label}}$
-    Arrow above:     $\\xrightarrow{\\text{label}}$
-    Not equal:       $\\neq$
-    Less/greater eq: $\\leq$, $\\geq$
-    Approximately:   $\\approx$
-    Equivalent:      $\\equiv$
-    Subset:          $\\subset$, $\\subseteq$
-    In:              $\\in$
-    Union/Intersect: $\\cup$, $\\cap$
-    Empty set:       $\\emptyset$
-    Implies:         $\\Rightarrow$, iff: $\\Leftrightarrow$
-
-COMMANDS YOU MUST NOT USE (not supported in KaTeX):
-    ✗ \\ce{} — use \\text{} for chemical formulas instead
-    ✗ \\cancel{} — write "crossed out" or skip; or use \\not{x}
-    ✗ \\boldsymbol{} — use \\mathbf{} instead
-    ✗ \\eqnarray — use aligned environment instead
-    ✗ \\substack — use \\substack{a\\\\b} (this one actually works in KaTeX)
-    ✗ \\mbox{} — use \\text{} instead
-    ✗ \\hline inside matrix — not needed
-    ✗ \\multicolumn, \\multirow — not supported
-    ✗ \\color{} — not needed
-    ✗ \\usepackage — never output package declarations
-    ✗ \\label, \\ref, \\cite — not applicable
-    ✗ \\newcommand — never define macros
-
-NUMBERING AND UNITS:
-    Always write units in \\text{}: $5\\text{ m/s}$, $9.8\\text{ m/s}^2$, $100\\text{ kJ/mol}$
-    Scientific notation: $6.02 \\times 10^{23}$
-    Percentage: $45\\%$
-
-JSON SCHEMA (return one per question):
+JSON Schema:
 {
-  "qNumber": <integer>,
+  "qNumber": <number>,
   "type": "mcq" | "msq" | "integer",
   "subject": "Physics" | "Chemistry" | "Mathematics" | "Biology" | "General",
-  "section": "<section name or empty string>",
-  "marks": <number, default 4>,
-  "negativeMarks": <number, default 1>,
-  "text": "<complete question stem with \\n for line breaks — merge both columns if split>",
-  "hasQuestionImage": <true if diagram/structural formula present in question>,
-  "options": ["<A with \\n for multiline>", "<B>", "<C>", "<D>"],
+  "section": "<section name>",
+  "marks": 4,
+  "negativeMarks": 1,
+  "text": "<natural text with LaTeX $math$ symbols>",
+  "hasQuestionImage": <true if diagram/figure present>,
+  "options": ["<A text>", "<B text>", "<C text>", "<D text>"],
   "hasOptionImages": [false, false, false, false],
-  "correctOption": "<A|B|C|D or empty>",
-  "correctOptions": ["<A>","<C>"],
-  "integerAnswer": "<number as string or empty>",
-  "solution": "<solution/explanation text with \\n for line breaks if present>",
+  "correctOption": "A/B/C/D",
+  "correctOptions": ["A","C"],
+  "integerAnswer": "42",
+  "solution": "<solution with LaTeX symbols>",
   "hasSolutionImage": false,
-  "topic": "<topic name or empty>"
+  "topic": ""
 }
 
-IMPORTANT RULES:
-1. Extract ALL questions visible — do NOT skip any, even if partially visible.
-2. For MCQ: fill "options" array and "correctOption" (A/B/C/D) if answer key is present.
-3. For MSQ (multiple correct): fill "options" and "correctOptions" array.
-4. For Integer type: fill "integerAnswer" with the numeric answer.
-5. If a correct answer is shown, extract it. If not shown, leave those fields empty.
-6. Put any solution/explanation/hint into "solution" field — preserve ALL steps with \\n.
-7. Questions with ONLY a diagram must still be extracted — put "[See figure]" in "text" and set "hasQuestionImage": true.
-8. LaTeX math: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10^{-3}$, $\\lambda$.
-9. NEVER collapse multi-line content into one line. Use \\n to preserve visual structure.
-10. For chemistry: ALWAYS use proper LaTeX for formulas and reaction arrows as shown above.
-11. For matrices/determinants: ALWAYS use $$...$$ display mode, NEVER inline $...$.
-12. Prefer \\mathbf{} over \\boldsymbol{}. Prefer \\text{} over \\mbox{}.`;
-
+CRITICAL: 
+1. LaTeX usage: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10\\text{ m/s}$.
+2. If this is just a fragment of a question, still extract it - the admin will merge it later.`;
 
         let totalQuestionsCount = 0;
         let totalErrorCount = 0;
@@ -692,9 +423,7 @@ IMPORTANT RULES:
                     }
 
                     if (char === '"' && !escaped) {
-                        if (braceCount > 0) {
-                            inString = !inString;
-                        }
+                        inString = !inString;
                     }
 
                     if (!inString) {
@@ -713,19 +442,13 @@ IMPORTANT RULES:
                                 // Finalize the block
                                 try {
                                     const q = JSON.parse(currentBlock);
-                                    // Accept question if it has any meaningful content
-                                    const hasContent = q.text || q.solution !== undefined ||
-                                        (Array.isArray(q.options) && q.options.some(o => o)) ||
-                                        (q.integerAnswer !== undefined && q.integerAnswer !== '');
-                                    if (hasContent) {
+                                    if (q.text) {
                                         totalQuestionsCount++;
                                         sendEvent({ 
                                             status: 'question', 
                                             question: { ...q, qNumber: totalQuestionsCount }, 
                                             index: totalQuestionsCount 
                                         });
-                                    } else {
-                                        console.warn('[Parser] Skipping empty question block');
                                     }
                                 } catch (e) {
                                     console.error('[Parser Warning] Snippet failed JSON.parse');
@@ -810,7 +533,7 @@ router.post('/tests/parse-image-gemini', async (req, res) => {
     };
 
     try {
-        const { image, extractDiagrams = 'false' } = req.body;
+        const { image } = req.body;
         if (!image) {
             sendEvent({ status: 'error', message: 'No image provided' });
             return res.end();
@@ -829,216 +552,41 @@ router.post('/tests/parse-image-gemini', async (req, res) => {
 
         sendEvent({ status: 'started', message: 'Extracting questions from selection...' });
 
-        let diagramInstruction = '';
-        if (extractDiagrams === 'true') {
-            diagramInstruction = '\n\nIMPORTANT DIAGRAM/FIGURE EXTRACTION INSTRUCTION:\n' +
-                'If you detect ANY visual figure, diagram, graph, plot, Free Body Diagram (FBD), circuit diagram, ' +
-                'chemical reaction structure, benzene ring, organic compound, coordinate geometry figure, ' +
-                'geometric shape, Venn diagram, bar chart, or any other illustration in the image — ' +
-                'you MUST reconstruct it as a valid, self-contained inline SVG element.\n' +
-                'RULES for SVG reconstruction:\n' +
-                '1. Start with: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">\n' +
-                '2. Use correct geometric primitives: <line>, <circle>, <rect>, <path>, <ellipse>, <polygon>, <polyline>\n' +
-                '3. Use <text> SVG elements for axis labels, variable names, reaction arrows etc.\n' +
-                '4. For graphs: draw X and Y axes, tick marks, curve/line using <path d="M...C..." />, label axes.\n' +
-                '5. For FBDs: draw the object as a box/circle, arrows for forces using <line> + arrowhead <polygon>.\n' +
-                '6. For chemical structures: use lines for bonds, <text> for atom symbols. For benzene ring use <polygon> + alternating bonds.\n' +
-                '7. Preserve ALL geometric relationships, angles, and labels accurately from the source image.\n' +
-                '8. Embed the complete <svg>...</svg> tag DIRECTLY inside the "text", "solution", or whichever field it belongs to — NOT as a code block.\n' +
-                '9. Do NOT use base64 or external URLs inside the SVG. Keep it pure vector.\n' +
-                '10. If the diagram is in the question, embed SVG in the "text" field. If in the solution, embed in "solution" field.';
-        }
-
-        const masterPrompt = `You are an expert exam question extraction AI for Indian competitive exams (JEE Main, JEE Advanced, NEET, etc.).
-${diagramInstruction}
-
-PAGE LAYOUT DETECTION & TWO-COLUMN MERGING (CRITICAL — READ CAREFULLY):
-
-STEP 1 — DETECT THE LAYOUT:
-- Look for a VERTICAL DIVIDING LINE or clear whitespace gap running top-to-bottom near the center of the image.
-- If NO dividing line exists → SINGLE COLUMN. Read top to bottom normally.
-- If a vertical line or gap EXISTS → TWO-COLUMN layout. Follow the two-column rules below.
-
-STEP 2 — TWO-COLUMN READ ORDER:
-- Read the ENTIRE LEFT COLUMN first (top → bottom).
-- Then read the ENTIRE RIGHT COLUMN (top → bottom).
-- Think of it as two tall strips placed side by side. Process left strip fully before right strip.
-
-STEP 3 — CROSS-COLUMN QUESTION MERGING (most important):
-In two-column exam images, a SINGLE question is often split like this:
-
-  PATTERN A — Stem left, Options right:
-    LEFT COLUMN                    | RIGHT COLUMN
-    Q.5. A particle moves with ... |  (A) $2\text{ m/s}$
-    acceleration $a$. Find the ... |  (B) $4\text{ m/s}$
-    velocity after 2 seconds.      |  (C) $6\text{ m/s}$
-                                   |  (D) $8\text{ m/s}$
-  → CORRECT: ONE JSON with text from left + all 4 options from right.
-  → WRONG: Two separate JSONs.
-
-  PATTERN B — Options split A/B left, C/D right:
-    LEFT COLUMN                    | RIGHT COLUMN
-    Q.3. Which is correct?         |  (C) Both X and Y
-    (A) Only X                     |  (D) Neither X nor Y
-    (B) Only Y                     |
-  → CORRECT: ONE JSON. options = ["Only X", "Only Y", "Both X and Y", "Neither X nor Y"].
-  → WRONG: Two JSONs or missing C/D options.
-
-  PATTERN C — Question crosses divider mid-sentence:
-    LEFT COLUMN                    | RIGHT COLUMN
-    Q.7. The compound formed       |  when ethanol reacts with
-    ...                            |  acetic acid in presence of
-                                   |  $\text{H}_2\text{SO}_4$ is:
-                                   |  (A) Ester  (B) Ether
-                                   |  (C) Acid   (D) Alcohol
-  → CORRECT: Read left stem + right continuation as ONE text. Combine into ONE JSON.
-  → Join left and right text with a SPACE (not \n) when the sentence just continues.
-
-  PATTERN D — Multiple complete questions per column:
-    LEFT COLUMN has Q.1, Q.2, Q.3 and RIGHT COLUMN has Q.4, Q.5, Q.6.
-  → Treat left column first (output Q.1→Q.3), then right column (output Q.4→Q.6).
-  → Each question is its own JSON object.
-
-  PATTERN E — Solution in opposite column:
-    LEFT COLUMN has question + options. RIGHT COLUMN has the solution/explanation.
-  → Put the solution text in the "solution" field of the same JSON.
-
-STEP 4 — HOW TO IDENTIFY SAME QUESTION ACROSS COLUMNS:
-- Use the QUESTION NUMBER as the key signal. If Q.5 starts in the left column, scan the entire right column for options or continuation that belongs to Q.5 before starting Q.6.
-- If you see options (A), (B), (C), (D) anywhere — they always belong to the NEAREST preceding question number.
-- If text in the right column has NO question number prefix, it is a CONTINUATION or OPTIONS for the most recent question from the left column.
-
-STEP 5 — ABSOLUTE RULES:
-- NEVER produce two separate JSON objects for what is visually ONE question split across columns.
-- NEVER omit options just because they appear in the opposite column.
-- NEVER output a question JSON with an empty options array if options are visible anywhere on the image for that question.
-- If you are unsure whether content belongs to the current or next question: assign it to the current question (safer).
-- For partial/cut-off questions at image edges: still extract what is visible.
+        const masterPrompt = `You are an expert exam question extraction AI.
+Extract EVERY question from this image snippet. 
 
 OUTPUT FORMAT:
-- Output each complete question as ONE line of valid JSON (NDJSON format).
-- Each question on its own line. No markdown fences. No explanations between JSONs.
+Output each question as a SINGLE LINE JSON object (NDJSON).
 
-TEXT FORMATTING — GENERAL:
-- Write all regular English text as plain text (not wrapped in LaTeX).
-- Use LaTeX $...$ ONLY for math: equations, symbols, units, values.
-- Good: "A block of mass $m = 2\\text{ kg}$ is on a $30^{\\circ}$ incline"
-- Bad: "$\\text{A block of mass}$"
+TEXT STYLE:
+- Use NATURAL HUMAN TEXT for all words and sentences.
+- Use LaTeX ($...$) ONLY for mathematical symbols, values, units, and equations.
+- Example: "A block of mass $m=2\\text{ kg}$ is placed on a $30^{\\circ}$ inclined plane."
+- NOT: "$\\text{A block of mass } m=2\\text{ kg} ...$" (Don't wrap everything in LaTeX).
 
-MULTI-LINE CONTENT PRESERVATION (CRITICAL):
-- If a question, option, or solution spans MULTIPLE LINES in the image, you MUST preserve those line breaks using the literal \\n (escaped newline) inside the JSON string.
-- Example for a question with a reaction on the next line:
-  "text": "Consider the following reaction:\\n$\\text{CH}_3\\text{COOH} + \\text{NaOH} \\rightarrow \\text{CH}_3\\text{COONa} + \\text{H}_2\\text{O}$\\nThe product formed is:"
-- NEVER merge multiple visual lines into one run-on sentence without the \\n separator.
-- If a list, table, or set of reactions appears across multiple visual lines, each line must be separated by \\n in the JSON string.
-
-CHEMISTRY FORMATTING RULES (CRITICAL):
-- Chemical formulas: Use LaTeX with \\text{} for element symbols. Examples:
-    H₂O  →  $\\text{H}_2\\text{O}$
-    CO₂  →  $\\text{CO}_2$
-    H₂SO₄ →  $\\text{H}_2\\text{SO}_4$
-    Na⁺  →  $\\text{Na}^+$
-    Fe³⁺ →  $\\text{Fe}^{3+}$
-    CH₃COOH → $\\text{CH}_3\\text{COOH}$
-    C₆H₆ (benzene) → $\\text{C}_6\\text{H}_6$
-    C₂H₅OH → $\\text{C}_2\\text{H}_5\\text{OH}$
-- Chemical reaction arrows:
-    →   use  $\\rightarrow$
-    ⇌   use  $\\rightleftharpoons$
-    ↑   use  $\\uparrow$ (gas evolved)
-    ↓   use  $\\downarrow$ (precipitate)
-    Δ above arrow: $\\xrightarrow{\\Delta}$
-    Catalyst above arrow: $\\xrightarrow{\\text{cat}}$ or $\\overset{\\text{Catalyst}}{\\rightarrow}$
-- Full reaction example:
-    CH₄ + 2O₂ → CO₂ + 2H₂O  →  $\\text{CH}_4 + 2\\text{O}_2 \\rightarrow \\text{CO}_2 + 2\\text{H}_2\\text{O}$
-- IUPAC names and organic compound names: write as plain text (no LaTeX wrapping).
-    Example: "2-methylpropan-1-ol" — keep as-is, no LaTeX.
-- State symbols: (s), (l), (g), (aq) — keep as plain text or use $\\text{(s)}$.
-- Electron configurations: use LaTeX. Example: $1s^2\\,2s^2\\,2p^6$
-- If a full multi-step reaction mechanism or list of reactions appears in the question, preserve EACH step on its own line using \\n.
-- Structural formulas you CANNOT represent in LaTeX: set "hasQuestionImage": true and put "[See structural formula in figure]" in "text". Do NOT attempt to ASCII-art structural formulas in JSON.
-- Organic reaction conditions (e.g., "HCl", "conc. H₂SO₄", "NaOH/Δ") go above/below the reaction arrow using \\xrightarrow{\\text{condition}}.
-
-KATEX COMPATIBILITY RULES (CRITICAL — OUTPUT MUST RENDER IN KATEX, NOT FULL LATEX):
-
-The frontend renders your LaTeX output using KaTeX. KaTeX does NOT support all LaTeX commands.
-Use ONLY the commands listed below. If unsure, write plain-text description.
-
-DISPLAY MODE vs INLINE MODE:
-- Use $...$ for short inline math: values, symbols, small expressions.
-- Use $$...$$ (display mode) for: ALL matrices, tall fractions, aligned equations, integrals with limits.
-- When in doubt: use $$...$$ — always safer.
-
-MATRIX SYNTAX (ALWAYS use $$...$$, NEVER $...$):
-    $$\\begin{pmatrix} a & b \\\\\\\\ c & d \\end{pmatrix}$$
-    $$\\begin{vmatrix} a & b \\\\\\\\ c & d \\end{vmatrix}$$  (determinant)
-    $$\\begin{bmatrix} 1 & 0 \\\\\\\\ 0 & 1 \\end{bmatrix}$$
-    $$\\begin{cases} x+y=1 \\\\\\\\ x-y=3 \\end{cases}$$
-    Row separator: \\\\\\\\ (four backslashes in JSON), Column separator: &
-
-ALIGNED EQUATIONS:
-    $$\\begin{aligned} F &= ma \\\\\\\\ &= 10\\text{ N} \\end{aligned}$$
-
-FRACTIONS: $\\frac{a}{b}$ inline, $$\\frac{...}{...}$$ for complex ones.
-
-INTEGRALS/SUMS/LIMITS:
-    $$\\int_0^{\\infty} e^{-x}\\,dx$$
-    $$\\sum_{n=1}^{N} a_n$$
-    $$\\lim_{x \\to 0} f(x)$$
-
-VECTORS: $\\vec{F}$, $\\mathbf{F}$ (use mathbf NOT boldsymbol), $\\hat{n}$
-BRACKETS: $\\left( \\frac{a}{b} \\right)$, $\\left[ x \\right]$, $\\left\\{ y \\right\\}$
-ROOTS: $\\sqrt{x}$, $\\sqrt[3]{x}$
-SPECIAL: $\\overline{AB}$, $\\overrightarrow{AB}$, $\\underbrace{a+b}_{\\text{sum}}$
-ARROWS: $\\xrightarrow{\\text{label}}$, $\\rightarrow$, $\\Rightarrow$, $\\rightleftharpoons$
-
-COMMONLY NEEDED SYMBOLS:
-    $\\alpha,\\beta,\\gamma,\\delta,\\theta,\\lambda,\\mu,\\pi,\\sigma,\\omega,\\Omega$
-    $\\infty, \\neq, \\leq, \\geq, \\approx, \\equiv, \\propto, \\therefore, \\because$
-    $\\in, \\subset, \\cup, \\cap, \\emptyset, \\Rightarrow, \\Leftrightarrow$
-    $\\partial, \\nabla, \\pm, \\mp, \\times, \\div, \\cdot, \\circ$
-    Units: $5\\text{ m/s}$, $9.8\\text{ m/s}^2$, $6.02\\times 10^{23}$
-
-DO NOT USE (not supported in KaTeX):
-    \\ce{} → use \\text{} instead
-    \\boldsymbol{} → use \\mathbf{} instead
-    \\cancel{} → use \\not{x} instead
-    \\mbox{} → use \\text{} instead
-    \\eqnarray → use aligned instead
-    \\color{}, \\usepackage, \\newcommand, \\label, \\ref
-
-JSON SCHEMA (return one per question):
+JSON Schema:
 {
-  "qNumber": <integer>,
+  "qNumber": <number>,
   "type": "mcq" | "msq" | "integer",
   "subject": "Physics" | "Chemistry" | "Mathematics" | "Biology" | "General",
-  "section": "<section name or empty string>",
-  "marks": <number, default 4>,
-  "negativeMarks": <number, default 1>,
-  "text": "<complete question stem with \\n for line breaks — merge both columns if split>",
-  "hasQuestionImage": <true if diagram/structural formula present in question>,
-  "options": ["<A with \\n for multiline>", "<B>", "<C>", "<D>"],
+  "section": "<section name>",
+  "marks": 4,
+  "negativeMarks": 1,
+  "text": "<natural text with LaTeX $math$ symbols>",
+  "hasQuestionImage": <true if diagram/figure present>,
+  "options": ["<A text>", "<B text>", "<C text>", "<D text>"],
   "hasOptionImages": [false, false, false, false],
-  "correctOption": "<A|B|C|D or empty>",
-  "correctOptions": ["<A>","<C>"],
-  "integerAnswer": "<number as string or empty>",
-  "solution": "<solution/explanation text with \\n for line breaks if present>",
+  "correctOption": "A/B/C/D",
+  "correctOptions": ["A","C"],
+  "integerAnswer": "42",
+  "solution": "<solution with LaTeX symbols>",
   "hasSolutionImage": false,
-  "topic": "<topic name or empty>"
+  "topic": ""
 }
 
-IMPORTANT RULES:
-1. Extract ALL questions visible — do NOT skip any, even if partially visible.
-2. For MCQ: fill "options" array and "correctOption" (A/B/C/D) if answer key is present.
-3. For MSQ (multiple correct): fill "options" and "correctOptions" array.
-4. For Integer type: fill "integerAnswer" with the numeric answer.
-5. If a correct answer is shown, extract it. If not shown, leave those fields empty.
-6. Put any solution/explanation/hint into "solution" field — preserve ALL steps with \\n.
-7. Questions with ONLY a diagram must still be extracted — put "[See figure]" in "text" and set "hasQuestionImage": true.
-8. NEVER collapse multi-line content into one line. Use \\n to preserve visual structure.
-9. For chemistry: ALWAYS use proper LaTeX for formulas and reaction arrows.
-10. For matrices/determinants: ALWAYS use $$...$$ display mode, NEVER inline $...$.
-11. Prefer \\mathbf{} over \\boldsymbol{}. Prefer \\text{} over \\mbox{}.`;
+CRITICAL: 
+1. LaTeX usage: $x^2$, $\\vec{F}$, $\\sin\\theta$, $\\frac{a}{b}$, $10\\text{ m/s}$.
+2. If this is just a fragment of a question, still extract it - the admin will merge it later.`;
 
         const result = await model.generateContent([
             {
@@ -1087,11 +635,7 @@ IMPORTANT RULES:
                     if (braceCount === 0) {
                         try {
                             const q = JSON.parse(currentBlock);
-                            // Accept if any meaningful content exists
-                            const hasContent = q.text || q.solution ||
-                                (Array.isArray(q.options) && q.options.some(o => o)) ||
-                                (q.integerAnswer !== undefined && q.integerAnswer !== '');
-                            if (hasContent) {
+                            if (q.text) {
                                 questionCount++;
                                 sendEvent({ 
                                     status: 'question', 
@@ -1113,7 +657,7 @@ IMPORTANT RULES:
         sendEvent({ 
             status: 'complete', 
             totalQuestions: questionCount, 
-            message: 'Successfully extracted ' + questionCount + ' questions!' 
+            message: `Successfully extracted ${questionCount} questions!` 
         });
         res.end();
     } catch (error) {
@@ -1173,29 +717,13 @@ router.post('/percentile-data', async (req, res) => {
     }
 });
 
+// --- Analytics & User Management ---
+
 // GET /api/admin/students - List All Students
 router.get('/students', async (req, res) => {
     try {
-        let query = db.collection('users').orderBy('createdAt', 'desc');
-
-        if (req.user.role === 'institute_admin') {
-            if (!req.user.instituteCode) {
-                return res.json([]); // Prevents accidentally returning all users
-            }
-            // Cannot use orderBy with equality filter on different field unless we have a composite index. 
-            // In Firebase, equality and range filter can be combined but might need an index.
-            // A safer approach without demanding an index immediately:
-            query = db.collection('users').where('instituteCode', '==', req.user.instituteCode);
-        }
-
-        const snapshot = await query.get(); 
-        let students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        // Manual sort if we dropped orderBy
-        if (req.user.role === 'institute_admin') {
-             students.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-        }
-
+        const snapshot = await db.collection('users').orderBy('createdAt', 'desc').get(); // Fetch ALL users to manage roles
+        const students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         res.json(students);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -1219,7 +747,6 @@ router.put('/students/:id/role', async (req, res) => {
 
         await db.collection('users').doc(id).update({
             role,
-            instituteCode: req.body.instituteCode || '', // Specifically for assigning institute_admin
             updatedAt: new Date().toISOString()
         });
 
@@ -1702,123 +1229,6 @@ router.delete('/coupons/:id', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('Delete Coupon Error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// --- Institutes Management ---
-router.get('/institutes', async (req, res) => {
-    try {
-        const snapshot = await db.collection('institutes').orderBy('createdAt', 'desc').get();
-        const institutes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        res.json(institutes);
-    } catch (error) {
-         res.status(500).json({ error: error.message });
-    }
-});
-
-router.post('/institutes', async (req, res) => {
-    try {
-        const adminLevel = req.user.adminLevel || (req.user.role === 'admin' ? 1 : 0);
-        if (adminLevel !== 1) return res.status(403).json({ error: 'Super Admin only' });
-
-        const data = req.body;
-        const Institute = require('../models/Institute');
-        const newInstitute = new Institute({ ...data, createdBy: req.user.uid });
-        const docRef = await db.collection('institutes').add(newInstitute.toFirestore());
-        res.status(201).json({ id: docRef.id, ...newInstitute.toFirestore() });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.delete('/institutes/:id', async (req, res) => {
-    try {
-        const adminLevel = req.user.adminLevel || (req.user.role === 'admin' ? 1 : 0);
-        if (adminLevel !== 1) return res.status(403).json({ error: 'Super Admin only' });
-
-        const { id } = req.params;
-        await db.collection('institutes').doc(id).delete();
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Validate Institute Code (Public / No Auth Required)
-// We will place it before protect middleware if possible, but since adminRoutes has protect on top,
-// we might need to move this to authRoutes or add it here and assume users are logged in.
-// Actually, adminRoutes is fully protected. Let's put the public validation route in authRoutes later,
-// and just add the admin ones here.
-
-router.get('/institutes/validate/:code', async (req, res) => {
-    try {
-        const { code } = req.params;
-        const snapshot = await db.collection('institutes').where('instituteCode', '==', code).limit(1).get();
-        if (snapshot.empty) {
-            return res.status(404).json({ valid: false, message: 'Institute code not found' });
-        }
-        const data = snapshot.docs[0].data();
-        res.json({ valid: true, name: data.name });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Get content assigned to an institute code
-router.get('/institutes/:code/content', async (req, res) => {
-    try {
-        const { code } = req.params;
-        const [testsSnap, seriesSnap, notesSnap] = await Promise.all([
-            db.collection('tests').where('instituteCode', '==', code).get(),
-            db.collection('testSeries').where('instituteCode', '==', code).get(),
-            db.collection('notesSections').where('instituteCode', '==', code).get()
-        ]);
-
-        res.json({
-            tests: testsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-            series: seriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-            notes: notesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Assign content to an institute code
-router.post('/institutes/:code/assign', async (req, res) => {
-    try {
-        // Level 1 or 2 can assign
-        const adminLevel = req.user.adminLevel || (req.user.role === 'admin' ? 1 : 0);
-        if (adminLevel > 2) return res.status(403).json({ error: 'Permission denied' });
-
-        const { code } = req.params;
-        const { type, id } = req.body; // type: 'tests' | 'testSeries' | 'notesSections'
-        
-        const validTypes = ['tests', 'testSeries', 'notesSections'];
-        if (!validTypes.includes(type)) return res.status(400).json({ error: 'Invalid content type' });
-
-        await db.collection(type).doc(id).update({ instituteCode: code });
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Unassign content from an institute code
-router.post('/institutes/:code/unassign', async (req, res) => {
-    try {
-        const adminLevel = req.user.adminLevel || (req.user.role === 'admin' ? 1 : 0);
-        if (adminLevel > 2) return res.status(403).json({ error: 'Permission denied' });
-
-        const { type, id } = req.body;
-        
-        const validTypes = ['tests', 'testSeries', 'notesSections'];
-        if (!validTypes.includes(type)) return res.status(400).json({ error: 'Invalid content type' });
-
-        await db.collection(type).doc(id).update({ instituteCode: '' });
-        res.json({ success: true });
-    } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
